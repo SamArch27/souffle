@@ -1,0 +1,12 @@
+<map id="souffle::RamAggregate::equal" name="souffle::RamAggregate::equal">
+<area shape="rect" id="node2" href="$classsouffle_1_1_ram_relation_operation.html#a6cf29d90a4a5709f76c36270e8886a78" title="Equality check for two RAM nodes. " alt="" coords="226,60,447,101"/>
+<area shape="rect" id="node10" href="$classsouffle_1_1_ram_abstract_aggregate.html#aba32f4ee639454784be0b38358831a23" title="souffle::RamAbstractAggregate\l::equal" alt="" coords="224,125,449,167"/>
+<area shape="rect" id="node3" href="$classsouffle_1_1_ram_tuple_operation.html#ae5c19705bd40c0948a7369bac044b264" title="Equality check for two RAM nodes. " alt="" coords="509,5,711,47"/>
+<area shape="rect" id="node6" href="$namespacesouffle.html#ada252aa15afbf7d703a11b000dfd4048" title="Returns the relation with the given name in the program. " alt="" coords="536,71,684,98"/>
+<area shape="rect" id="node4" href="$classsouffle_1_1_ram_nested_operation.html#afac69b5dd9b448f10512ccbe7352d8b1" title="Equality check for two RAM nodes. " alt="" coords="771,5,985,47"/>
+<area shape="rect" id="node5" href="$classsouffle_1_1_ram_nested_operation.html#afdbbe7da4e005809c1ca1531b06f65f0" title="Get nested operation. " alt="" coords="1033,5,1248,47"/>
+<area shape="rect" id="node7" href="$namespacesouffle.html#a62f80c157a6a365d78a43592732a8efa" title="Returns the first element in a container that satisfies a given predicate, nullptr otherwise..." alt="" coords="826,71,930,98"/>
+<area shape="rect" id="node8" href="$classsouffle_1_1_ast_program.html#a71fb3c28c3a105637c22cbe6a9fb63ef" title="get relations " alt="" coords="803,123,953,164"/>
+<area shape="rect" id="node9" href="$namespacesouffle.html#ad62d4e824a9d74c7462da546a21780fe" title="A utility function enabling the creation of a vector of pointers. " alt="" coords="1067,130,1214,157"/>
+<area shape="rect" id="node11" href="$classsouffle_1_1_ram_abstract_aggregate.html#a77e13a8d984bba805c9f1701e947e441" title="Get condition. " alt="" coords="497,125,723,167"/>
+</map>

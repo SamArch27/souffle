@@ -1,0 +1,8 @@
+<map id="souffle::SrcLocation::setFilename" name="souffle::SrcLocation::setFilename">
+<area shape="rect" id="node2" href="$classsouffle_1_1_src_location.html#a19cf7f376e17d5c8cec162e4af83c160" title="An extended string describing this location in a end&#45;user friendly way. " alt="" coords="203,23,352,65"/>
+<area shape="rect" id="node7" href="$structsouffle_1_1_src_location_1_1_point.html#a8eac154f7e440b32001683bf9a7968ac" title="souffle::SrcLocation\l::Point::print" alt="" coords="203,89,352,130"/>
+<area shape="rect" id="node3" href="$namespacesouffle.html#a9fbc2262a6164b62766f6fcb67f12ae4" title="souffle::baseName" alt="" coords="651,5,795,32"/>
+<area shape="rect" id="node4" href="$namespacesouffle.html#aaefdc21106bf028c4de1db83d933d0b4" title="souffle::getCurrentFilename" alt="" coords="400,56,603,83"/>
+<area shape="rect" id="node5" href="$namespacesouffle.html#a72e10d44624c80609e5c09b131ecf3fb" title="C++&#45;style dirname. " alt="" coords="657,56,788,83"/>
+<area shape="rect" id="node6" href="$namespacesouffle.html#a69107e934a60222580ee8ba6882dc3d3" title="Check whether a file exists in the file system. " alt="" coords="659,107,787,133"/>
+</map>
