@@ -28,6 +28,7 @@ enum class RelationTag {
     SUPPRESSED,   // warnings suppressed
     BRIE,         // use brie data-structure
     BTREE,        // use btree data-structure
+    RTREE,        // use rtree data-structure
     EQREL,        // use union data-structure
 };
 
@@ -46,6 +47,7 @@ enum class RelationRepresentation {
     DEFAULT,  // use default data-structure
     BRIE,     // use brie data-structure
     BTREE,    // use btree data-structure
+    RTREE,    // use btree data-structure
     EQREL,    // use union data-structure
     INFO,     // info relation for provenance
 };

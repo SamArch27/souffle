@@ -110,6 +110,7 @@
 "inline"                              { return yy::parser::make_INLINE_QUALIFIER(yylloc); }
 "brie"                                { return yy::parser::make_BRIE_QUALIFIER(yylloc); }
 "btree"                               { return yy::parser::make_BTREE_QUALIFIER(yylloc); }
+"rtree"                               { return yy::parser::make_RTREE_QUALIFIER(yylloc); }
 "min"                                 { return yy::parser::make_MIN(yylloc); }
 "max"                                 { return yy::parser::make_MAX(yylloc); }
 "as"                                  { return yy::parser::make_AS(yylloc); }

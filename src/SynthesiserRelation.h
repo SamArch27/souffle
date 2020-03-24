@@ -123,6 +123,16 @@ public:
     void generateTypeStruct(std::ostream& out) override;
 };
 
+class SynthesiserRtreeRelation : public SynthesiserRelation {
+public:
+    SynthesiserRtreeRelation(const RamRelation& ramRel, const MinIndexSelection& indexSet, bool isProvenance)
+            : SynthesiserRelation(ramRel, indexSet, isProvenance) {}
+
+    void computeIndices() override;
+    std::string getTypeName() override;
+    void generateTypeStruct(std::ostream& out) override;
+};
+
 class SynthesiserIndirectRelation : public SynthesiserRelation {
 public:
     SynthesiserIndirectRelation(

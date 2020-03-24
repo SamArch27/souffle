@@ -88,6 +88,7 @@
 %token PRINTSIZE_QUALIFIER       "relation qualifier printsize"
 %token BRIE_QUALIFIER            "BRIE datastructure qualifier"
 %token BTREE_QUALIFIER           "BTREE datastructure qualifier"
+%token RTREE_QUALIFIER           "RTREE datastructure qualifier"
 %token EQREL_QUALIFIER           "equivalence relation qualifier"
 %token OVERRIDABLE_QUALIFIER     "relation qualifier overidable"
 %token INLINE_QUALIFIER          "relation qualifier inline"
@@ -574,24 +575,36 @@ relation_tags
   | relation_tags BRIE_QUALIFIER {
         if ($1.find(RelationTag::BRIE) != $1.end() ||
             $1.find(RelationTag::BTREE) != $1.end() ||
+            $1.find(RelationTag::RTREE) != $1.end() ||
             $1.find(RelationTag::EQREL) != $1.end())
-                driver.error(@2, "btree/brie/eqrel qualifier already set");
+                driver.error(@2, "btree/rtree/brie/eqrel qualifier already set");
         $1.insert(RelationTag::BRIE);
+        $$ = $1;
+    }
+  | relation_tags RTREE_QUALIFIER {
+        if ($1.find(RelationTag::BRIE) != $1.end() ||
+            $1.find(RelationTag::BTREE) != $1.end() ||
+            $1.find(RelationTag::RTREE) != $1.end() ||
+            $1.find(RelationTag::EQREL) != $1.end())
+                driver.error(@2, "btree/rtree/brie/eqrel qualifier already set");
+        $1.insert(RelationTag::BTREE);
         $$ = $1;
     }
   | relation_tags BTREE_QUALIFIER {
         if ($1.find(RelationTag::BRIE) != $1.end() ||
             $1.find(RelationTag::BTREE) != $1.end() ||
+            $1.find(RelationTag::RTREE) != $1.end() ||
             $1.find(RelationTag::EQREL) != $1.end())
-                driver.error(@2, "btree/brie/eqrel qualifier already set");
+                driver.error(@2, "btree/rtree/brie/eqrel qualifier already set");
         $1.insert(RelationTag::BTREE);
         $$ = $1;
     }
   | relation_tags EQREL_QUALIFIER {
         if ($1.find(RelationTag::BRIE) != $1.end() ||
             $1.find(RelationTag::BTREE) != $1.end() ||
+            $1.find(RelationTag::RTREE) != $1.end() ||
             $1.find(RelationTag::EQREL) != $1.end())
-                driver.error(@2, "btree/brie/eqrel qualifier already set");
+                driver.error(@2, "btree/rtree/brie/eqrel qualifier already set");
         $1.insert(RelationTag::EQREL);
         $$ = $1;
     }
