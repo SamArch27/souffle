@@ -59,6 +59,7 @@ inline bool isRelationRepresentationTag(const RelationTag& tag) {
     switch (tag) {
         case RelationTag::BRIE:
         case RelationTag::BTREE:
+        case RelationTag::RTREE:
         case RelationTag::EQREL:
             return true;
         default:
@@ -114,6 +115,8 @@ inline RelationRepresentation getRelationRepresentationFromTag(const RelationTag
             return RelationRepresentation::BRIE;
         case RelationTag::BTREE:
             return RelationRepresentation::BTREE;
+        case RelationTag::RTREE:
+            return RelationRepresentation::RTREE;
         case RelationTag::EQREL:
             return RelationRepresentation::EQREL;
         default:
@@ -152,6 +155,9 @@ inline std::ostream& operator<<(std::ostream& os, RelationRepresentation represe
     switch (representation) {
         case RelationRepresentation::BTREE:
             os << "btree";
+            break;
+        case RelationRepresentation::RTREE:
+            os << "rtree";
             break;
         case RelationRepresentation::BRIE:
             os << "brie";

@@ -587,7 +587,7 @@ relation_tags
             $1.find(RelationTag::RTREE) != $1.end() ||
             $1.find(RelationTag::EQREL) != $1.end())
                 driver.error(@2, "btree/rtree/brie/eqrel qualifier already set");
-        $1.insert(RelationTag::BTREE);
+        $1.insert(RelationTag::RTREE);
         $$ = $1;
     }
   | relation_tags BTREE_QUALIFIER {

@@ -1265,123 +1265,12 @@ void SynthesiserEqrelRelation::generateTypeStruct(std::ostream& out) {
 
 /** Generate index set for a direct indexed relation */
 void SynthesiserRtreeRelation::computeIndices() {
-    // Generate and set indices
-    MinIndexSelection::OrderCollection inds = indices.getAllOrders();
-
-    // generate a full index if no indices exist
-    if (inds.empty()) {
-        MinIndexSelection::LexOrder fullInd(getArity());
-        std::iota(fullInd.begin(), fullInd.end(), 0);
-        inds.push_back(fullInd);
-    }
-
-    size_t index_nr = 0;
-    // expand all search orders to be full
-    for (auto& ind : inds) {
-        // use a set as a cache for fast lookup
-        std::set<int> curIndexElems(ind.begin(), ind.end());
-
-        // If this relation is used with provenance,
-        // we must expand all search orders to be full indices,
-        // since weak/strong comparators and updaters need this,
-        // and also add provenance annotations to the indices
-        if (isProvenance) {
-            // expand index to be full
-            for (size_t i = 0; i < getArity() - relation.getAuxiliaryArity(); i++) {
-                if (curIndexElems.find(i) == curIndexElems.end()) {
-                    ind.push_back(i);
-                }
-            }
-
-            if (Global::config().get("provenance") == "subtreeHeights") {
-                // TODO (sarah): assumption index is used exclusively for provenance in case a height
-                // parameter occurs in order of columns before regular columns (at least only in this case it
-                // needs to be copied) -- verify this!!
-
-                auto firstProvenanceColumn = (getArity() - relation.getAuxiliaryArity());
-
-                // position of last non provenance column
-                auto nonProv = std::find_if(ind.rbegin(), ind.rend(),
-                        [firstProvenanceColumn](size_t i) { return i < firstProvenanceColumn; });
-                auto indNonProv = std::distance(nonProv, ind.rend());
-
-                // position of first height column
-                auto prov = std::find_if(ind.begin(), ind.end(),
-                        [firstProvenanceColumn](size_t i) { return i >= firstProvenanceColumn + 1; });
-                auto indProv = std::distance(ind.begin(), prov);
-
-                if (indNonProv > indProv) {
-                    provenanceIndexNumbers.insert(index_nr);
-                } else {
-                    // index was not added for provenance and can therefore be used as master index
-                    masterIndex = index_nr;
-                }
-
-                // add provenance annotations to the index but in reverse order
-                // add height columns if not already contained
-                for (size_t i = getArity() - relation.getAuxiliaryArity() + 1; i < getArity(); i++) {
-                    if (curIndexElems.find(i) == curIndexElems.end()) {
-                        ind.push_back(i);
-                    }
-                }
-
-                // remove rule annotation if already in the index order
-                if (curIndexElems.find(getArity() - relation.getAuxiliaryArity()) != curIndexElems.end()) {
-                    ind.erase(std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity()));
-                }
-                // add rule as last parameter
-                ind.push_back(getArity() - relation.getAuxiliaryArity());
-            } else {
-                // remove any provenance annotations already in the index order
-                if (curIndexElems.find(getArity() - relation.getAuxiliaryArity() + 1) !=
-                        curIndexElems.end()) {
-                    ind.erase(
-                            std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity() + 1));
-                }
-
-                if (curIndexElems.find(getArity() - relation.getAuxiliaryArity()) != curIndexElems.end()) {
-                    ind.erase(std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity()));
-                }
-
-                // add provenance annotations to the index, but in reverse order
-                ind.push_back(getArity() - relation.getAuxiliaryArity() + 1);
-                ind.push_back(getArity() - relation.getAuxiliaryArity());
-                masterIndex = 0;
-            }
-
-        } else if (ind.size() < getArity()) {
-            // expand index to be full
-            for (size_t i = 0; i < getArity(); i++) {
-                if (curIndexElems.find(i) == curIndexElems.end()) {
-                    ind.push_back(i);
-                }
-            }
-        }
-
-        index_nr++;
-    }
-
-    if (!isProvenance) {
-        masterIndex = 0;
-    }
-
-    assert(masterIndex < inds.size());
-
-    computedIndices = inds;
 }
 
 /** Generate type name of a direct indexed relation */
 std::string SynthesiserRtreeRelation::getTypeName() {
     std::stringstream res;
-    res << "t_btree_" << getArity();
-
-    for (auto& ind : getIndices()) {
-        res << "__" << join(ind, "_");
-    }
-
-    for (auto& search : getMinIndexSelection().getSearches()) {
-        res << "__" << search;
-    }
+    res << "t_rtree_" << getArity();
 
     return res.str();
 }
@@ -1389,10 +1278,6 @@ std::string SynthesiserRtreeRelation::getTypeName() {
 /** Generate type struct of a direct indexed relation */
 void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
-    size_t auxiliaryArity = relation.getAuxiliaryArity();
-    const auto& inds = getIndices();
-    size_t numIndexes = inds.size();
-    std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
@@ -1400,64 +1285,11 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     // stored tuple type
     out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
 
-    // generate an updater class for provenance
-    if (isProvenance) {
-        out << "struct updater_" << getTypeName() << " {\n";
-        out << "void update(t_tuple& old_t, const t_tuple& new_t) {\n";
-
-        for (size_t i = arity - auxiliaryArity; i < arity; i++) {
-            out << "old_t[" << i << "] = new_t[" << i << "];\n";
-        }
-
-        out << "}\n";
-        out << "};\n";
-    }
-
-    // generate the btree type for each relation
-    for (size_t i = 0; i < inds.size(); i++) {
-        auto& ind = inds[i];
-
-        if (i < getMinIndexSelection().getAllOrders().size()) {
-            indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
-        }
-
-        // for provenance, all indices must be full so we use btree_set
-        // also strong/weak comparators and updater methods
-        if (isProvenance) {
-            if (provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {  // index for bottom up
-                                                                                   // phase
-                out << "using t_ind_" << i << " = btree_set<t_tuple, index_utils::comparator<" << join(ind);
-                out << ">, std::allocator<t_tuple>, 256, typename "
-                       "souffle::detail::default_strategy<t_tuple>::type, index_utils::comparator<";
-                out << join(ind.begin(), ind.end() - auxiliaryArity) << ">, updater_" << getTypeName()
-                    << ">;\n";
-            } else {  // index for top down phase
-                out << "using t_ind_" << i << " = btree_set<t_tuple, index_utils::comparator<" << join(ind);
-                out << ">, std::allocator<t_tuple>, 256, typename "
-                       "souffle::detail::default_strategy<t_tuple>::type, index_utils::comparator<";
-                out << join(ind.begin(), ind.end()) << ">, updater_" << getTypeName() << ">;\n";
-            }
-            // without provenance, some indices may be not full, so we use btree_multiset for those
-        } else {
-            if (ind.size() == arity) {
-                out << "using t_ind_" << i << " = btree_set<t_tuple, index_utils::comparator<" << join(ind)
-                    << ">>;\n";
-            } else {
-                out << "using t_ind_" << i << " = btree_multiset<t_tuple, index_utils::comparator<"
-                    << join(ind) << ">>;\n";
-            }
-        }
-        out << "t_ind_" << i << " ind_" << i << ";\n";
-    }
-
     // typedef master index iterator to be struct iterator
-    out << "using iterator = t_ind_" << masterIndex << "::iterator;\n";
+    out << "using iterator = t_ind::iterator;\n";
 
     // create a struct storing hints for each btree
     out << "struct context {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
-        out << "t_ind_" << i << "::operation_hints hints_" << i << ";\n";
-    }
     out << "};\n";
     out << "context createContext() { return context(); }\n";
 
@@ -1468,12 +1300,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
-    out << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << ")) {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
-        if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
-            out << "ind_" << i << ".insert(t, h.hints_" << i << ");\n";
-        }
-    }
+    out << "if (ind.insert(t, h)) {\n";
     out << "return true;\n";
     out << "} else return false;\n";
     out << "}\n";  // end of insert(t_tuple&, context&)
@@ -1499,7 +1326,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // contains methods
     out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << ");\n";
+    out << "return ind.contains(t, h);\n";
     out << "}\n";
 
     out << "bool contains(const t_tuple& t) const {\n";
@@ -1509,12 +1336,12 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // size method
     out << "std::size_t size() const {\n";
-    out << "return ind_" << masterIndex << ".size();\n";
+    out << "return ind.size();\n";
     out << "}\n";
 
     // find methods
     out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << ");\n";
+    out << "return ind.find(t, h);\n";
     out << "}\n";
 
     out << "iterator find(const t_tuple& t) const {\n";
@@ -1524,52 +1351,36 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // empty equalRange method
     out << "range<iterator> equalRange_0(const t_tuple& t, context& h) const {\n";
-    out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
+    out << "return range<iterator>(ind.begin(),ind.end());\n";
     out << "}\n";
 
     out << "range<iterator> equalRange_0(const t_tuple& t) const {\n";
-    out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
+    out << "return range<iterator>(ind.begin(),ind.end());\n";
     out << "}\n";
 
     // equalRange methods for each pattern which is used to search this relation
     for (int64_t search : getMinIndexSelection().getSearches()) {
-        auto& lexOrder = getMinIndexSelection().getLexOrder(search);
-        size_t indNum = indexToNumMap[lexOrder];
 
-        out << "range<t_ind_" << indNum << "::iterator> equalRange_" << search;
+        out << "range<t_ind::iterator> equalRange_" << search;
         out << "(const t_tuple& t, context& h) const {\n";
 
-        // count size of search pattern
-        size_t indSize = 0;
-        for (size_t column = 0; column < arity; column++) {
-            if (((search >> column) & 1) != 0) {
-                indSize++;
-            }
-        }
-
         // use the more efficient find() method if the search pattern is full
-        if (indSize == arity) {
-            out << "auto pos = ind_" << indNum << ".find(t, h.hints_" << indNum << ");\n";
-            out << "auto fin = ind_" << indNum << ".end();\n";
-            out << "if (pos != fin) {fin = pos; ++fin;}\n";
-            out << "return make_range(pos, fin);\n";
-        } else {
-            // generate lower and upper bounds for range search
-            out << "t_tuple low(t); t_tuple high(t);\n";
-            // check which indices to pad out
-            for (size_t column = 0; column < arity; column++) {
-                // if bit number column is set
-                if (((search >> column) & 1) == 0) {
-                    out << "low[" << column << "] = MIN_RAM_SIGNED;\n";
-                    out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
-                }
-            }
-            out << "return make_range(ind_" << indNum << ".lower_bound(low, h.hints_" << indNum << "), ind_"
-                << indNum << ".upper_bound(high, h.hints_" << indNum << "));\n";
+
+        // generate lower and upper bounds for range search
+        out << "t_tuple low(t); t_tuple high(t);\n";
+        // check which indices to pad out
+        for (size_t column = 0; column < arity; column++) {
+           // if bit number column is set
+           if (((search >> column) & 1) == 0) {
+              out << "low[" << column << "] = MIN_RAM_SIGNED;\n";
+              out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
+           }
         }
+        out << "return make_range(ind.lower_bound(low, h), ind.upper_bound(high, h));\n";
+
         out << "}\n";
 
-        out << "range<t_ind_" << indNum << "::iterator> equalRange_" << search;
+        out << "range<t_ind::iterator> equalRange_" << search;
         out << "(const t_tuple& t) const {\n";
         out << "context h;\n";
         out << "return equalRange_" << search << "(t, h);\n";
@@ -1578,60 +1389,30 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // empty method
     out << "bool empty() const {\n";
-    out << "return ind_" << masterIndex << ".empty();\n";
+    out << "return ind.empty();\n";
     out << "}\n";
 
     // partition method for parallelism
     out << "std::vector<range<iterator>> partition() const {\n";
-    out << "return ind_" << masterIndex << ".getChunks(400);\n";
+    out << "return ind.getChunks(400);\n";
     out << "}\n";
 
     // purge method
     out << "void purge() {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
-        out << "ind_" << i << ".clear();\n";
-    }
+    out << "ind.clear();\n";
     out << "}\n";
 
     // begin and end iterators
     out << "iterator begin() const {\n";
-    out << "return ind_" << masterIndex << ".begin();\n";
+    out << "return ind.begin();\n";
     out << "}\n";
 
     out << "iterator end() const {\n";
-    out << "return ind_" << masterIndex << ".end();\n";
+    out << "return ind.end();\n";
     out << "}\n";
-
-    // copyIndex method
-    if (!provenanceIndexNumbers.empty()) {
-        out << "void copyIndex() {\n";
-        out << "for (auto const &cur : ind_" << masterIndex << ") {\n";
-        for (auto const i : provenanceIndexNumbers) {
-            out << "ind_" << i << ".insert(cur);\n";
-        }
-        out << "}\n";
-        out << "}\n";
-    }
 
     // printHintStatistics method
     out << "void printHintStatistics(std::ostream& o, const std::string prefix) const {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
-        out << "const auto& stats_" << i << " = ind_" << i << ".getHintStatistics();\n";
-        out << "o << prefix << \"arity " << getArity() << " direct b-tree index " << inds[i]
-            << ": (hits/misses/total)\\n\";\n";
-        out << "o << prefix << \"Insert: \" << stats_" << i << ".inserts.getHits() << \"/\" << stats_" << i
-            << ".inserts.getMisses() << \"/\" << stats_" << i << ".inserts.getAccesses() << \"\\n\";\n";
-        out << "o << prefix << \"Contains: \" << stats_" << i << ".contains.getHits() << \"/\" << stats_" << i
-            << ".contains.getMisses() << \"/\" << stats_" << i << ".contains.getAccesses() << \"\\n\";\n";
-        out << "o << prefix << \"Lower-bound: \" << stats_" << i
-            << ".lower_bound.getHits() << \"/\" << stats_" << i
-            << ".lower_bound.getMisses() << \"/\" << stats_" << i
-            << ".lower_bound.getAccesses() << \"\\n\";\n";
-        out << "o << prefix << \"Upper-bound: \" << stats_" << i
-            << ".upper_bound.getHits() << \"/\" << stats_" << i
-            << ".upper_bound.getMisses() << \"/\" << stats_" << i
-            << ".upper_bound.getAccesses() << \"\\n\";\n";
-    }
     out << "}\n";
 
     // end struct
