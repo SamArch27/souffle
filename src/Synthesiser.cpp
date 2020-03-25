@@ -1765,7 +1765,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         }
         withSharedLibrary = true;
     });
-    os << "extern \"C\" {\n";
+    os << "extern \"C\" {}\n";
     for (const auto& f : functors) {
         //        size_t arity = f.second.length() - 1;
         const std::string& name = f.first;
@@ -1814,7 +1814,6 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         os << join(args, ",");
         os << ");\n";
     }
-    os << "}\n";
     os << "\n";
     os << "namespace souffle {\n";
     os << "using namespace ram;\n";

@@ -1230,13 +1230,13 @@ void SynthesiserEqrelRelation::generateTypeStruct(std::ostream& out) {
     out << "iterator end() const {\n";
     out << "return iterator_" << masterIndex << "(ind_" << masterIndex << ".end());\n";
     out << "}\n";
-
+ 
     // printHintStatistics method
     out << "void printHintStatistics(std::ostream& o, const std::string prefix) const {\n";
     out << "o << \"eqrel index: no hint statistics supported\\n\";\n";
     out << "}\n";
 
-    // generate orderIn and orderOut methods which reorder tuples
+   // generate orderIn and orderOut methods which reorder tuples
     // according to index orders
     for (size_t i = 0; i < numIndexes; i++) {
         auto ind = inds[i];
@@ -1279,38 +1279,70 @@ std::string SynthesiserRtreeRelation::getTypeName() {
 void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
 
+    // abbreviate boost namespace
+    out << "namespace bg = boost::geometry;\n";
+    out << "namespace bgi = boost::geometry::index;\n";
+
     // struct definition
     out << "struct " << getTypeName() << " {\n";
-
+    
     // stored tuple type
     out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
 
-    // typedef master index iterator to be struct iterator
-    out << "using iterator = t_ind::iterator;\n";
+    // using declarations for boost geometry
+    out << "using point = bg::model::point<RamDomain, " << arity << " , bg::cs::cartesian>;\n";
+    out << "using box = bg::model::box<point>;\n";
+    out << "using value = std::pair<point, t_tuple>;\n";
+    out << "using t_ind = bgi::rtree<value, bgi::rstar<16>>;\n";
+    out << "using const_query_iterator = t_ind::const_query_iterator;\n";
 
-    // create a struct storing hints for each btree
+    // needed to iterate tuples not (geometry, tuple) pairs therefore transform_iterator
+    // define transform functions for boost::transform_iterator 
+    out << "static value::second_type get_second(value entry) { return entry.second; }\n";
+    out << "static bool satisfies_any(value entry) { return true; }\n"; 
+    out << "using get_second_t =  value::second_type (*)(value);\n";
+    out << "using iterator = boost::transform_iterator<get_second_t, const_query_iterator>;\n";
+
+    // need an index as member
+    out << "t_ind ind;\n";
+
+    // dummy context
+    // create a struct storing the context hints for each index
     out << "struct context {\n";
+    out << "\n";
     out << "};\n";
     out << "context createContext() { return context(); }\n";
+ 
+    // printHintStatistics method
+    out << "void printHintStatistics(std::ostream& o, const std::string prefix) const {\n";
+    out << "o << \"rtree index: no hint statistics supported\\n\";\n";
+    out << "}\n";
+
+
+
+    // need to construct a boost geometry point from a tuple
+    std::vector<std::string> indices; 
+    for(size_t i=0; i<arity; ++i)
+    {
+    	indices.push_back("t[" + std::to_string(i) + "]");
+    }
+    out << "static point get_point(const t_tuple& t) { return point(" << join(indices, ",") << "); }\n";
 
     // insert methods
     out << "bool insert(const t_tuple& t) {\n";
-    out << "context h;\n";
-    out << "return insert(t, h);\n";
+    out << "ind.insert(std::make_pair(get_point(t), t));\n";
+    out << "return true;\n";
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
-    out << "if (ind.insert(t, h)) {\n";
-    out << "return true;\n";
-    out << "} else return false;\n";
-    out << "}\n";  // end of insert(t_tuple&, context&)
+    out << "(void)h;\n";
+    out << "return insert(t);\n";
+    out << "}\n";  // end of insert(t_tuple&,context&)
 
     out << "bool insert(const RamDomain* ramDomain) {\n";
-    out << "RamDomain data[" << arity << "];\n";
-    out << "std::copy(ramDomain, ramDomain + " << arity << ", data);\n";
-    out << "const t_tuple& tuple = reinterpret_cast<const t_tuple&>(data);\n";
-    out << "context h;\n";
-    out << "return insert(tuple, h);\n";
+    out << "t_tuple t;\n";
+    out << "std::copy(ramDomain,ramDomain+" << arity << ",t.data);\n";    
+    out << "return insert(t);\n";
     out << "}\n";  // end of insert(RamDomain*)
 
     std::vector<std::string> decls;
@@ -1320,18 +1352,13 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
         params.push_back("a" + std::to_string(i));
     }
     out << "bool insert(" << join(decls, ",") << ") {\n";
-    out << "RamDomain data[" << arity << "] = {" << join(params, ",") << "};\n";
-    out << "return insert(data);\n";
+    out << "t_tuple t  = {" << join(params, ",") << "};\n";
+    out << "return insert(t);\n";
     out << "}\n";  // end of insert(RamDomain x1, RamDomain x2, ...)
 
-    // contains methods
-    out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind.contains(t, h);\n";
-    out << "}\n";
-
+    // contains method
     out << "bool contains(const t_tuple& t) const {\n";
-    out << "context h;\n";
-    out << "return contains(t, h);\n";
+    out << "return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
     out << "}\n";
 
     // size method
@@ -1340,33 +1367,25 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // find methods
-    out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind.find(t, h);\n";
-    out << "}\n";
-
     out << "iterator find(const t_tuple& t) const {\n";
-    out << "context h;\n";
-    out << "return find(t, h);\n";
+    out << "return iterator(ind.qbegin(bgi::intersects(get_point(t))), get_second);\n";
     out << "}\n";
 
-    // empty equalRange method
-    out << "range<iterator> equalRange_0(const t_tuple& t, context& h) const {\n";
-    out << "return range<iterator>(ind.begin(),ind.end());\n";
-    out << "}\n";
-
-    out << "range<iterator> equalRange_0(const t_tuple& t) const {\n";
-    out << "return range<iterator>(ind.begin(),ind.end());\n";
+    // within_range helper method (box query)
+    out << "souffle::range<iterator> within_range(const t_tuple &low, const t_tuple &high) const{\n";
+    out << "box b(get_point(low), get_point(high));\n";
+    out << "auto lb = iterator(ind.qbegin(bgi::intersects(b)), get_second);\n";
+    out << "auto ub = iterator(ind.qend(), get_second);\n";
+    out << "return souffle::make_range(lb, ub);\n"; 
     out << "}\n";
 
     // equalRange methods for each pattern which is used to search this relation
     for (int64_t search : getMinIndexSelection().getSearches()) {
 
-        out << "range<t_ind::iterator> equalRange_" << search;
-        out << "(const t_tuple& t, context& h) const {\n";
+        out << "souffle::range<iterator> equalRange_" << search;
+        out << "(const t_tuple& t) const {\n";
 
-        // use the more efficient find() method if the search pattern is full
-
-        // generate lower and upper bounds for range search
+	// generate lower and upper bounds for range search
         out << "t_tuple low(t); t_tuple high(t);\n";
         // check which indices to pad out
         for (size_t column = 0; column < arity; column++) {
@@ -1376,25 +1395,13 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
               out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
            }
         }
-        out << "return make_range(ind.lower_bound(low, h), ind.upper_bound(high, h));\n";
-
-        out << "}\n";
-
-        out << "range<t_ind::iterator> equalRange_" << search;
-        out << "(const t_tuple& t) const {\n";
-        out << "context h;\n";
-        out << "return equalRange_" << search << "(t, h);\n";
+        out << "return within_range(low, high);\n";
         out << "}\n";
     }
 
     // empty method
     out << "bool empty() const {\n";
     out << "return ind.empty();\n";
-    out << "}\n";
-
-    // partition method for parallelism
-    out << "std::vector<range<iterator>> partition() const {\n";
-    out << "return ind.getChunks(400);\n";
     out << "}\n";
 
     // purge method
@@ -1404,15 +1411,11 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // begin and end iterators
     out << "iterator begin() const {\n";
-    out << "return ind.begin();\n";
+    out << "return iterator(ind.qbegin(bgi::satisfies(satisfies_any)), get_second);\n";
     out << "}\n";
 
     out << "iterator end() const {\n";
-    out << "return ind.end();\n";
-    out << "}\n";
-
-    // printHintStatistics method
-    out << "void printHintStatistics(std::ostream& o, const std::string prefix) const {\n";
+    out << "return iterator(ind.qend(), get_second);\n";
     out << "}\n";
 
     // end struct

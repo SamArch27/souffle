@@ -16,6 +16,17 @@
 
 #pragma once
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/index/rtree.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/foreach.hpp>
+
+/*************************
+ * Dependencies for R-tree 
+*************************/
+
 #include "souffle/Brie.h"
 #include "souffle/CompiledIndexUtils.h"
 #include "souffle/CompiledTuple.h"
@@ -264,7 +275,7 @@ public:
 
         bool operator!=(const iterator& other) const {
             return !(*this == other);
-        }
+	}    
 
         iterator& operator++() {
             it++;
