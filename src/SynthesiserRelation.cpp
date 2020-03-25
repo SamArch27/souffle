@@ -1271,7 +1271,9 @@ void SynthesiserRtreeRelation::computeIndices() {
 std::string SynthesiserRtreeRelation::getTypeName() {
     std::stringstream res;
     res << "t_rtree_" << getArity();
-
+    for (auto& search : getMinIndexSelection().getSearches()) {
+        res << "__" << search;
+    }
     return res.str();
 }
 
@@ -1361,6 +1363,11 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
     out << "}\n";
 
+    // contains method
+    out << "bool contains(const t_tuple& t, context &hint) const {\n";
+    out << "return contains(t);\n";
+    out << "}\n";
+
     // size method
     out << "std::size_t size() const {\n";
     out << "return ind.size();\n";
@@ -1381,11 +1388,11 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // equalRange methods for each pattern which is used to search this relation
     for (int64_t search : getMinIndexSelection().getSearches()) {
-
+	
         out << "souffle::range<iterator> equalRange_" << search;
         out << "(const t_tuple& t) const {\n";
 
-	// generate lower and upper bounds for range search
+        // generate lower and upper bounds for range search
         out << "t_tuple low(t); t_tuple high(t);\n";
         // check which indices to pad out
         for (size_t column = 0; column < arity; column++) {
@@ -1397,6 +1404,13 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
         }
         out << "return within_range(low, high);\n";
         out << "}\n";
+
+
+	// generate identical with hint
+        out << "souffle::range<iterator> equalRange_" << search;
+        out << "(const t_tuple& t, context &hint) const {\n";
+        out << "return equalRange_" << search << "(t);\n";
+	out << "}\n";	
     }
 
     // empty method
