@@ -38,15 +38,26 @@ std::unique_ptr<SynthesiserRelation> SynthesiserRelation::getSynthesiserRelation
     } else if (ramRel.getRepresentation() == RelationRepresentation::INFO) {
         rel = new SynthesiserInfoRelation(ramRel, indexSet, isProvenance);
     } else {
-        // Handle the data structure command line flag
-        if (ramRel.getArity() > 6) {
-            rel = new SynthesiserIndirectRelation(ramRel, indexSet, isProvenance);
-        } else {
-            rel = new SynthesiserDirectRelation(ramRel, indexSet, isProvenance);
-        }
+	   std::string ds = Global::config().get("default-datastructure");
+	   if (!Global::config().has("default-datastructure") || ds == "btree") {
+               // Handle the data structure command line flag
+	       if(ramRel.getArity() > 6) {
+		  rel = new SynthesiserIndirectRelation(ramRel, indexSet, isProvenance);
+	       } else {
+		  rel = new SynthesiserDirectRelation(ramRel, indexSet, isProvenance);
+	       }
+	   } else {
+	       if (ds == "rtree") {
+		  rel = new SynthesiserRtreeRelation(ramRel, indexSet, isProvenance);
+	       } else if (ds == "brie") {
+		  rel = new SynthesiserBrieRelation(ramRel, indexSet, isProvenance);
+	       } else {
+		  assert(false && "wrong data-structure");
+	       }
+	   }
     }
-
-    assert(rel != nullptr && "relation type not specified");
+	       
+   assert(rel != nullptr && "relation type not specified");
 
     // generate index set
     rel->computeIndices();
