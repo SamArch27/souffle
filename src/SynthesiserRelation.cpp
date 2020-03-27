@@ -1332,12 +1332,14 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // need to construct a boost geometry point from a tuple
-    std::vector<std::string> indices; 
+    out << "static auto get_point(const t_tuple& t) {\n";
+    out << "point p;\n";
     for(size_t i=0; i<arity; ++i)
     {
-    	indices.push_back("t[" + std::to_string(i) + "]");
+    	out << "p.set<" << i << ">(t[" << i << "]);\n";
     }
-    out << "static point get_point(const t_tuple& t) { return point(" << join(indices, ",") << "); }\n";
+    out << "return p;";
+    out << "}\n";
 
     // contains method
     out << "bool contains(const t_tuple& t) const {\n";
