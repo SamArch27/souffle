@@ -1331,8 +1331,6 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "o << \"rtree index: no hint statistics supported\\n\";\n";
     out << "}\n";
 
-
-
     // need to construct a boost geometry point from a tuple
     std::vector<std::string> indices; 
     for(size_t i=0; i<arity; ++i)
@@ -1341,10 +1339,24 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     }
     out << "static point get_point(const t_tuple& t) { return point(" << join(indices, ",") << "); }\n";
 
+    // contains method
+    out << "bool contains(const t_tuple& t) const {\n";
+    out << "return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
+    out << "}\n";
+
+    // contains method
+    out << "bool contains(const t_tuple& t, context &hint) const {\n";
+    out << "return contains(t);\n";
+    out << "}\n";
+
     // insert methods
     out << "bool insert(const t_tuple& t) {\n";
-    out << "ind.insert(std::make_pair(get_point(t), t));\n";
-    out << "return true;\n";
+    out << "if (!contains(t)){\n";
+    out << "	ind.insert(std::make_pair(get_point(t), t));\n";
+    out << "	return true;\n";
+    out << "} else {\n";
+    out << "    return false;\n";
+    out << "};\n";
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
@@ -1368,16 +1380,6 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "t_tuple t  = {" << join(params, ",") << "};\n";
     out << "return insert(t);\n";
     out << "}\n";  // end of insert(RamDomain x1, RamDomain x2, ...)
-
-    // contains method
-    out << "bool contains(const t_tuple& t) const {\n";
-    out << "return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
-    out << "}\n";
-
-    // contains method
-    out << "bool contains(const t_tuple& t, context &hint) const {\n";
-    out << "return contains(t);\n";
-    out << "}\n";
 
     // size method
     out << "std::size_t size() const {\n";
