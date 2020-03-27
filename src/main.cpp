@@ -157,6 +157,8 @@ int main(int argc, char** argv) {
                 {"compile", 'c', "", "", false,
                         "Generate C++ source code, compile to a binary executable, then run this "
                         "executable."},
+		
+		{"default-datastructure", 'X', "DS", ".", false, "Specify default data structure."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
                         "<FILE>. If <FILE> is `-` then stdout is used."},
@@ -190,7 +192,7 @@ int main(int argc, char** argv) {
                         "transformed-ram | type-analysis ]",
                         "", false, "Print selected program information."},
                 {"parse-errors", '\5', "", "", false, "Show parsing errors, if any, then exit."},
-                {"help", 'h', "", "", false, "Display this help message."}};
+                {"help", 'h', "", "", false, "Display this help message."}}; 
         Global::config().processArgs(argc, argv, header.str(), footer.str(), options);
 
         // ------ command line arguments -------------
