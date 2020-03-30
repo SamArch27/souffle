@@ -1318,6 +1318,34 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // need an index as member
     out << "t_ind ind;\n";
+     
+    // profiling statistics
+    
+    // total operations performed by rtree
+    out << "mutable std::size_t totalFrequency = 0;\n";
+
+    // frequency of each operation
+    out << "mutable std::size_t insertFrequency = 0;\n";
+    out << "mutable std::size_t findFrequency = 0;\n";
+    out << "mutable std::size_t equalRangeFrequency = 0;\n";
+    out << "mutable std::size_t sizeFrequency = 0;\n";
+    out << "mutable std::size_t emptyFrequency = 0;\n";
+    out << "mutable std::size_t purgeFrequency = 0;\n";
+    out << "mutable std::size_t beginFrequency = 0;\n";
+    out << "mutable std::size_t endFrequency = 0;\n";
+
+    // total time spent in operations
+    out << "mutable long totalTime = 0;\n";
+
+    // cumulative time in micro seconds
+    out << "mutable long insertTime = 0;\n";
+    out << "mutable long findTime = 0;\n";
+    out << "mutable long equalRangeTime = 0;\n";
+    out << "mutable long sizeTime = 0;\n";
+    out << "mutable long emptyTime = 0;\n";
+    out << "mutable long purgeTime = 0;\n";
+    out << "mutable long beginTime = 0;\n";
+    out << "mutable long endTime = 0;\n";
 
     // dummy context
     // create a struct storing the context hints for each index
@@ -1328,7 +1356,64 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
  
     // printHintStatistics method
     out << "void printHintStatistics(std::ostream& o, const std::string prefix) const {\n";
-    out << "o << \"rtree index: no hint statistics supported\\n\";\n";
+   
+    // print number of operations
+    out << "o << \"Total number of operations: \" << totalFrequency << \"\\n\\n\";\n";
+  
+    // insert count
+    out << "o << \"Number of insert() operations: \" << insertFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(insertFrequency)/totalFrequency << \"%)\\n\"\n;";
+    // find count 
+    out << "o << \"Number of find() operations: \" << findFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(findFrequency)/totalFrequency << \"%)\\n\"\n;"; 
+    // equalRange count 
+    out << "o << \"Number of equalRange() operations: \" << equalRangeFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(equalRangeFrequency)/totalFrequency << \"%)\\n\"\n;";
+    // size count
+    out << "o << \"Number of size() operations: \" << sizeFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(sizeFrequency)/totalFrequency << \"%)\\n\";\n";
+    // empty count
+    out << "o << \"Number of empty() operations: \" << emptyFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(emptyFrequency)/totalFrequency << \"%)\\n\";\n";
+    // purge count 
+    out << "o << \"Number of purge() operations: \" << purgeFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(purgeFrequency)/totalFrequency << \"%)\\n\";\n";
+    // insert count
+    out << "o << \"Number of begin() operations: \" << beginFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(beginFrequency)/totalFrequency << \"%)\\n\";\n";
+    // find count 
+    out << "o << \"Number of end() operations: \" << endFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(endFrequency)/totalFrequency << \"%)\\n\";\n";
+
+    // print total time of operations
+    out << "o << \"\\nTotal time: \" << totalTime << \"us\\n\\n\";\n";
+  
+    // insert time
+    out << "o << \"Time of insert() operations: \" << insertTime << ";
+    out << "\"us (\" << 100*static_cast<double>(insertTime)/totalTime << \"%)\\n\";\n";
+    // find time 
+    out << "o << \"Time of find() operations: \" << findTime << ";
+    out << "\"us (\" << 100*static_cast<double>(findTime)/totalTime << \"%)\\n\";\n"; 
+    // equalRange time 
+    out << "o << \"Time of equalRange() operations: \" << equalRangeTime << ";
+    out << "\"us (\" << 100*static_cast<double>(equalRangeTime)/totalTime << \"%)\\n\";\n";
+    // size time
+    out << "o << \"Time of size() operations: \" << sizeTime << ";
+    out << "\"us (\" << 100*static_cast<double>(sizeTime)/totalTime << \"%)\\n\";\n";
+    // empty time
+    out << "o << \"Time of empty() operations: \" << emptyTime << ";
+    out << "\"us (\" << 100*static_cast<double>(emptyTime)/totalTime << \"%)\\n\";\n";
+    // purge time 
+    out << "o << \"Time of purge() operations: \" << purgeTime << ";
+    out << "\"us (\" << 100*static_cast<double>(purgeTime)/totalTime << \"%)\\n\";\n";
+    // insert time
+    out << "o << \"Time of begin() operations: \" << beginTime << ";
+    out << "\"us (\" << 100*static_cast<double>(beginTime)/totalTime << \"%)\\n\";\n";
+    // find count 
+    out << "o << \"Time of end() operations: \" << endTime << ";
+    out << "\"us (\" << 100*static_cast<double>(endTime)/totalTime << \"%)\\n\";\n";
+
+
     out << "}\n";
 
     // need to construct a boost geometry point from a tuple
@@ -1353,12 +1438,23 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // insert methods
     out << "bool insert(const t_tuple& t) {\n";
+
+    out << "++insertFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "bool res = false;\n";
     out << "if (!contains(t)){\n";
     out << "	ind.insert(std::make_pair(get_point(t), t));\n";
-    out << "	return true;\n";
-    out << "} else {\n";
-    out << "    return false;\n";
-    out << "};\n";
+    out << "	res = true;\n";
+    out << "}\n";
+ 
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "insertTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
@@ -1385,12 +1481,36 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // size method
     out << "std::size_t size() const {\n";
-    out << "return ind.size();\n";
+
+    out << "++sizeFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "auto res = ind.size();\n";
+
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "sizeTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     // find methods
     out << "iterator find(const t_tuple& t) const {\n";
-    out << "return iterator(ind.qbegin(bgi::intersects(get_point(t))), get_second);\n";
+
+    out << "++findFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "auto res = iterator(ind.qbegin(bgi::intersects(get_point(t))), get_second);\n";
+
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "findTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     // within_range helper method (box query)
@@ -1407,6 +1527,10 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
         out << "souffle::range<iterator> equalRange_" << search;
         out << "(const t_tuple& t) const {\n";
 
+	out << "++equalRangeFrequency;\n";
+	out << "++totalFrequency;\n";
+	out << "auto start = now();\n";
+
         // generate lower and upper bounds for range search
         out << "t_tuple low(t); t_tuple high(t);\n";
         // check which indices to pad out
@@ -1417,7 +1541,14 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
               out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
            }
         }
-        out << "return within_range(low, high);\n";
+	out << "auto res = within_range(low,high);\n";
+        	
+        out << "auto end = now();\n";
+        out << "auto elapsed = duration_in_us(start, end);\n";
+        out << "equalRangeTime += elapsed;\n";
+        out << "totalTime += elapsed;\n";
+
+        out << "return res;\n";
         out << "}\n";
 
 
@@ -1430,21 +1561,69 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // empty method
     out << "bool empty() const {\n";
-    out << "return ind.empty();\n";
+ 
+    out << "++emptyFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "bool res = ind.empty();\n";
+
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "emptyTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     // purge method
     out << "void purge() {\n";
+  
+    out << "++purgeFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
     out << "ind.clear();\n";
+
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "purgeTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
     out << "}\n";
 
     // begin and end iterators
     out << "iterator begin() const {\n";
-    out << "return iterator(ind.qbegin(bgi::satisfies(satisfies_any)), get_second);\n";
+    
+    out << "++beginFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "auto res = iterator(ind.qbegin(bgi::satisfies(satisfies_any)), get_second);\n";
+    
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "beginTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     out << "iterator end() const {\n";
-    out << "return iterator(ind.qend(), get_second);\n";
+   
+   
+    out << "++endFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+
+    out << "auto res = iterator(ind.qend(), get_second);\n";
+
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "endTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     // end struct
