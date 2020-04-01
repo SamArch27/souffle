@@ -16,6 +16,8 @@
 #include <numeric>
 #include <set>
 
+// #define BLOOM_F 1
+
 namespace souffle {
 
 std::unique_ptr<SynthesiserRelation> SynthesiserRelation::getSynthesiserRelation(
@@ -1306,7 +1308,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "using point = bg::model::point<RamDomain, " << arity << " , bg::cs::cartesian>;\n";
     out << "using box = bg::model::box<point>;\n";
     out << "using value = std::pair<point, t_tuple>;\n";
-    out << "using t_ind = bgi::rtree<value, bgi::rstar<16>>;\n";
+    out << "using t_ind = bgi::rtree<value, bgi::linear<16>>;\n";
     out << "using const_query_iterator = t_ind::const_query_iterator;\n";
 
     // needed to iterate tuples not (geometry, tuple) pairs therefore transform_iterator
@@ -1318,14 +1320,23 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // need an index as member
     out << "t_ind ind;\n";
-     
-    // profiling statistics
-    
+#ifdef BLOOM_F    
+    // experimental bloom filter to speed up existence checks
+    out << "BloomFilter bf = BloomFilter(34400000, 12);\n";
+#endif
+    // bloom filter statistics
+    out << "mutable std::size_t bloomFrequency = 0;\n";
+    out << "mutable std::size_t bloomGuesses = 0;\n";
+    out << "mutable std::size_t incorrectGuesses = 0;\n";
+    out << "mutable long bloomInsertTime = 0;\n";
+    out << "mutable long bloomContainsTime = 0;\n";
+
     // total operations performed by rtree
     out << "mutable std::size_t totalFrequency = 0;\n";
 
     // frequency of each operation
     out << "mutable std::size_t insertFrequency = 0;\n";
+    out << "mutable std::size_t containsFrequency = 0;\n";
     out << "mutable std::size_t findFrequency = 0;\n";
     out << "mutable std::size_t equalRangeFrequency = 0;\n";
     out << "mutable std::size_t sizeFrequency = 0;\n";
@@ -1339,6 +1350,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // cumulative time in micro seconds
     out << "mutable long insertTime = 0;\n";
+    out << "mutable long containsTime = 0;\n";
     out << "mutable long findTime = 0;\n";
     out << "mutable long equalRangeTime = 0;\n";
     out << "mutable long sizeTime = 0;\n";
@@ -1359,10 +1371,16 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
    
     // print number of operations
     out << "o << \"Total number of operations: \" << totalFrequency << \"\\n\\n\";\n";
-  
-    // insert count
+   
+    // bloom and rtree insert count
     out << "o << \"Number of insert() operations: \" << insertFrequency << ";
-    out << "\" (\" << 100*static_cast<double>(insertFrequency)/totalFrequency << \"%)\\n\"\n;";
+    out << "\" (\" << 100*static_cast<double>(insertFrequency)/totalFrequency << \"%)\\n\"\n;"; 
+    // bloom contains count
+    out << "o << \"Number of Bloom Filter contains() operations: \" << bloomFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(bloomFrequency)/totalFrequency << \"%)\\n\"\n;";
+    // rtree contains count
+    out << "o << \"Number of Rtree contains() operations: \" << containsFrequency << ";
+    out << "\" (\" << 100*static_cast<double>(containsFrequency)/totalFrequency << \"%)\\n\"\n;";
     // find count 
     out << "o << \"Number of find() operations: \" << findFrequency << ";
     out << "\" (\" << 100*static_cast<double>(findFrequency)/totalFrequency << \"%)\\n\"\n;"; 
@@ -1388,9 +1406,18 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     // print total time of operations
     out << "o << \"\\nTotal time: \" << totalTime << \"us\\n\\n\";\n";
   
-    // insert time
-    out << "o << \"Time of insert() operations: \" << insertTime << ";
+    // bloom insert time
+    out << "o << \"Time of Bloom Filter insert() operations: \" << bloomInsertTime << ";
+    out << "\"us (\" << 100*static_cast<double>(bloomInsertTime)/totalTime << \"%)\\n\";\n";
+    // rtree insert time
+    out << "o << \"Time of Rtree insert() operations: \" << insertTime << ";
     out << "\"us (\" << 100*static_cast<double>(insertTime)/totalTime << \"%)\\n\";\n";
+    // contains time
+    out << "o << \"Time of Bloom Filter contains() operations: \" << bloomContainsTime << ";
+    out << "\"us (\" << 100*static_cast<double>(bloomContainsTime)/totalTime << \"%)\\n\";\n";
+    // contains time
+    out << "o << \"Time of Rtree contains() operations: \" << containsTime << ";
+    out << "\"us (\" << 100*static_cast<double>(containsTime)/totalTime << \"%)\\n\";\n";
     // find time 
     out << "o << \"Time of find() operations: \" << findTime << ";
     out << "\"us (\" << 100*static_cast<double>(findTime)/totalTime << \"%)\\n\";\n"; 
@@ -1413,7 +1440,9 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "o << \"Time of end() operations: \" << endTime << ";
     out << "\"us (\" << 100*static_cast<double>(endTime)/totalTime << \"%)\\n\";\n";
 
-
+    // contains false positive rate
+    out << "o << \"\\nFalse Positive Rate of Bloom Filter contains() operations: \" << ";
+    out  << "(bloomGuesses ? 100*static_cast<double>(incorrectGuesses)/bloomGuesses : 0) << \"%\\n\";\n";
     out << "}\n";
 
     // need to construct a boost geometry point from a tuple
@@ -1428,7 +1457,53 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // contains method
     out << "bool contains(const t_tuple& t) const {\n";
-    out << "return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
+     
+    // bloom time
+    out << "++bloomFrequency;\n";
+    out << "++totalFrequency;\n";
+    out << "auto start = now();\n";
+#ifdef BLOOM_F
+    // first check the bloom filter
+    out << "bool possiblyContains = bf.possiblyContains((const uint8_t*)t.data, " << arity << "*sizeof(RamDomain));\n";
+#endif
+
+#ifndef BLOOM_F
+    out << "bool possiblyContains = true;\n";
+#endif
+
+    // bloom time
+    out << "auto end = now();\n";
+    out << "auto elapsed = duration_in_us(start, end);\n";
+    out << "bloomContainsTime += elapsed;\n";
+    out << "totalTime += elapsed;\n";
+
+    // only need to compute if it possibly contains it
+    out << "bool res = false;\n";
+    out << "if (possiblyContains) {\n";
+
+#ifdef BLOOM_F
+    out << "    ++bloomGuesses;\n";
+#endif
+    out << "    ++containsFrequency;\n";
+    out << "    ++totalFrequency;\n";
+
+    // restart timer for real contains time
+    out << "    start = now();\n";
+
+    out << "    res = (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
+    
+    out << "    end = now();\n";
+    out << "    elapsed = duration_in_us(start, end);\n";
+    out << "    containsTime += elapsed;\n";
+    out << "    totalTime += elapsed;\n";
+#ifdef BLOOM_F
+    out << "    if (!res) {\n";
+    out << "        ++incorrectGuesses;\n";
+    out << "    }\n"; 
+#endif
+    out << "}\n";
+
+    out << "return res;\n";
     out << "}\n";
 
     // contains method
@@ -1439,21 +1514,34 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     // insert methods
     out << "bool insert(const t_tuple& t) {\n";
 
-    out << "++insertFrequency;\n";
-    out << "++totalFrequency;\n";
-    out << "auto start = now();\n";
-
     out << "bool res = false;\n";
+
     out << "if (!contains(t)){\n";
+
+    out << "    ++insertFrequency;\n";
+    out << "    ++totalFrequency;\n";
+    out << "    auto start = now();\n";
+
     out << "	ind.insert(std::make_pair(get_point(t), t));\n";
+
+    out << "    auto end = now();\n";
+    out << "    auto elapsed = duration_in_us(start, end);\n";
+    out << "    insertTime += elapsed;\n";
+    out << "    totalTime += elapsed;\n";
+
+    // insert into the bloom filter as well
+    out << "    start = now();\n";
+#ifdef BLOOM_F
+    out << "    bf.add((const uint8_t*)t.data, " << arity << "*sizeof(RamDomain));\n";
+#endif
+    out << "    end = now();\n";
+    out << "    elapsed = duration_in_us(start, end);\n";
+    out << "    bloomInsertTime += elapsed;\n";
+    out << "    totalTime += elapsed;\n";
+
     out << "	res = true;\n";
     out << "}\n";
  
-    out << "auto end = now();\n";
-    out << "auto elapsed = duration_in_us(start, end);\n";
-    out << "insertTime += elapsed;\n";
-    out << "totalTime += elapsed;\n";
-
     out << "return res;\n";
     out << "}\n";  // end of insert(t_tuple&)
 
@@ -1584,7 +1672,9 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "auto start = now();\n";
 
     out << "ind.clear();\n";
-
+#ifdef BLOOM_F    
+    out << "bf.clear();\n";
+#endif    
     out << "auto end = now();\n";
     out << "auto elapsed = duration_in_us(start, end);\n";
     out << "purgeTime += elapsed;\n";
