@@ -365,8 +365,8 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
         void visitClear(const RamClear& clear, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
 
-            //out << "if (!isHintsProfilingEnabled()"
-            //    << (clear.getRelation().isTemp() ? ") " : "&& performIO) ");
+            out << "if (!isHintsProfilingEnabled()"
+                << (clear.getRelation().isTemp() ? ") " : "&& performIO) ");
             out << synthesiser.getRelationName(clear.getRelation()) << "->"
                 << "purge();\n";
 
