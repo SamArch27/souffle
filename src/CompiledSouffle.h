@@ -451,45 +451,32 @@ inline uint64_t nthHash(uint8_t n, uint64_t hashA, uint64_t hashB, uint64_t filt
 
 
 // Bloom Filter implementation
+template <typename T>
 struct BloomFilter {
 
 private:
-    uint8_t m_numHashes;
-    std::vector<bool> m_bits;
-
+    Trie<1> m_trie;
+    std::hash<T> m_hash;
 public:
-    BloomFilter(uint64_t size, uint8_t numHashes)
-          : m_bits(size),
-            m_numHashes(numHashes) {}
+    BloomFilter()
+          : m_trie(){}
      
     void clear()
     {
-	    m_bits.assign(m_bits.size(), false);
+       m_trie.clear();
     } 
 
-    void add(const uint8_t *data, std::size_t len){
-         // compute hash
-         auto hashValues = hash(data, len);
-
-         // combine result to set the bit at the corresponding index
-         for (int n = 0; n < m_numHashes; n++) {
-            m_bits[nthHash(n, hashValues[0], hashValues[1], m_bits.size())] = true;
-         }
+    void add(const T &t){
+       // compute hash
+       auto hash = m_hash(t);
+       m_trie.insert(hash);	
     }
 
 
-    bool possiblyContains(const uint8_t *data, std::size_t len) const {
+    bool possiblyContains(const T &t) const {
         // compute hash
-        auto hashValues = hash(data, len);
-
-        // applying the identical algorithm if we find that one of the bits is not set then it cant contain it
-        for (int n = 0; n < m_numHashes; n++) {
-            if (!m_bits[nthHash(n, hashValues[0], hashValues[1], m_bits.size())]) {
-                 return false;
-            }
-        }
-        // otherwise maybe it does contain it?
-        return true;
+        auto hash = m_hash(t);
+        return m_trie.contains(hash);
     }
 };
 

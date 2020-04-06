@@ -16,7 +16,7 @@
 #include <numeric>
 #include <set>
 
-// #define BLOOM_F 1
+#define BLOOM_F 1
 
 namespace souffle {
 
@@ -1322,7 +1322,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "t_ind ind;\n";
 #ifdef BLOOM_F    
     // experimental bloom filter to speed up existence checks
-    out << "BloomFilter bf = BloomFilter(34400000, 12);\n";
+    out << "BloomFilter<t_tuple> bf = BloomFilter<t_tuple>();\n";
 #endif
     // bloom filter statistics
     out << "mutable std::size_t bloomFrequency = 0;\n";
@@ -1464,9 +1464,9 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "auto start = now();\n";
 #ifdef BLOOM_F
     // first check the bloom filter
-    out << "bool possiblyContains = bf.possiblyContains((const uint8_t*)t.data, " << arity << "*sizeof(RamDomain));\n";
+    out << "bool possiblyContains = bf.possiblyContains(t);\n";
 #endif
-
+    
 #ifndef BLOOM_F
     out << "bool possiblyContains = true;\n";
 #endif
@@ -1532,7 +1532,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     // insert into the bloom filter as well
     out << "    start = now();\n";
 #ifdef BLOOM_F
-    out << "    bf.add((const uint8_t*)t.data, " << arity << "*sizeof(RamDomain));\n";
+    out << "    bf.add(t);\n";
 #endif
     out << "    end = now();\n";
     out << "    elapsed = duration_in_us(start, end);\n";
