@@ -2153,7 +2153,6 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     const SymbolTable& symTable = translationUnit.getSymbolTable();
     const RamProgram& prog = translationUnit.getProgram();
     auto* idxAnalysis = translationUnit.getAnalysis<RamIndexAnalysis>();
-
     // ---------------------------------------------------------------
     //                      Code Generation
     // ---------------------------------------------------------------

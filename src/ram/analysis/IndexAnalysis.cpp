@@ -55,8 +55,7 @@ const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
 // comparison operators
 bool SearchSignature::operator<(const SearchSignature& other) const {
     assert(constraints.size() == other.constraints.size());
-    assert(isComparable(*this, other));  // be ordered to place them in a container together
-    return isStrictSubset(*this, other);
+    return isComparable(*this, other) && isSubset(*this, other);
 }
 
 bool SearchSignature::operator==(const SearchSignature& other) const {
@@ -87,50 +86,81 @@ bool SearchSignature::containsEquality() const {
     return false;
 }
 
-bool SearchSignature::containsInequality() const {
+bool SearchSignature::containsMultipleInequalities() const {
+    bool seen = false;
     for (size_t i = 0; i < constraints.size(); ++i) {
         if (constraints[i] == AttributeConstraint::Inequal) {
-            return true;
+            if (seen) {
+                return true;
+            } else {
+                seen = true;
+            }
         }
     }
     return false;
+}
+
+std::vector<SearchSignature> SearchSignature::getAllPermutations() const {
+    const auto& search = *this;
+
+    // only one permutation if we don't have multiple inequalities
+    if (!search.containsMultipleInequalities()) {
+        return {search};
+    }
+
+    // find all inequalities
+    std::vector<size_t> inequalities;
+    for (size_t i = 0; i < search.arity(); ++i) {
+        if (search[i] == AttributeConstraint::Inequal) {
+            inequalities.push_back(i);
+        }
+    }
+
+    // remove all inequalities
+    SearchSignature stripped = search;
+    for (size_t index : inequalities) {
+        stripped[index] = AttributeConstraint::None;
+    }
+
+    // create a copy for every inequality
+    std::vector<SearchSignature> permutations(inequalities.size(), stripped);
+
+    // for each copy we set a single one of the inequalities
+    for (size_t i = 0; i < inequalities.size(); ++i) {
+        size_t index = inequalities[i];
+        permutations[i][index] = AttributeConstraint::Inequal;
+    }
+    return permutations;
 }
 
 // Note: We have 0 < 1 and 0 < 2 but we cannot say that 1 < 2.
 // The reason for this is to prevent search chains such as 100->101->201 which have no valid lex-order
 bool SearchSignature::isComparable(const SearchSignature& lhs, const SearchSignature& rhs) {
     assert(lhs.arity() == rhs.arity());
-    size_t len = lhs.arity();
-    for (size_t i = 0; i < len; ++i) {
-        // cannot compare equality and inequality
-        if (lhs[i] != rhs[i] && lhs[i] != AttributeConstraint::None && rhs[i] != AttributeConstraint::None) {
-            return false;
+    if (lhs == rhs) {
+        return true;
+    }
+
+    bool withinDelta = true;
+    for (size_t i = 0; i < rhs.arity(); ++i) {
+        if (rhs[i] == AttributeConstraint::Inequal) {
+            if (lhs[i] != AttributeConstraint::None) {
+                withinDelta = false;
+            }
         }
     }
-    // comparable if one is a strict subset of the other
-    return (isStrictSubset(lhs, rhs) && !lhs.containsInequality()) ||
-           (isStrictSubset(rhs, lhs) && !rhs.containsInequality());
+    return withinDelta;
 }
 
 bool SearchSignature::isSubset(const SearchSignature& lhs, const SearchSignature& rhs) {
     assert(lhs.arity() == rhs.arity());
     size_t len = lhs.arity();
     for (size_t i = 0; i < len; ++i) {
-        if (lhs[i] == rhs[i]) {
-            continue;
-        }
-        if (lhs[i] < rhs[i]) {
-            continue;
-        }
-        if (lhs[i] > rhs[i]) {
+        if (lhs[i] != AttributeConstraint::None && rhs[i] == AttributeConstraint::None) {
             return false;
         }
     }
     return true;
-}
-
-bool SearchSignature::isStrictSubset(const SearchSignature& lhs, const SearchSignature& rhs) {
-    return isSubset(lhs, rhs) && lhs != rhs;
 }
 
 SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const SearchSignature& rhs) {
@@ -138,10 +168,10 @@ SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const Sear
     SearchSignature delta(lhs.arity());
     for (size_t i = 0; i < lhs.arity(); ++i) {
         // if constraints are the same then delta is nothing
-        if (lhs.constraints[i] == rhs.constraints[i]) {
-            delta.constraints[i] = AttributeConstraint::None;
+        if (rhs[i] == AttributeConstraint::None) {
+            delta.constraints[i] = lhs[i];
         } else {
-            delta.constraints[i] = lhs.constraints[i];
+            delta.constraints[i] = AttributeConstraint::None;
         }
     }
     return delta;
@@ -293,16 +323,13 @@ void MinIndexSelection::solve() {
 
     // Construct the matching poblem
     for (auto search : searches) {
-        // For this node check if other nodes are strict subsets
         for (auto itt : searches) {
-            if (SearchSignature::isComparable(search, itt)) {
-                if (SearchSignature::isStrictSubset(search, itt)) {
-                    // we don't add edges from signatures with inequalities
-                    // Example: 210->211 will discharge the first inequality
-                    if (!search.containsInequality()) {
-                        matching.addEdge(signatureToIndexA[search], signatureToIndexB[itt]);
-                    }
-                }
+            if (search == itt) {
+                continue;
+            }
+
+            if (search < itt) {
+                matching.addEdge(signatureToIndexA[search], signatureToIndexB[itt]);
             }
         }
     }
@@ -329,27 +356,8 @@ void MinIndexSelection::solve() {
             insertIndex(ids, delta);
         }
 
-        // remove duplicates going right to left
-        std::unordered_set<uint32_t> seen;
-        std::unordered_set<size_t> duplicates;
-        for (size_t i = 0; i < ids.size(); ++i) {
-            size_t index = ids.size() - 1 - i;
-            if (seen.count(ids[index]) != 0) {
-                duplicates.insert(index);
-            } else {
-                seen.insert(ids[index]);
-            }
-        }
-
-        std::vector<uint32_t> res;
-        for (size_t i = 0; i < ids.size(); ++i) {
-            if (duplicates.count(i) == 0) {
-                res.push_back(ids[i]);
-            }
-        }
-
-        assert(!res.empty());
-        orders.push_back(res);
+        assert(!ids.empty());
+        orders.push_back(ids);
     }
 
     // Validate the lex-order
@@ -415,7 +423,7 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
             Chain a;
             a.push_back(node);
             chainToOrder.push_back(a);
-            mergeChains(chainToOrder, dischargedMap);
+            mergeChains(chainToOrder);
             return chainToOrder;
         }
     }
@@ -434,170 +442,123 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
 
     assert(!chainToOrder.empty());
 
-    mergeChains(chainToOrder, dischargedMap);
+    mergeChains(chainToOrder);
     return chainToOrder;
 }
 
-bool MinIndexSelection::formsAntichain(const Chain& left, const Chain& right) const {
-    for (auto& leftSearchSignature : left) {
-        for (auto& rightSearchSignature : right) {
-            if (!SearchSignature::isSubset(leftSearchSignature, rightSearchSignature) &&
-                    !SearchSignature::isSubset(rightSearchSignature, leftSearchSignature)) {
-                return true;
+void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature newSearch) {
+    // all the inequalities to discharge
+    auto delta = SearchSignature::getDelta(oldSearch, newSearch);
+    for (size_t i = 0; i < delta.arity(); ++i) {
+        if (delta[i] == AttributeConstraint::Inequal) {
+            dischargedMap[oldSearch].insert(i);
+        }
+    }
+}
+
+void MinIndexSelection::removeExtraInequalities() {
+    for (auto chain : chainToOrder) {
+        for (auto oldSearch : chain) {
+            auto newSearch = oldSearch;
+            bool seenInequality = false;
+            for (size_t i = 0; i < oldSearch.arity(); ++i) {
+                if (oldSearch[i] == AttributeConstraint::Inequal) {
+                    if (seenInequality) {
+                        newSearch[i] = AttributeConstraint::None;
+                    } else {
+                        seenInequality = false;
+                    }
+                }
+            }
+            updateSearch(oldSearch, newSearch);
+        }
+    }
+}
+
+std::optional<MinIndexSelection::Chain> MinIndexSelection::mergeChainPair(Chain leftChain, Chain rightChain) {
+    // merge the two chains except for the ends of either chain
+    Chain mergedChain;
+    auto left = leftChain.begin();
+    auto right = rightChain.begin();
+    while (left != leftChain.end() && right != rightChain.end()) {
+        if (*left < *right) {
+            mergedChain.push_back(*left);
+            ++left;
+        } else if (*right < *left) {
+            mergedChain.push_back(*right);
+            ++right;
+        } else {
+            // loop through all permutations until we find a satisfying pair
+            bool foundMatch = false;
+            for (auto leftPermutation : left->getAllPermutations()) {
+                for (auto rightPermutation : right->getAllPermutations()) {
+                    if (leftPermutation < rightPermutation) {
+                        mergedChain.push_back(leftPermutation);
+                        foundMatch = true;
+                        updateSearch(*left, leftPermutation);
+                        updateSearch(*right, rightPermutation);
+                        ++left;
+                        break;
+                    } else if (rightPermutation < leftPermutation) {
+                        mergedChain.push_back(rightPermutation);
+                        foundMatch = true;
+                        updateSearch(*left, leftPermutation);
+                        updateSearch(*right, rightPermutation);
+                        ++right;
+                        break;
+                    }
+                }
+                if (foundMatch) {
+                    break;
+                }
+            }
+
+            if (!foundMatch) {
+                return std::nullopt;
             }
         }
     }
-    return false;
+
+    while (left != leftChain.end()) {
+        mergedChain.push_back(*left);
+        ++left;
+    }
+
+    while (right != rightChain.end()) {
+        mergedChain.push_back(*right);
+        ++right;
+    }
+
+    return mergedChain;
 }
 
-void MinIndexSelection::mergeChains(
-        MinIndexSelection::ChainOrderMap& chains, MinIndexSelection::DischargeMap& map) {
+void MinIndexSelection::mergeChains(MinIndexSelection::ChainOrderMap& chains) {
     bool changed = true;
     while (changed) {
         changed = false;
         for (auto lhs_it = chains.begin(); lhs_it != chains.end(); ++lhs_it) {
-            auto lhs = *lhs_it;
+            auto leftChain = *lhs_it;
             for (auto rhs_it = std::next(lhs_it); rhs_it != chains.end(); ++rhs_it) {
-                auto rhs = *rhs_it;
+                auto rightChain = *rhs_it;
+                auto mergedChain = mergeChainPair(leftChain, rightChain);
+                if (mergedChain) {
+                    changed = true;
 
-                // if both chains end with a search with an inequality then we can't merge
-                if (lhs.back().containsInequality() && rhs.back().containsInequality()) {
-                    continue;
+                    // remove previous 2 chains
+                    chains.erase(lhs_it);
+                    chains.erase(rhs_it);
+
+                    // insert merged chain
+                    chains.push_back(mergedChain.value());
+                    break;
                 }
-
-                // if there's an antichain formed by the two chains then we can't merge
-                if (formsAntichain(lhs, rhs)) {
-                    continue;
-                }
-
-                // if the delta set contains an equality it's impossible to merge
-                if (lhs.back().containsInequality() &&
-                        SearchSignature::getDelta(lhs.back(), rhs.back()).containsEquality()) {
-                    continue;
-                }
-
-                // if the delta set contains an equality it's impossible to merge
-                if (rhs.back().containsInequality() &&
-                        SearchSignature::getDelta(rhs.back(), lhs.back()).containsEquality()) {
-                    continue;
-                }
-
-                // merge the two chains except for the ends of either chain
-                Chain mergedChain;
-                auto left = lhs.begin();
-                auto right = rhs.begin();
-                while (*left != lhs.back() && *right != rhs.back()) {
-                    if (*left < *right) {
-                        mergedChain.push_back(*left);
-                        ++left;
-                        continue;
-                    }
-                    if (*right < *left) {
-                        mergedChain.push_back(*right);
-                        ++right;
-                        continue;
-                    }
-                }
-
-                while (*left != lhs.back()) {
-                    mergedChain.push_back(*left);
-                    ++left;
-                }
-
-                while (*right != rhs.back()) {
-                    mergedChain.push_back(*right);
-                    ++right;
-                }
-
-                // checks if we can merge and if so return the inequality that we keep in the permissable
-                // chain
-                auto canMerge = [&](SearchSignature lower, SearchSignature upper) -> std::optional<size_t> {
-                    auto delta = SearchSignature::getDelta(upper, lower);
-                    auto prevDelta = mergedChain.empty()
-                                             ? lower
-                                             : SearchSignature::getDelta(lower, mergedChain.back());
-                    // if we have a 0->2 delta then we can merge
-                    // Example: 110->122 we can have the lex-order 0<1<2
-                    for (size_t i = 0; i < delta.arity(); ++i) {
-                        if (lower[i] == AttributeConstraint::None &&
-                                upper[i] == AttributeConstraint::Inequal) {
-                            return i;
-                        }
-                    }
-                    // otherwise if we have one of our inequalities in the prev delta then we can merge
-                    // Example: 1000->1011->1021 w/ prevDelta = 0011 delta = 0020
-                    for (size_t i = 0; i < delta.arity(); ++i) {
-                        if (delta[i] == AttributeConstraint::Inequal &&
-                                prevDelta[i] == AttributeConstraint::Equal) {
-                            return i;
-                        }
-                    }
-                    return std::nullopt;
-                };
-
-                // discharges in the case of multiple inequalities when we have selected the one to
-                // permit Example: 010->111->122 and we use the last inequality we discharge the
-                // middle inequality
-                auto dischargeInequalities = [](SearchSignature& search, size_t inequalityIndex,
-                                                     DischargeMap& map) mutable {
-                    SearchSignature original = search;
-                    for (size_t i = 0; i < search.arity(); ++i) {
-                        if (i == inequalityIndex) {
-                            continue;
-                        }
-                        if (search[i] == AttributeConstraint::Inequal) {
-                            search[i] = AttributeConstraint::None;
-                            map[original].insert(i);
-                        }
-                    }
-                    return search;
-                };
-
-                auto& lower = lhs.back().containsInequality() ? *rhs.rbegin() : *lhs.rbegin();
-                auto& upper = lhs.back().containsInequality() ? *lhs.rbegin() : *rhs.rbegin();
-
-                auto mergeAttribute = canMerge(lower, upper);
-                if (!mergeAttribute) {
-                    continue;
-                }
-
-                dischargeInequalities(upper, mergeAttribute.value(), map);
-                mergedChain.push_back(lower);
-                mergedChain.push_back(upper);
-                changed = true;
-
-                // remove previous 2 chains
-                chains.erase(lhs_it);
-                chains.erase(rhs_it);
-
-                // insert merged chain
-                chains.push_back(mergedChain);
-                break;
             }
             if (changed) {
                 break;
             }
         }
     }
-    // At the very end if we have multiple inequalities in a search then it's arbitrary which one to keep
-    // Example: 001->221 we can remove either inequality
-    for (auto& chain : chains) {
-        // remove extra inequalities
-        bool seenInequality = false;
-        auto& search = *chain.rbegin();
-        auto original = search;
-
-        for (size_t i = 0; i < search.arity(); ++i) {
-            if (search[i] == AttributeConstraint::Inequal) {
-                if (!seenInequality) {
-                    seenInequality = true;
-                } else {
-                    dischargedMap[original].insert(i);
-                    search[i] = AttributeConstraint::None;
-                }
-            }
-        }
-    }
+    removeExtraInequalities();
 }
 
 MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
@@ -712,8 +673,6 @@ void RamIndexAnalysis::print(std::ostream& os) const {
         os << "Relation " << relName << "\n";
         os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
 
-        const auto& attrib = rel.getAttributeNames();
-
         /* print searches */
         for (auto& search : indexes.getSearches()) {
             os << "\t\t";
@@ -721,12 +680,16 @@ void RamIndexAnalysis::print(std::ostream& os) const {
             os << "\n";
         }
 
+        /* print chains */
+        for (auto& chain : indexes.getAllChains()) {
+            os << join(chain, "-->") << "\n";
+        }
+        os << "\n";
+
         os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
         for (auto& order : indexes.getAllOrders()) {
             os << "\t\t";
-            for (auto& i : order) {
-                os << attrib[i] << " ";
-            }
+            os << join(order, "<") << "\n";
             os << "\n";
         }
     }

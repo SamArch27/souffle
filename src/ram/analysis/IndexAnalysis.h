@@ -28,6 +28,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -68,10 +69,11 @@ public:
 
     bool empty() const;
     bool containsEquality() const;
-    bool containsInequality() const;
+    bool containsMultipleInequalities() const;
+    std::vector<SearchSignature> getAllPermutations() const;
+
     static bool isComparable(const SearchSignature& lhs, const SearchSignature& rhs);
     static bool isSubset(const SearchSignature& lhs, const SearchSignature& rhs);
-    static bool isStrictSubset(const SearchSignature& lhs, const SearchSignature& rhs);
     static SearchSignature getDelta(const SearchSignature& lhs, const SearchSignature& rhs);
     static SearchSignature getFullSearchSignature(size_t arity);
     static SearchSignature getDischarged(const SearchSignature& signature);
@@ -273,8 +275,8 @@ public:
         return chainToOrder;
     }
 
-    /** @Brief check whether number of constraints in k is not equal
-        to number of columns in lexicographical order */
+    /** @Brief check whether number of constraints in k is not equal to number of columns in lexicographical
+     * order */
     bool isSubset(SearchSignature cols) const {
         int idx = map(cols);
         return card(cols) < orders[idx].size();
@@ -361,15 +363,17 @@ protected:
     /** @Brief get all chains from the matching */
     const ChainOrderMap getChainsFromMatching(const MaxMatching::Matchings& match, const SearchSet& nodes);
 
-    /** @Brief checks if two chains form an antichain */
-    bool formsAntichain(const Chain& left, const Chain& right) const;
+    /** @Brief Merges 2 chains and returns the Chain if merge was successful */
+    std::optional<Chain> mergeChainPair(Chain leftChain, Chain rightChain);
 
-    /** @Brief merge chains with 1->2 edges in the delta if we can produce a chain that can form a valid
-     * lex-order */
-    void mergeChains(ChainOrderMap& chains, DischargeMap& map);
+    /** @Brief merge chains where a search has multiple inequalities */
+    void mergeChains(ChainOrderMap& chains);
 
-    /** @Brief merge chains by discharging a single inequality at a time */
-    void dischargeToMergeChains(ChainOrderMap& chains, DischargeMap& map);
+    /** @Brief discharge extra inequalities for a particular existing search given the new search */
+    void updateSearch(SearchSignature oldSearch, SearchSignature newSearch);
+
+    /** @Brief remove arbitrary extra inequalities */
+    void removeExtraInequalities();
 
     /** @Brief get all nodes which are unmatched from A-> B */
     const SearchSet getUnmatchedKeys(const MaxMatching::Matchings& match, const SearchSet& nodes) {
