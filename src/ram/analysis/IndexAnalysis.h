@@ -69,8 +69,6 @@ public:
 
     bool empty() const;
     bool containsEquality() const;
-    bool containsMultipleInequalities() const;
-    std::vector<SearchSignature> getAllPermutations() const;
 
     static bool isComparable(const SearchSignature& lhs, const SearchSignature& rhs);
     static bool isSubset(const SearchSignature& lhs, const SearchSignature& rhs);
@@ -362,12 +360,6 @@ protected:
 
     /** @Brief get all chains from the matching */
     const ChainOrderMap getChainsFromMatching(const MaxMatching::Matchings& match, const SearchSet& nodes);
-
-    /** @Brief Merges 2 chains and returns the Chain if merge was successful */
-    std::optional<Chain> mergeChainPair(Chain leftChain, Chain rightChain);
-
-    /** @Brief merge chains where a search has multiple inequalities */
-    void mergeChains(ChainOrderMap& chains);
 
     /** @Brief discharge extra inequalities for a particular existing search given the new search */
     void updateSearch(SearchSignature oldSearch, SearchSignature newSearch);

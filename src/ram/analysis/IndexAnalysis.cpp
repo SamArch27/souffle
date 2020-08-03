@@ -86,53 +86,6 @@ bool SearchSignature::containsEquality() const {
     return false;
 }
 
-bool SearchSignature::containsMultipleInequalities() const {
-    bool seen = false;
-    for (size_t i = 0; i < constraints.size(); ++i) {
-        if (constraints[i] == AttributeConstraint::Inequal) {
-            if (seen) {
-                return true;
-            } else {
-                seen = true;
-            }
-        }
-    }
-    return false;
-}
-
-std::vector<SearchSignature> SearchSignature::getAllPermutations() const {
-    const auto& search = *this;
-
-    // only one permutation if we don't have multiple inequalities
-    if (!search.containsMultipleInequalities()) {
-        return {search};
-    }
-
-    // find all inequalities
-    std::vector<size_t> inequalities;
-    for (size_t i = 0; i < search.arity(); ++i) {
-        if (search[i] == AttributeConstraint::Inequal) {
-            inequalities.push_back(i);
-        }
-    }
-
-    // remove all inequalities
-    SearchSignature stripped = search;
-    for (size_t index : inequalities) {
-        stripped[index] = AttributeConstraint::None;
-    }
-
-    // create a copy for every inequality
-    std::vector<SearchSignature> permutations(inequalities.size(), stripped);
-
-    // for each copy we set a single one of the inequalities
-    for (size_t i = 0; i < inequalities.size(); ++i) {
-        size_t index = inequalities[i];
-        permutations[i][index] = AttributeConstraint::Inequal;
-    }
-    return permutations;
-}
-
 // Note: We have 0 < 1 and 0 < 2 but we cannot say that 1 < 2.
 // The reason for this is to prevent search chains such as 100->101->201 which have no valid lex-order
 bool SearchSignature::isComparable(const SearchSignature& lhs, const SearchSignature& rhs) {
@@ -423,7 +376,7 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
             Chain a;
             a.push_back(node);
             chainToOrder.push_back(a);
-            mergeChains(chainToOrder);
+            removeExtraInequalities();
             return chainToOrder;
         }
     }
@@ -441,17 +394,23 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
     }
 
     assert(!chainToOrder.empty());
-
-    mergeChains(chainToOrder);
+    removeExtraInequalities();
     return chainToOrder;
 }
 
 void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature newSearch) {
-    // all the inequalities to discharge
     auto delta = SearchSignature::getDelta(oldSearch, newSearch);
     for (size_t i = 0; i < delta.arity(); ++i) {
         if (delta[i] == AttributeConstraint::Inequal) {
             dischargedMap[oldSearch].insert(i);
+        }
+    }
+
+    for (auto& chain : chainToOrder) {
+        for (auto& search : chain) {
+            if (search == oldSearch) {
+                search = newSearch;
+            }
         }
     }
 }
@@ -466,99 +425,13 @@ void MinIndexSelection::removeExtraInequalities() {
                     if (seenInequality) {
                         newSearch[i] = AttributeConstraint::None;
                     } else {
-                        seenInequality = false;
+                        seenInequality = true;
                     }
                 }
             }
             updateSearch(oldSearch, newSearch);
         }
     }
-}
-
-std::optional<MinIndexSelection::Chain> MinIndexSelection::mergeChainPair(Chain leftChain, Chain rightChain) {
-    // merge the two chains except for the ends of either chain
-    Chain mergedChain;
-    auto left = leftChain.begin();
-    auto right = rightChain.begin();
-    while (left != leftChain.end() && right != rightChain.end()) {
-        if (*left < *right) {
-            mergedChain.push_back(*left);
-            ++left;
-        } else if (*right < *left) {
-            mergedChain.push_back(*right);
-            ++right;
-        } else {
-            // loop through all permutations until we find a satisfying pair
-            bool foundMatch = false;
-            for (auto leftPermutation : left->getAllPermutations()) {
-                for (auto rightPermutation : right->getAllPermutations()) {
-                    if (leftPermutation < rightPermutation) {
-                        mergedChain.push_back(leftPermutation);
-                        foundMatch = true;
-                        updateSearch(*left, leftPermutation);
-                        updateSearch(*right, rightPermutation);
-                        ++left;
-                        break;
-                    } else if (rightPermutation < leftPermutation) {
-                        mergedChain.push_back(rightPermutation);
-                        foundMatch = true;
-                        updateSearch(*left, leftPermutation);
-                        updateSearch(*right, rightPermutation);
-                        ++right;
-                        break;
-                    }
-                }
-                if (foundMatch) {
-                    break;
-                }
-            }
-
-            if (!foundMatch) {
-                return std::nullopt;
-            }
-        }
-    }
-
-    while (left != leftChain.end()) {
-        mergedChain.push_back(*left);
-        ++left;
-    }
-
-    while (right != rightChain.end()) {
-        mergedChain.push_back(*right);
-        ++right;
-    }
-
-    return mergedChain;
-}
-
-void MinIndexSelection::mergeChains(MinIndexSelection::ChainOrderMap& chains) {
-    bool changed = true;
-    while (changed) {
-        changed = false;
-        for (auto lhs_it = chains.begin(); lhs_it != chains.end(); ++lhs_it) {
-            auto leftChain = *lhs_it;
-            for (auto rhs_it = std::next(lhs_it); rhs_it != chains.end(); ++rhs_it) {
-                auto rightChain = *rhs_it;
-                auto mergedChain = mergeChainPair(leftChain, rightChain);
-                if (mergedChain) {
-                    changed = true;
-
-                    // remove previous 2 chains
-                    chains.erase(lhs_it);
-                    chains.erase(rhs_it);
-
-                    // insert merged chain
-                    chains.push_back(mergedChain.value());
-                    break;
-                }
-            }
-            if (changed) {
-                break;
-            }
-        }
-    }
-    removeExtraInequalities();
 }
 
 MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
