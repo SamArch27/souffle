@@ -202,9 +202,9 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
                 std::string element_type_cast("");
 
                 switch (types[attrib][0]) {
-                    case 'i': element_type_cast = "ramBitCast<RamSigned, RamDomain>"; break;
-                    case 'u': element_type_cast = "ramBitCast<RamUnsigned, RamDomain>"; break;
-                    case 'f': element_type_cast = "ramBitCast<RamFloat, RamDomain>"; break;
+                    case 'i': element_type_cast = "ramBitCast<RamSigned>"; break;
+                    case 'u': element_type_cast = "ramBitCast<RamUnsigned>"; break;
+                    case 'f': element_type_cast = "ramBitCast<RamFloat>"; break;
                 }
 
                 out << "(" << element_type_cast << "(a[" << attrib << "]) < " << element_type_cast << "(b["
@@ -227,9 +227,11 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
                 std::string element_type_cast("");
 
                 switch (types[attrib][0]) {
-                    case 'i': element_type_cast = "ramBitCast<RamSigned, RamDomain>"; break;
-                    case 'u': element_type_cast = "ramBitCast<RamUnsigned, RamDomain>"; break;
-                    case 'f': element_type_cast = "ramBitCast<RamFloat, RamDomain>"; break;
+                    case 'i': element_type_cast = "ramBitCast<RamSigned>"; break;
+                    case 'u':
+                        element_type_cast = "ramBitCast<RamUnsigned>";
+                        break;
+                        // case 'f': element_type_cast = "ramBitCast<RamFloat>"; break;
                 }
 
                 out << " " << element_type_cast << "(a[" << attrib << "]) < " << element_type_cast << "(b["
@@ -251,9 +253,11 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
                 std::string element_type_cast("");
 
                 switch (types[attrib][0]) {
-                    case 'i': element_type_cast = "ramBitCast<RamSigned, RamDomain>"; break;
-                    case 'u': element_type_cast = "ramBitCast<RamUnsigned, RamDomain>"; break;
-                    case 'f': element_type_cast = "ramBitCast<RamFloat, RamDomain>"; break;
+                    case 'i': element_type_cast = "ramBitCast<RamSigned>"; break;
+                    case 'u':
+                        element_type_cast = "ramBitCast<RamUnsigned>";
+                        break;
+                        // case 'f': element_type_cast = "ramBitCast<RamFloat>"; break;
                 }
 
                 out << "" << element_type_cast << "(a[" << attrib << "]) == " << element_type_cast << "(b["
