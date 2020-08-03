@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file TypeEnvironmentAnalysis.cpp
+ * @file TypeEnvironment.cpp
  *
  * Implements AST Analysis methods for a Type Environment
  *
@@ -18,9 +18,12 @@
 #include "GraphUtils.h"
 #include "ast/Attribute.h"
 #include "ast/Program.h"
+#include "ast/RecordType.h"
+#include "ast/SubsetType.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Type.h"
 #include "ast/TypeSystem.h"
+#include "ast/UnionType.h"
 #include "utility/MiscUtil.h"
 #include "utility/tinyformat.h"
 #include <algorithm>

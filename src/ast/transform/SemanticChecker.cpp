@@ -24,29 +24,51 @@
 #include "RamTypes.h"
 #include "RelationTag.h"
 #include "SrcLocation.h"
-#include "ast/Abstract.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Attribute.h"
+#include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
+#include "ast/Counter.h"
+#include "ast/ExecutionOrder.h"
+#include "ast/ExecutionPlan.h"
+#include "ast/Functor.h"
 #include "ast/IO.h"
+#include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/NilConstant.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
+#include "ast/NumericConstant.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
+#include "ast/RecordInit.h"
+#include "ast/RecordType.h"
 #include "ast/Relation.h"
+#include "ast/StringConstant.h"
+#include "ast/SubsetType.h"
+#include "ast/Term.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Type.h"
+#include "ast/TypeCast.h"
 #include "ast/TypeSystem.h"
+#include "ast/UnionType.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedFunctor.h"
 #include "ast/Utils.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include "ast/analysis/Ground.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/RecursiveClauses.h"
-#include "ast/analysis/RelationSchedule.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/Type.h"
 #include "ast/analysis/TypeEnvironment.h"
+#include "ast/transform/GroundedTermsChecker.h"
+#include "utility/../RamTypes.h"
 #include "utility/ContainerUtil.h"
 #include "utility/FunctionalUtil.h"
 #include "utility/MiscUtil.h"
@@ -67,6 +89,7 @@
 #include <vector>
 
 namespace souffle {
+class AstConstant;
 
 struct AstSemanticCheckerImpl {
     AstTranslationUnit& tu;
@@ -1188,50 +1211,6 @@ void AstSemanticCheckerImpl::checkNamespaces() {
     }
 }
 
-bool AstExecutionPlanChecker::transform(AstTranslationUnit& translationUnit) {
-    auto* relationSchedule = translationUnit.getAnalysis<RelationScheduleAnalysis>();
-    auto* recursiveClauses = translationUnit.getAnalysis<RecursiveClausesAnalysis>();
-    auto&& report = translationUnit.getErrorReport();
-
-    for (const RelationScheduleAnalysisStep& step : relationSchedule->schedule()) {
-        const std::set<const AstRelation*>& scc = step.computed();
-        for (const AstRelation* rel : scc) {
-            for (const AstClause* clause : getClauses(*translationUnit.getProgram(), *rel)) {
-                if (!recursiveClauses->recursive(clause)) {
-                    continue;
-                }
-                if (clause->getExecutionPlan() == nullptr) {
-                    continue;
-                }
-                int version = 0;
-                for (const auto* atom : getBodyLiterals<AstAtom>(*clause)) {
-                    if (scc.count(getAtomRelation(atom, translationUnit.getProgram())) != 0u) {
-                        version++;
-                    }
-                }
-                int maxVersion = -1;
-                for (auto const& cur : clause->getExecutionPlan()->getOrders()) {
-                    maxVersion = std::max(cur.first, maxVersion);
-                }
-
-                if (version <= maxVersion) {
-                    for (const auto& cur : clause->getExecutionPlan()->getOrders()) {
-                        if (cur.first >= version) {
-                            report.addDiagnostic(Diagnostic(Diagnostic::Type::ERROR,
-                                    DiagnosticMessage(
-                                            "execution plan for version " + std::to_string(cur.first),
-                                            cur.second->getSrcLoc()),
-                                    {DiagnosticMessage("only versions 0.." + std::to_string(version - 1) +
-                                                       " permitted")}));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return false;
-}
-
 void TypeChecker::visitAtom(const AstAtom& atom) {
     auto relation = getAtomRelation(&atom, &program);
     if (relation == nullptr) {
@@ -1437,24 +1416,34 @@ void TypeChecker::visitBinaryConstraint(const AstBinaryConstraint& constraint) {
     auto op = constraint.getOperator();
     auto left = constraint.getLHS();
     auto right = constraint.getRHS();
-    auto opRamTypes = getBinaryConstraintTypes(op);
+    auto opTypesAttrs = getBinaryConstraintTypes(op);
+
+    auto leftTypes = typeAnalysis.getTypes(left);
+    auto rightTypes = typeAnalysis.getTypes(right);
+
     // Skip checks if either side is `Bottom` b/c it just adds noise.
     // The unable-to-deduce-type checker will point out the issue.
-    if (typeAnalysis.getTypes(left).empty() || typeAnalysis.getTypes(right).empty()) return;
+    if (leftTypes.empty() || rightTypes.empty() || leftTypes.isAll() || rightTypes.isAll()) return;
+
+    assert((leftTypes.size() == 1) && (rightTypes.size() == 1));
+
+    // Extract types from singleton sets.
+    auto& leftType = *typeAnalysis.getTypes(left).begin();
+    auto& rightType = *typeAnalysis.getTypes(right).begin();
 
     // give them a slightly nicer error
-    if (isOrderedBinaryConstraintOp(op) && typeAnalysis.getTypes(left) != typeAnalysis.getTypes(right)) {
+    if (isOrderedBinaryConstraintOp(op) && !areEquivalentTypes(leftType, rightType)) {
         report.addError("Cannot compare different types", constraint.getSrcLoc());
     } else {
         auto checkTyAttr = [&](AstArgument const& side) {
-            auto opMatchesType = any_of(opRamTypes,
-                    [&](auto& ramType) { return isOfKind(typeAnalysis.getTypes(&side), ramType); });
+            auto opMatchesType = any_of(opTypesAttrs,
+                    [&](auto& typeAttr) { return isOfKind(typeAnalysis.getTypes(&side), typeAttr); });
 
             if (!opMatchesType) {
                 std::stringstream ss;
                 ss << "Constraint requires an operand of type "
-                   << join(opRamTypes, " or ", [&](auto& out, auto& ramTy) {
-                          switch (ramTy) {
+                   << join(opTypesAttrs, " or ", [&](auto& out, auto& typeAttr) {
+                          switch (typeAttr) {
                               case TypeAttribute::Signed: out << "`number`"; break;
                               case TypeAttribute::Symbol: out << "`symbol`"; break;
                               case TypeAttribute::Unsigned: out << "`unsigned`"; break;
@@ -1482,33 +1471,6 @@ void TypeChecker::visitAggregator(const AstAggregator& aggregator) {
     if (!isOfKind(aggregatorType, opType)) {
         report.addError("Couldn't assign types to the aggregator", aggregator.getSrcLoc());
     }
-}
-
-void GroundedTermsChecker::verify(AstTranslationUnit& translationUnit) {
-    auto&& program = *translationUnit.getProgram();
-    auto&& report = translationUnit.getErrorReport();
-
-    // -- check grounded variables and records --
-    visitDepthFirst(program.getClauses(), [&](const AstClause& clause) {
-        if (isFact(clause)) return;  // only interested in rules
-
-        auto isGrounded = getGroundedTerms(translationUnit, clause);
-
-        std::set<std::string> reportedVars;
-        // all terms in head need to be grounded
-        for (auto&& cur : getVariables(clause)) {
-            if (!isGrounded[cur] && reportedVars.insert(cur->getName()).second) {
-                report.addError("Ungrounded variable " + cur->getName(), cur->getSrcLoc());
-            }
-        }
-
-        // all records need to be grounded
-        for (auto&& cur : getRecords(clause)) {
-            if (!isGrounded[cur]) {
-                report.addError("Ungrounded record", cur->getSrcLoc());
-            }
-        }
-    });
 }
 
 }  // end of namespace souffle

@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file IOTypeAnalysis.cpp
+ * @file IOType.cpp
  *
  * Implements methods to identify a relation as input, output, or printsize.
  *

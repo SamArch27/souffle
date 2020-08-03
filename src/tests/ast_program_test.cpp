@@ -20,8 +20,8 @@
 #include "DebugReport.h"
 #include "ErrorReport.h"
 #include "ParserDriver.h"
-#include "ast/Abstract.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Attribute.h"
 #include "ast/Clause.h"
 #include "ast/Literal.h"
@@ -30,6 +30,8 @@
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Utils.h"
+#include "ast/Variable.h"
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>

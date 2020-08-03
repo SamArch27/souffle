@@ -22,26 +22,46 @@
 #include "LogStatement.h"
 #include "RelationTag.h"
 #include "SrcLocation.h"
-#include "ast/Abstract.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Attribute.h"
+#include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
+#include "ast/Constant.h"
+#include "ast/Constraint.h"
+#include "ast/Counter.h"
+#include "ast/ExecutionOrder.h"
+#include "ast/ExecutionPlan.h"
+#include "ast/Functor.h"
 #include "ast/IO.h"
+#include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/NilConstant.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
+#include "ast/NumericConstant.h"
 #include "ast/Program.h"
+#include "ast/ProvenanceNegation.h"
+#include "ast/QualifiedName.h"
+#include "ast/RecordInit.h"
 #include "ast/Relation.h"
+#include "ast/StringConstant.h"
+#include "ast/SubroutineArgument.h"
 #include "ast/TranslationUnit.h"
-#include "ast/Type.h"
 #include "ast/TypeSystem.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedFunctor.h"
 #include "ast/Utils.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include "ast/analysis/AuxArity.h"
+#include "ast/analysis/RecursiveClauses.h"
 #include "ast/analysis/RelationSchedule.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/TopologicallySortedSCCGraph.h"
 #include "ast/analysis/TypeEnvironment.h"
-#include "json11.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
@@ -53,8 +73,6 @@
 #include "ram/Utils.h"
 #include "utility/ContainerUtil.h"
 #include "utility/FunctionalUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -64,13 +82,9 @@
 #include <optional>
 #include <set>
 #include <sstream>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace souffle {
-
-using json11::Json;
 
 class ErrorReport;
 

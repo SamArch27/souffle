@@ -19,6 +19,8 @@
 #include "RelationTag.h"
 #include "SrcLocation.h"
 #include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"

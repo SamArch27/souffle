@@ -15,10 +15,10 @@
  ***********************************************************************/
 
 #include "TypeSystem.h"
-#include "RamTypes.h"
 #include "utility/FunctionalUtil.h"
 #include "utility/StreamUtil.h"
 #include "utility/StringUtil.h"
+#include "utility/tinyformat.h"
 #include <cassert>
 
 namespace souffle {
@@ -365,6 +365,10 @@ std::optional<TypeAttribute> getTypeAttribute(const TypeSet& type) {
         }
     }
     return {};
+}
+
+bool areEquivalentTypes(const Type& a, const Type& b) {
+    return isSubtypeOf(a, b) && isSubtypeOf(b, a);
 }
 
 }  // end of namespace souffle

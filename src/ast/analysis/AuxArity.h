@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include "ast/Literal.h"
+#include "ast/Atom.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Utils.h"
 #include "ast/analysis/Analysis.h"
-#include <cstddef>
 #include <string>
 
 namespace souffle {

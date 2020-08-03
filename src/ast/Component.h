@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include "SrcLocation.h"
 #include "ast/Clause.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
 #include "ast/IO.h"
 #include "ast/Node.h"
-#include "ast/QualifiedName.h"
+#include "ast/NodeMapper.h"
 #include "ast/Relation.h"
 #include "ast/Type.h"
 #include "utility/ContainerUtil.h"
@@ -35,121 +36,6 @@
 #include <vector>
 
 namespace souffle {
-
-/**
- * A component type is
- *
- *                  name < Type1, Type2, ... >
- *
- * where name is the component name and < Type, Type, ... > is a
- * list of component type parameters (either actual or formal).
- */
-class AstComponentType : public AstNode {
-public:
-    AstComponentType(std::string name = "", std::vector<AstQualifiedName> params = {}, SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(name)), typeParams(std::move(params)) {}
-
-    /** get component name */
-    const std::string& getName() const {
-        return name;
-    }
-
-    /** set component name */
-    void setName(std::string n) {
-        name = std::move(n);
-    }
-
-    /** get component type parameters */
-    const std::vector<AstQualifiedName>& getTypeParameters() const {
-        return typeParams;
-    }
-
-    /** set component type parameters */
-    void setTypeParameters(const std::vector<AstQualifiedName>& params) {
-        typeParams = params;
-    }
-
-    AstComponentType* clone() const override {
-        return new AstComponentType(name, typeParams, getSrcLoc());
-    }
-
-protected:
-    void print(std::ostream& os) const override {
-        os << name;
-        if (!typeParams.empty()) {
-            os << "<" << join(typeParams) << ">";
-        }
-    }
-
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstComponentType&>(node);
-        return name == other.name && typeParams == other.typeParams;
-    }
-
-private:
-    /** component name */
-    std::string name;
-
-    /** component type parameters */
-    std::vector<AstQualifiedName> typeParams;
-};
-
-/**
- * Component intialization
- */
-class AstComponentInit : public AstNode {
-public:
-    AstComponentInit(std::string name, Own<AstComponentType> type, SrcLocation loc = {})
-            : AstNode(std::move(loc)), instanceName(std::move(name)), componentType(std::move(type)) {}
-
-    /** get instance name */
-    const std::string& getInstanceName() const {
-        return instanceName;
-    }
-
-    /** set instance name */
-    void setInstanceName(std::string name) {
-        instanceName = std::move(name);
-    }
-
-    /** get component type */
-    const AstComponentType* getComponentType() const {
-        return componentType.get();
-    }
-
-    /** set component type */
-    void setComponentType(Own<AstComponentType> type) {
-        componentType = std::move(type);
-    }
-
-    AstComponentInit* clone() const override {
-        return new AstComponentInit(instanceName, souffle::clone(componentType), getSrcLoc());
-    }
-
-    void apply(const AstNodeMapper& mapper) override {
-        componentType = mapper(std::move(componentType));
-    }
-
-    std::vector<const AstNode*> getChildNodes() const override {
-        return {componentType.get()};
-    }
-
-protected:
-    void print(std::ostream& os) const override {
-        os << ".init " << instanceName << " = " << *componentType;
-    }
-
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstComponentInit&>(node);
-        return instanceName == other.instanceName && *componentType == *other.componentType;
-    }
-
-    /** instance name */
-    std::string instanceName;
-
-    /** actual component arguments for instantiation */
-    Own<AstComponentType> componentType;
-};
 
 /**
  * A AST node describing a component within the input program.

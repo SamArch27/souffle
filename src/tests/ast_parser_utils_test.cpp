@@ -16,8 +16,8 @@
 
 #include "tests/test.h"
 
+#include "ast/Atom.h"
 #include "ast/Clause.h"
-#include "ast/Literal.h"
 #include "ast/Node.h"
 #include "ast/ParserUtils.h"
 #include "utility/ContainerUtil.h"

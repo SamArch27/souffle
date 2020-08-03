@@ -16,14 +16,16 @@
 
 #pragma once
 
-#include "ast/Abstract.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Clause.h"
 #include "ast/Literal.h"
 #include "ast/QualifiedName.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include "ast/analysis/Analysis.h"
 #include "ast/transform/Transformer.h"
+#include "utility/MiscUtil.h"
 #include "utility/StreamUtil.h"
 #include <cstddef>
 #include <map>
@@ -231,4 +233,5 @@ private:
     std::set<AstQualifiedName> ignoredAtoms;
     BindingStore bindings;
 };
+
 }  // namespace souffle

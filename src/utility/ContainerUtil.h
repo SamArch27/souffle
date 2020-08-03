@@ -163,11 +163,21 @@ auto map(const std::vector<A>& xs, F&& f) {
 // -------------------------------------------------------------------------------
 
 template <typename A>
-auto clone(const std::vector<A>& xs) {
-    std::vector<decltype(clone(xs[0]))> ys;
+auto clone(const std::vector<A*>& xs) {
+    std::vector<std::unique_ptr<A>> ys;
     ys.reserve(xs.size());
     for (auto&& x : xs) {
-        ys.emplace_back(clone(x));
+        ys.emplace_back(x ? std::unique_ptr<A>(x->clone()) : nullptr);
+    }
+    return ys;
+}
+
+template <typename A>
+auto clone(const std::vector<std::unique_ptr<A>>& xs) {
+    std::vector<std::unique_ptr<A>> ys;
+    ys.reserve(xs.size());
+    for (auto&& x : xs) {
+        ys.emplace_back(x ? std::unique_ptr<A>(x->clone()) : nullptr);
     }
     return ys;
 }

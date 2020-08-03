@@ -17,16 +17,15 @@
 #pragma once
 
 #include "Constraints.h"
-#include "ast/Abstract.h"
 #include "ast/Argument.h"
 #include "ast/Clause.h"
 #include "ast/Node.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include <map>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <utility>
 
 namespace souffle {
 

@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file TypeAnalysis.cpp
+ * @file Type.cpp
  *
  * Implements a collection of type analyses operating on AST constructs.
  *
@@ -19,22 +19,34 @@
 #include "Constraints.h"
 #include "FunctorOps.h"
 #include "Global.h"
-#include "RamTypes.h"
-#include "ast/Abstract.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Attribute.h"
+#include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
-#include "ast/Literal.h"
+#include "ast/Counter.h"
+#include "ast/Functor.h"
+#include "ast/IntrinsicFunctor.h"
+#include "ast/Negation.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
+#include "ast/NumericConstant.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
+#include "ast/RecordInit.h"
 #include "ast/Relation.h"
+#include "ast/StringConstant.h"
 #include "ast/TranslationUnit.h"
+#include "ast/TypeCast.h"
 #include "ast/TypeSystem.h"
+#include "ast/UnnamedVariable.h"
 #include "ast/Utils.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include "ast/analysis/Constraint.h"
 #include "ast/analysis/TypeEnvironment.h"
+#include "utility/../RamTypes.h"
 #include "utility/ContainerUtil.h"
 #include "utility/FunctionalUtil.h"
 #include "utility/MiscUtil.h"
@@ -52,6 +64,7 @@
 #include <utility>
 
 namespace souffle {
+class AstConstant;
 
 namespace {
 

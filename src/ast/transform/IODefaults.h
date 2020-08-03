@@ -16,11 +16,13 @@
 
 #pragma once
 
-#include "ast/Utils.h"
+#include "Global.h"
+#include "ast/IO.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
-#include <map>
+#include "utility/StringUtil.h"
 #include <string>
-#include <vector>
 
 namespace souffle {
 

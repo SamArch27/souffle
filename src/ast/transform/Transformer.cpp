@@ -17,8 +17,6 @@
 #include "ast/transform/Transformer.h"
 #include "ErrorReport.h"
 #include "ast/TranslationUnit.h"
-#include <chrono>
-#include <iostream>
 
 namespace souffle {
 
@@ -32,20 +30,6 @@ bool AstTransformer::apply(AstTranslationUnit& translationUnit) {
 
     /* Abort evaluation of the program if errors were encountered */
     translationUnit.getErrorReport().exitIfErrors();
-
-    return changed;
-}
-
-bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, AstTransformer* transformer) {
-    auto start = std::chrono::high_resolution_clock::now();
-    bool changed = transformer->apply(translationUnit);
-    auto end = std::chrono::high_resolution_clock::now();
-
-    if (verbose && (dynamic_cast<MetaTransformer*>(transformer) == nullptr)) {
-        std::string changedString = changed ? "changed" : "unchanged";
-        std::cout << transformer->getName() << " time: " << std::chrono::duration<double>(end - start).count()
-                  << "sec [" << changedString << "]" << std::endl;
-    }
 
     return changed;
 }

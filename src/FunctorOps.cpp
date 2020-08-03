@@ -1,7 +1,13 @@
 
 #include "FunctorOps.h"
-#include "utility/ContainerUtil.h"
 #include "utility/FunctionalUtil.h"
+#include "utility/MiscUtil.h"
+#include <cassert>
+#include <cctype>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <utility>
 #include <vector>
 
 namespace souffle {

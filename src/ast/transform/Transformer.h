@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include <set>
 #include <string>
-#include <vector>
 
 namespace souffle {
 
@@ -36,61 +34,6 @@ public:
     virtual std::string getName() const = 0;
 
     virtual AstTransformer* clone() const = 0;
-};
-
-/**
- * Transformer that coordinates other sub-transformations
- */
-class MetaTransformer : public AstTransformer {
-protected:
-    bool verbose = false;
-
-public:
-    /* Get subtransformers */
-    virtual std::vector<AstTransformer*> getSubtransformers() const = 0;
-
-    /* Enable the debug-report for all sub-transformations */
-    virtual void setDebugReport() = 0;
-
-    /* Enable high verbosity */
-    virtual void setVerbosity(bool verbose) = 0;
-
-    /* Disable subtransformers */
-    virtual void disableTransformers(const std::set<std::string>& transforms) = 0;
-
-    /* Apply a nested transformer */
-    bool applySubtransformer(AstTranslationUnit& translationUnit, AstTransformer* transformer);
-
-    MetaTransformer* clone() const override = 0;
-};
-
-/**
- * Transformer that does absolutely nothing
- */
-class NullTransformer : public MetaTransformer {
-private:
-    bool transform(AstTranslationUnit& /* translationUnit */) override {
-        return false;
-    }
-
-public:
-    std::vector<AstTransformer*> getSubtransformers() const override {
-        return {};
-    }
-
-    void setDebugReport() override {}
-
-    void setVerbosity(bool /* verbose */) override {}
-
-    void disableTransformers(const std::set<std::string>& /* transforms */) override {}
-
-    std::string getName() const override {
-        return "NullTransformer";
-    }
-
-    NullTransformer* clone() const override {
-        return new NullTransformer();
-    }
 };
 
 }  // end of namespace souffle

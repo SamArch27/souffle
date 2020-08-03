@@ -17,11 +17,16 @@
 
 #pragma once
 
-#include "ast/Utils.h"
+#include "Global.h"
+#include "ast/IO.h"
+#include "ast/Program.h"
+#include "ast/RecordType.h"
+#include "ast/TranslationUnit.h"
 #include "ast/analysis/AuxArity.h"
 #include "ast/analysis/TypeEnvironment.h"
 #include "ast/transform/Transformer.h"
-#include <map>
+#include "json11.h"
+#include "utility/StringUtil.h"
 #include <string>
 #include <vector>
 
@@ -69,10 +74,11 @@ private:
             long long arity{static_cast<long long>(rel->getArity() - auxArityAnalysis->getArity(rel))};
             long long auxArity{static_cast<long long>(auxArityAnalysis->getArity(rel))};
 
-            Json relJson = Json::object{{"arity", arity}, {"auxArity", auxArity},
-                    {"params", Json::array(attributesParams.begin(), attributesParams.end())}};
+            json11::Json relJson = json11::Json::object{{"arity", arity}, {"auxArity", auxArity},
+                    {"params", json11::Json::array(attributesParams.begin(), attributesParams.end())}};
 
-            Json params = Json::object{{"relation", relJson}, {"records", getRecordsParams(translationUnit)}};
+            json11::Json params = json11::Json::object{
+                    {"relation", relJson}, {"records", getRecordsParams(translationUnit)}};
 
             io->addDirective("params", params.dump());
             changed = true;
@@ -132,10 +138,11 @@ private:
             long long arity{static_cast<long long>(rel->getArity() - auxArityAnalysis->getArity(rel))};
             long long auxArity{static_cast<long long>(auxArityAnalysis->getArity(rel))};
 
-            Json relJson = Json::object{{"arity", arity}, {"auxArity", auxArity},
-                    {"types", Json::array(attributesTypes.begin(), attributesTypes.end())}};
+            json11::Json relJson = json11::Json::object{{"arity", arity}, {"auxArity", auxArity},
+                    {"types", json11::Json::array(attributesTypes.begin(), attributesTypes.end())}};
 
-            Json types = Json::object{{"relation", relJson}, {"records", getRecordsTypes(translationUnit)}};
+            json11::Json types = json11::Json::object{
+                    {"relation", relJson}, {"records", getRecordsTypes(translationUnit)}};
 
             io->addDirective("types", types.dump());
             changed = true;
@@ -147,8 +154,8 @@ private:
         return toString(join(node->getQualifiedName().getQualifiers(), "."));
     }
 
-    Json getRecordsTypes(AstTranslationUnit& translationUnit) const {
-        static Json ramRecordTypes;
+    json11::Json getRecordsTypes(AstTranslationUnit& translationUnit) const {
+        static json11::Json ramRecordTypes;
         // Check if the types where already constructed
         if (!ramRecordTypes.is_null()) {
             return ramRecordTypes;
@@ -157,7 +164,7 @@ private:
         AstProgram* program = translationUnit.getProgram();
         auto typeEnv = &translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
         std::vector<std::string> elementTypes;
-        std::map<std::string, Json> records;
+        std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
         for (auto* astType : program->getTypes()) {
@@ -169,18 +176,18 @@ private:
                     elementTypes.push_back(getTypeQualifier(*field));
                 }
                 const size_t recordArity = elementTypes.size();
-                Json recordInfo = Json::object{
+                json11::Json recordInfo = json11::Json::object{
                         {"types", std::move(elementTypes)}, {"arity", static_cast<long long>(recordArity)}};
                 records.emplace(getTypeQualifier(type), std::move(recordInfo));
             }
         }
 
-        ramRecordTypes = Json(records);
+        ramRecordTypes = json11::Json(records);
         return ramRecordTypes;
     }
 
-    Json getRecordsParams(AstTranslationUnit& translationUnit) const {
-        static Json ramRecordParams;
+    json11::Json getRecordsParams(AstTranslationUnit& translationUnit) const {
+        static json11::Json ramRecordParams;
         // Check if the types where already constructed
         if (!ramRecordParams.is_null()) {
             return ramRecordParams;
@@ -188,7 +195,7 @@ private:
 
         AstProgram* program = translationUnit.getProgram();
         std::vector<std::string> elementParams;
-        std::map<std::string, Json> records;
+        std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
         for (auto* astType : program->getTypes()) {
@@ -199,13 +206,13 @@ private:
                     elementParams.push_back(field->getName());
                 }
                 const size_t recordArity = elementParams.size();
-                Json recordInfo = Json::object{
+                json11::Json recordInfo = json11::Json::object{
                         {"params", std::move(elementParams)}, {"arity", static_cast<long long>(recordArity)}};
                 records.emplace(astType->getQualifiedName().toString(), std::move(recordInfo));
             }
         }
 
-        ramRecordParams = Json(records);
+        ramRecordParams = json11::Json(records);
         return ramRecordParams;
     }
 };

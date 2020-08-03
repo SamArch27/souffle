@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "ast/Abstract.h"
+#include "ast/Literal.h"
+#include "utility/ContainerUtil.h"
 #include "utility/MiscUtil.h"
 #include <iosfwd>
 #include <memory>
@@ -25,6 +26,7 @@
 
 namespace souffle {
 
+class AstConstraint;
 class AstClause;
 class AstAtom;
 

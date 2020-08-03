@@ -16,23 +16,26 @@
 
 #include "ParserDriver.h"
 #include "ErrorReport.h"
+#include "Global.h"
 #include "ast/Clause.h"
 #include "ast/Component.h"
+#include "ast/ComponentInit.h"
 #include "ast/FunctorDeclaration.h"
 #include "ast/IO.h"
 #include "ast/Pragma.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
+#include "ast/SubsetType.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Type.h"
 #include "ast/Utils.h"
 #include "utility/ContainerUtil.h"
 #include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
 #include "utility/StreamUtil.h"
 #include "utility/StringUtil.h"
 #include "utility/tinyformat.h"
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>

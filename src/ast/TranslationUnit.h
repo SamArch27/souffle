@@ -22,11 +22,11 @@
 #include "Global.h"
 #include "ast/Program.h"
 #include "ast/analysis/Analysis.h"
-#include "ast/analysis/RecursiveClauses.h"
+#include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
-#include <iosfwd>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 

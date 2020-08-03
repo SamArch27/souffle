@@ -13,13 +13,16 @@
  ***********************************************************************/
 
 #include "ast/transform/ReplaceSingletonVariables.h"
-#include "ast/Abstract.h"
-#include "ast/Argument.h"
 #include "ast/Clause.h"
+#include "ast/Constraint.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
 #include "ast/Program.h"
+#include "ast/RecordInit.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
 #include "ast/Utils.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include <memory>
 #include <set>

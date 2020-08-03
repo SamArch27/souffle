@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file ComponentLookupAnalysis.cpp
+ * @file ComponentLookup.cpp
  *
  * Implements the component lookup
  *
@@ -16,6 +16,7 @@
 
 #include "ast/analysis/ComponentLookup.h"
 #include "ast/Component.h"
+#include "ast/ComponentType.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Visitor.h"

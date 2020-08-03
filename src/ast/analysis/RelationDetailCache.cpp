@@ -17,8 +17,8 @@
  ***********************************************************************/
 
 #include "ast/analysis/RelationDetailCache.h"
+#include "ast/Atom.h"
 #include "ast/Clause.h"
-#include "ast/Literal.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"

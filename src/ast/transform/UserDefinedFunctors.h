@@ -41,4 +41,5 @@ public:
 private:
     bool transform(AstTranslationUnit& translationUnit) override;
 };
+
 }  // end of namespace souffle

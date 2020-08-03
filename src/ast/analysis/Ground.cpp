@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file GroundAnalysis.cpp
+ * @file Ground.cpp
  *
  * Implements AST Analysis methods to find the grounded arguments in a clause
  *
@@ -18,11 +18,17 @@
 #include "BinaryConstraintOps.h"
 #include "Constraints.h"
 #include "RelationTag.h"
-#include "ast/Argument.h"
+#include "ast/Aggregator.h"
+#include "ast/Atom.h"
+#include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
-#include "ast/Literal.h"
+#include "ast/Constant.h"
+#include "ast/Functor.h"
+#include "ast/Negation.h"
+#include "ast/RecordInit.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
+#include "ast/TypeCast.h"
 #include "ast/analysis/Constraint.h"
 #include "ast/analysis/RelationDetailCache.h"
 #include "utility/StreamUtil.h"

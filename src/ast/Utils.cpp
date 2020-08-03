@@ -16,25 +16,33 @@
 
 #include "ast/Utils.h"
 #include "BinaryConstraintOps.h"
-#include "TypeSystem.h"
-#include "ast/Abstract.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
 #include "ast/Clause.h"
+#include "ast/Constraint.h"
+#include "ast/ExecutionPlan.h"
 #include "ast/FunctorDeclaration.h"
+#include "ast/IO.h"
+#include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/Type.h"
+#include "ast/TypeSystem.h"
 #include "ast/Visitor.h"
 #include "ast/analysis/Type.h"
 #include "utility/ContainerUtil.h"
+#include "utility/FunctionalUtil.h"
 #include "utility/MiscUtil.h"
 #include "utility/StringUtil.h"
 #include <algorithm>
 #include <cassert>
-#include <memory>
 
 namespace souffle {
 

@@ -19,6 +19,7 @@
 #include "RamTypes.h"
 #include "SrcLocation.h"
 #include "ast/Node.h"
+#include "utility/ContainerUtil.h"
 #include "utility/MiscUtil.h"
 #include "utility/StreamUtil.h"
 #include "utility/tinyformat.h"

@@ -8,7 +8,7 @@
 
 /************************************************************************
  *
- * @file AuxArityAnalysis.cpp
+ * @file AuxArity.cpp
  *
  * Implementation of AST analyses classes
  *

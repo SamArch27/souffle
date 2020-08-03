@@ -13,10 +13,11 @@
  ***********************************************************************/
 
 #include "ast/transform/RemoveEmptyRelations.h"
-#include "ast/Abstract.h"
-#include "ast/Argument.h"
+#include "ast/Aggregator.h"
+#include "ast/Atom.h"
 #include "ast/Clause.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
 #include "ast/Program.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"

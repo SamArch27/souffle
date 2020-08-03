@@ -14,14 +14,14 @@
 
 #include "ast/transform/PartitionBodyLiterals.h"
 #include "GraphUtils.h"
-#include "ast/Abstract.h"
-#include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Clause.h"
 #include "ast/Literal.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
+#include "ast/Variable.h"
 #include "ast/Visitor.h"
 #include "utility/MiscUtil.h"
 #include <functional>

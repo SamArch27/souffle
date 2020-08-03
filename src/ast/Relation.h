@@ -21,6 +21,7 @@
 #include "SrcLocation.h"
 #include "ast/Attribute.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
 #include "ast/QualifiedName.h"
 #include "utility/ContainerUtil.h"
 #include "utility/StreamUtil.h"

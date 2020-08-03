@@ -17,10 +17,7 @@
 #pragma once
 
 #include "SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include <cassert>
 #include <iosfwd>
-#include <memory>
 #include <string>
 #include <typeinfo>
 #include <utility>
@@ -99,58 +96,5 @@ private:
     /** Source location of a syntactic element */
     SrcLocation location;
 };
-
-/**
- * An abstract class for manipulating AST Nodes by substitution
- */
-class AstNodeMapper {
-public:
-    virtual ~AstNodeMapper() = default;
-
-    /**
-     * Abstract replacement method for a node.
-     *
-     * If the given nodes is to be replaced, the handed in node
-     * will be destroyed by the mapper and the returned node
-     * will become owned by the caller.
-     */
-    virtual Own<AstNode> operator()(Own<AstNode> node) const = 0;
-
-    /**
-     * Wrapper for any subclass of the AST node hierarchy performing type casts.
-     */
-    template <typename T>
-    Own<T> operator()(Own<T> node) const {
-        Own<AstNode> resPtr = (*this)(Own<AstNode>(static_cast<AstNode*>(node.release())));
-        assert(nullptr != dynamic_cast<T*>(resPtr.get()) && "Invalid target node!");
-        return Own<T>(dynamic_cast<T*>(resPtr.release()));
-    }
-};
-
-namespace detail {
-
-/**
- * A special AstNodeMapper wrapping a lambda conducting node transformations.
- */
-template <typename Lambda>
-class LambdaNodeMapper : public AstNodeMapper {
-    const Lambda& lambda;
-
-public:
-    LambdaNodeMapper(const Lambda& lambda) : lambda(lambda) {}
-
-    Own<AstNode> operator()(Own<AstNode> node) const override {
-        return lambda(std::move(node));
-    }
-};
-}  // namespace detail
-
-/**
- * Creates a node mapper based on a corresponding lambda expression.
- */
-template <typename Lambda>
-detail::LambdaNodeMapper<Lambda> makeLambdaAstMapper(const Lambda& lambda) {
-    return detail::LambdaNodeMapper<Lambda>(lambda);
-}
 
 }  // end of namespace souffle

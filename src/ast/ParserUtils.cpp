@@ -15,8 +15,11 @@
  ***********************************************************************/
 
 #include "ast/ParserUtils.h"
+#include "ast/Atom.h"
 #include "ast/Clause.h"
+#include "ast/Constraint.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
 #include "ast/Node.h"
 #include "ast/Utils.h"
 #include "utility/ContainerUtil.h"

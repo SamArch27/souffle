@@ -16,14 +16,10 @@
 
 #pragma once
 
-#include "GraphUtils.h"
-#include "RamTypes.h"
 #include "ast/QualifiedName.h"
 #include "ast/TypeSystem.h"
 #include "ast/analysis/Analysis.h"
 #include "utility/ContainerUtil.h"
-#include <map>
-#include <ostream>
 #include <set>
 #include <string>
 

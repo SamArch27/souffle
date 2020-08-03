@@ -17,16 +17,38 @@
 
 #pragma once
 
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
+#include "ast/Atom.h"
 #include "ast/Attribute.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
 #include "ast/Clause.h"
 #include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
+#include "ast/Constraint.h"
+#include "ast/Counter.h"
+#include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/NilConstant.h"
 #include "ast/Node.h"
+#include "ast/NumericConstant.h"
 #include "ast/Pragma.h"
 #include "ast/Program.h"
+#include "ast/ProvenanceNegation.h"
+#include "ast/RecordInit.h"
+#include "ast/RecordType.h"
 #include "ast/Relation.h"
-#include "ast/Type.h"
+#include "ast/StringConstant.h"
+#include "ast/SubroutineArgument.h"
+#include "ast/SubsetType.h"
+#include "ast/TypeCast.h"
+#include "ast/UnionType.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedFunctor.h"
+#include "ast/Variable.h"
 #include "utility/FunctionalUtil.h"
 #include "utility/MiscUtil.h"
 #include <cstddef>
@@ -37,9 +59,10 @@
 #include <vector>
 
 namespace souffle {
-class AstArgument;
-class AstConstraint;
-class AstLiteral;
+class AstConstant;
+class AstFunctor;
+class AstTerm;
+class AstType;
 
 /** A tag type required for the is_ast_visitor type trait to identify AstVisitors */
 struct ast_visitor_tag {};

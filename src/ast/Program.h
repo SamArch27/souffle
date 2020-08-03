@@ -19,9 +19,11 @@
 
 #include "ast/Clause.h"
 #include "ast/Component.h"
+#include "ast/ComponentInit.h"
 #include "ast/FunctorDeclaration.h"
 #include "ast/IO.h"
 #include "ast/Node.h"
+#include "ast/NodeMapper.h"
 #include "ast/Pragma.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
