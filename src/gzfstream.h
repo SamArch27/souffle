@@ -15,9 +15,10 @@
 
 #pragma once
 
+#include <cstdio>
 #include <cstring>
 #include <iostream>
-
+#include <string>
 #include <zlib.h>
 
 namespace souffle {

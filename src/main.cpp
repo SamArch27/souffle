@@ -14,42 +14,91 @@
  *
  ***********************************************************************/
 
-#include "AstComponentChecker.h"
-#include "AstPragmaChecker.h"
-#include "AstSemanticChecker.h"
-#include "AstTransforms.h"
-#include "AstTranslationUnit.h"
-#include "AstTranslator.h"
-#include "AstTypeAnalysis.h"
-#include "ComponentInstantiationTransformer.h"
+#include "AstToRamTranslator.h"
 #include "DebugReport.h"
-#include "DebugReporter.h"
 #include "ErrorReport.h"
 #include "Explain.h"
 #include "Global.h"
-#include "InterpreterEngine.h"
-#include "InterpreterProgInterface.h"
 #include "ParserDriver.h"
-#include "PrecedenceGraph.h"
-#include "RamIndexAnalysis.h"
-#include "RamLevelAnalysis.h"
-#include "RamProgram.h"
-#include "RamTransformer.h"
-#include "RamTransforms.h"
-#include "RamTranslationUnit.h"
 #include "RamTypes.h"
-#include "Synthesiser.h"
-#include "Util.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/PrecedenceGraph.h"
+#include "ast/analysis/SCCGraph.h"
+#include "ast/analysis/Type.h"
+#include "ast/transform/ComponentChecker.h"
+#include "ast/transform/ComponentInstantiation.h"
+#include "ast/transform/Conditional.h"
+#include "ast/transform/ExecutionPlanChecker.h"
+#include "ast/transform/Fixpoint.h"
+#include "ast/transform/FoldAnonymousRecords.h"
+#include "ast/transform/GroundedTermsChecker.h"
+#include "ast/transform/IOAttributes.h"
+#include "ast/transform/IODefaults.h"
+#include "ast/transform/InlineRelations.h"
+#include "ast/transform/MagicSet.h"
+#include "ast/transform/MaterializeAggregationQueries.h"
+#include "ast/transform/MaterializeSingletonAggregation.h"
+#include "ast/transform/MinimiseProgram.h"
+#include "ast/transform/NameUnnamedVariables.h"
+#include "ast/transform/NormaliseConstraints.h"
+#include "ast/transform/PartitionBodyLiterals.h"
+#include "ast/transform/Pipeline.h"
+#include "ast/transform/PolymorphicObjects.h"
+#include "ast/transform/PragmaChecker.h"
+#include "ast/transform/Provenance.h"
+#include "ast/transform/ReduceExistentials.h"
+#include "ast/transform/RemoveBooleanConstraints.h"
+#include "ast/transform/RemoveEmptyRelations.h"
+#include "ast/transform/RemoveRedundantRelations.h"
+#include "ast/transform/RemoveRedundantSums.h"
+#include "ast/transform/RemoveRelationCopies.h"
+#include "ast/transform/RemoveTypecasts.h"
+#include "ast/transform/ReorderLiterals.h"
+#include "ast/transform/ReplaceSingletonVariables.h"
+#include "ast/transform/ResolveAliases.h"
+#include "ast/transform/ResolveAnonymousRecordAliases.h"
+#include "ast/transform/SemanticChecker.h"
+#include "ast/transform/UniqueAggregationVariables.h"
+#include "ast/transform/UserDefinedFunctors.h"
 #include "config.h"
+#include "interpreter/InterpreterEngine.h"
+#include "interpreter/InterpreterProgInterface.h"
 #include "profile/Tui.h"
+#include "ram/Node.h"
+#include "ram/Program.h"
+#include "ram/TranslationUnit.h"
+#include "ram/transform/ChoiceConversion.h"
+#include "ram/transform/CollapseFilters.h"
+#include "ram/transform/EliminateDuplicates.h"
+#include "ram/transform/ExpandFilter.h"
+#include "ram/transform/HoistAggregate.h"
+#include "ram/transform/HoistConditions.h"
+#include "ram/transform/IfConversion.h"
+#include "ram/transform/IndexedInequality.h"
+#include "ram/transform/MakeIndex.h"
+#include "ram/transform/Parallel.h"
+#include "ram/transform/ReorderConditions.h"
+#include "ram/transform/ReorderFilterBreak.h"
+#include "ram/transform/ReportIndex.h"
+#include "ram/transform/Transformer.h"
+#include "ram/transform/TupleId.h"
+#include "synthesiser/Synthesiser.h"
+#include "utility/ContainerUtil.h"
+#include "utility/FileUtil.h"
+#include "utility/StreamUtil.h"
+#include "utility/StringUtil.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
+#include <ctime>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -74,8 +123,9 @@ void executeBinary(const std::string& binaryFilename) {
         for (const std::string& library : splitString(Global::config().get("library-dir"), ' ')) {
             ldPath += library + ':';
         }
-        ldPath.back() = ' ';
+        ldPath.pop_back();
         setenv("LD_LIBRARY_PATH", ldPath.c_str(), 1);
+        setenv("DYLD_LIBRARY_PATH", ldPath.c_str(), 1);
     }
 
     int exitCode = system(binaryFilename.c_str());
@@ -157,16 +207,16 @@ int main(int argc, char** argv) {
                 {"compile", 'c', "", "", false,
                         "Generate C++ source code, compile to a binary executable, then run this "
                         "executable."},
-		
-		{"default-datastructure", 'X', "DS", ".", false, "Specify default data structure."},
+
+                {"default-datastructure", 'X', "DS", ".", false, "Specify default data structure."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
                         "<FILE>. If <FILE> is `-` then stdout is used."},
                 {"swig", 's', "LANG", "", false,
                         "Generate SWIG interface for given language. The values <LANG> accepts is java and "
                         "python. "},
-                {"library-dir", 'L', "DIR", "", true, "Specify directory for library files."},
-                {"libraries", 'l', "FILE", "", true, "Specify libraries."},
+                {"library-dir", 'L', "DIR", "", false, "Specify directory for library files."},
+                {"libraries", 'l', "FILE", "", false, "Specify libraries."},
                 {"no-warn", 'w', "", "", false, "Disable warnings."},
                 {"magic-transform", 'm', "RELATIONS", "", false,
                         "Enable magic set transformation changes on the given relations, use '*' "
@@ -183,7 +233,7 @@ int main(int argc, char** argv) {
                         "Use profile log-file <FILE> for profile-guided optimization."},
                 {"debug-report", 'r', "FILE", "", false, "Write HTML debug report to <FILE>."},
                 {"pragma", 'P', "OPTIONS", "", false, "Set pragma options."},
-                {"provenance", 't', "[ none | explain | explore | subtreeHeights ]", "", false,
+                {"provenance", 't', "[ none | explain | explore ]", "", false,
                         "Enable provenance instrumentation and interaction."},
                 {"verbose", 'v', "", "", false, "Verbose output."},
                 {"version", '\3', "", "", false, "Version."},
@@ -192,7 +242,8 @@ int main(int argc, char** argv) {
                         "transformed-ram | type-analysis ]",
                         "", false, "Print selected program information."},
                 {"parse-errors", '\5', "", "", false, "Show parsing errors, if any, then exit."},
-                {"help", 'h', "", "", false, "Display this help message."}}; 
+                {"help", 'h', "", "", false, "Display this help message."},
+                {"legacy", '\6', "", "", false, "Enable legacy support."}};
         Global::config().processArgs(argc, argv, header.str(), footer.str(), options);
 
         // ------ command line arguments -------------
@@ -250,7 +301,7 @@ int main(int argc, char** argv) {
         }
 #else
         // Check that -j option has not been changed from the default
-        if (Global::config().get("jobs") != "1") {
+        if (Global::config().get("jobs") != "1" && !Global::config().has("no-warn")) {
             std::cerr << "\nThis installation of Souffle does not support concurrent jobs.\n";
         }
 #endif
@@ -312,7 +363,7 @@ int main(int argc, char** argv) {
         }
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /**
@@ -377,13 +428,7 @@ int main(int argc, char** argv) {
     }
 
     // ------- check for parse errors -------------
-    if (astTranslationUnit->getErrorReport().getNumErrors() != 0) {
-        std::cerr << astTranslationUnit->getErrorReport();
-        std::cerr << std::to_string(astTranslationUnit->getErrorReport().getNumErrors()) +
-                             " errors generated, evaluation aborted"
-                  << std::endl;
-        exit(1);
-    }
+    astTranslationUnit->getErrorReport().exitIfErrors();
 
     // ------- rewriting / optimizations -------------
 
@@ -392,20 +437,21 @@ int main(int argc, char** argv) {
 
     /* construct the transformation pipeline */
 
-    // Magic-Set pipeline
-    auto magicPipeline = std::make_unique<ConditionalTransformer>(Global::config().has("magic-transform"),
-            std::make_unique<PipelineTransformer>(std::make_unique<NormaliseConstraintsTransformer>(),
-                    std::make_unique<MagicSetTransformer>(), std::make_unique<ResolveAliasesTransformer>(),
-                    std::make_unique<RemoveRelationCopiesTransformer>(),
-                    std::make_unique<RemoveEmptyRelationsTransformer>(),
-                    std::make_unique<RemoveRedundantRelationsTransformer>()));
-
     // Equivalence pipeline
     auto equivalencePipeline =
-            std::make_unique<PipelineTransformer>(std::make_unique<MinimiseProgramTransformer>(),
+            std::make_unique<PipelineTransformer>(std::make_unique<NameUnnamedVariablesTransformer>(),
+                    std::make_unique<FixpointTransformer>(std::make_unique<MinimiseProgramTransformer>()),
+                    std::make_unique<ReplaceSingletonVariablesTransformer>(),
                     std::make_unique<RemoveRelationCopiesTransformer>(),
                     std::make_unique<RemoveEmptyRelationsTransformer>(),
                     std::make_unique<RemoveRedundantRelationsTransformer>());
+
+    // Magic-Set pipeline
+    auto magicPipeline = std::make_unique<PipelineTransformer>(std::make_unique<MagicSetTransformer>(),
+            std::make_unique<ResolveAliasesTransformer>(),
+            std::make_unique<RemoveRelationCopiesTransformer>(),
+            std::make_unique<RemoveEmptyRelationsTransformer>(),
+            std::make_unique<RemoveRedundantRelationsTransformer>(), souffle::clone(equivalencePipeline));
 
     // Partitioning pipeline
     auto partitionPipeline =
@@ -414,19 +460,24 @@ int main(int argc, char** argv) {
                     std::make_unique<ReplaceSingletonVariablesTransformer>());
 
     // Provenance pipeline
-    auto provenancePipeline = std::make_unique<PipelineTransformer>(std::make_unique<ConditionalTransformer>(
-            Global::config().has("provenance"), std::make_unique<ProvenanceTransformer>()));
+    auto provenancePipeline = mk<ConditionalTransformer>(Global::config().has("provenance"),
+            mk<PipelineTransformer>(mk<ProvenanceTransformer>(), mk<PolymorphicObjectsTransformer>()));
 
     // Main pipeline
     auto pipeline = std::make_unique<PipelineTransformer>(std::make_unique<AstComponentChecker>(),
-            std::make_unique<ComponentInstantiationTransformer>(),
+            std::make_unique<ComponentInstantiationTransformer>(), std::make_unique<IODefaultsTransformer>(),
             std::make_unique<UniqueAggregationVariablesTransformer>(),
             std::make_unique<AstUserDefinedFunctorsTransformer>(),
+            std::make_unique<FixpointTransformer>(
+                    std::make_unique<PipelineTransformer>(std::make_unique<ResolveAnonymousRecordAliases>(),
+                            std::make_unique<FoldAnonymousRecords>())),
             std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<AstSemanticChecker>(),
+            std::make_unique<MaterializeSingletonAggregationTransformer>(),
             std::make_unique<RemoveTypecastsTransformer>(),
             std::make_unique<RemoveBooleanConstraintsTransformer>(),
             std::make_unique<ResolveAliasesTransformer>(), std::make_unique<MinimiseProgramTransformer>(),
-            std::make_unique<InlineRelationsTransformer>(), std::make_unique<ResolveAliasesTransformer>(),
+            std::make_unique<InlineRelationsTransformer>(), std::make_unique<PolymorphicObjectsTransformer>(),
+            std::make_unique<GroundedTermsChecker>(), std::make_unique<ResolveAliasesTransformer>(),
             std::make_unique<RemoveRedundantRelationsTransformer>(),
             std::make_unique<RemoveRelationCopiesTransformer>(),
             std::make_unique<RemoveEmptyRelationsTransformer>(),
@@ -435,15 +486,15 @@ int main(int argc, char** argv) {
                     std::make_unique<PipelineTransformer>(std::make_unique<ReduceExistentialsTransformer>(),
                             std::make_unique<RemoveRedundantRelationsTransformer>())),
             std::make_unique<RemoveRelationCopiesTransformer>(), std::move(partitionPipeline),
-            std::make_unique<FixpointTransformer>(std::make_unique<MinimiseProgramTransformer>()),
-            std::make_unique<RemoveRelationCopiesTransformer>(),
-            std::make_unique<ReorderLiteralsTransformer>(),
             std::make_unique<PipelineTransformer>(std::make_unique<ResolveAliasesTransformer>(),
                     std::make_unique<MaterializeAggregationQueriesTransformer>()),
+            std::move(equivalencePipeline), std::make_unique<RemoveRelationCopiesTransformer>(),
+            std::move(magicPipeline), std::make_unique<ReorderLiteralsTransformer>(),
             std::make_unique<RemoveRedundantSumsTransformer>(),
             std::make_unique<RemoveEmptyRelationsTransformer>(),
-            std::make_unique<ReorderLiteralsTransformer>(), std::move(magicPipeline),
-            std::make_unique<AstExecutionPlanChecker>(), std::move(provenancePipeline));
+            std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<ReorderLiteralsTransformer>(),
+            std::make_unique<AstExecutionPlanChecker>(), std::move(provenancePipeline),
+            std::make_unique<IOAttributesTransformer>());
 
     // Disable unwanted transformations
     if (Global::config().has("disable-transformers")) {
@@ -495,14 +546,14 @@ int main(int argc, char** argv) {
 
         // Output the precedence graph in graphviz dot format and return
         if (Global::config().get("show") == "precedence-graph") {
-            astTranslationUnit->getAnalysis<PrecedenceGraph>()->print(std::cout);
+            astTranslationUnit->getAnalysis<PrecedenceGraphAnalysis>()->print(std::cout);
             std::cout << std::endl;
             return 0;
         }
 
         // Output the scc graph in graphviz dot format and return
         if (Global::config().get("show") == "scc-graph") {
-            astTranslationUnit->getAnalysis<SCCGraph>()->print(std::cout);
+            astTranslationUnit->getAnalysis<SCCGraphAnalysis>()->print(std::cout);
             std::cout << std::endl;
             return 0;
         }
@@ -519,14 +570,16 @@ int main(int argc, char** argv) {
     /* translate AST to RAM */
     debugReport.startSection();
     std::unique_ptr<RamTranslationUnit> ramTranslationUnit =
-            AstTranslator().translateUnit(*astTranslationUnit);
+            AstToRamTranslator().translateUnit(*astTranslationUnit);
     debugReport.endSection("ast-to-ram", "Translate AST to RAM");
 
     std::unique_ptr<RamTransformer> ramTransform = std::make_unique<RamTransformerSequence>(
-            std::make_unique<RamLoopTransformer>(
-                    std::make_unique<RamTransformerSequence>(std::make_unique<ExpandFilterTransformer>(),
-                            std::make_unique<HoistConditionsTransformer>(),
-                            std::make_unique<MakeIndexTransformer>())),
+            std::make_unique<RamLoopTransformer>(std::make_unique<RamTransformerSequence>(
+                    std::make_unique<ExpandFilterTransformer>(),
+                    std::make_unique<HoistConditionsTransformer>(), std::make_unique<MakeIndexTransformer>()
+                    // not sure if I need to move out the filter transform
+                    )),
+            std::make_unique<RamLoopTransformer>(std::make_unique<IndexedInequalityTransformer>()),
             std::make_unique<IfConversionTransformer>(), std::make_unique<ChoiceConversionTransformer>(),
             std::make_unique<CollapseFiltersTransformer>(), std::make_unique<TupleIdTransformer>(),
             std::make_unique<RamLoopTransformer>(std::make_unique<RamTransformerSequence>(
@@ -573,18 +626,12 @@ int main(int argc, char** argv) {
                 profiler.join();
             }
             if (Global::config().has("provenance")) {
-                // Test for bugged combination of provenance, interpreted souffle, and concurrency
-                if (Global::config().get("jobs") != "1") {
-                    throw std::runtime_error("Provenance is not supported with parallel interpreted mode");
-                }
-
                 // only run explain interface if interpreted
                 InterpreterProgInterface interface(*interpreter);
-                if (Global::config().get("provenance") == "explain" ||
-                        Global::config().get("provenance") == "subtreeHeights") {
-                    explain(interface, false, Global::config().get("provenance") == "subtreeHeights");
+                if (Global::config().get("provenance") == "explain") {
+                    explain(interface, false);
                 } else if (Global::config().get("provenance") == "explore") {
-                    explain(interface, true, false);
+                    explain(interface, true);
                 }
             }
         } else {
@@ -659,7 +706,7 @@ int main(int argc, char** argv) {
         }
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
-        std::exit(1);
+        std::exit(EXIT_FAILURE);
     }
 
     /* Report overall run-time in verbose mode */

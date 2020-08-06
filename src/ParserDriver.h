@@ -16,11 +16,17 @@
 
 #pragma once
 
+#include "RamTypes.h"
+#include "RelationTag.h"
 #include "SrcLocation.h"
+#include "ast/QualifiedName.h"
+#include "ast/TranslationUnit.h"
 #include "parser.hh"
 #include <cstdio>
 #include <memory>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace souffle {
 
@@ -31,7 +37,7 @@ class AstFunctorDeclaration;
 class AstPragma;
 class AstRelation;
 class AstIO;
-class AstTranslationUnit;
+class AstSubsetType;
 class AstType;
 class DebugReport;
 class ErrorReport;
@@ -47,8 +53,7 @@ struct scanner_data {
 
 class ParserDriver {
 public:
-    ParserDriver();
-    virtual ~ParserDriver();
+    virtual ~ParserDriver() = default;
 
     std::unique_ptr<AstTranslationUnit> translationUnit;
 
@@ -60,6 +65,15 @@ public:
     void addComponent(std::unique_ptr<AstComponent> c);
     void addInstantiation(std::unique_ptr<AstComponentInit> ci);
     void addPragma(std::unique_ptr<AstPragma> p);
+
+    void addIoFromDeprecatedTag(AstRelation& r);
+    Own<AstSubsetType> mkDeprecatedSubType(AstQualifiedName name, AstQualifiedName attr, SrcLocation loc);
+
+    std::set<RelationTag> addReprTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags);
+    std::set<RelationTag> addDeprecatedTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags);
+    std::set<RelationTag> addTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags);
+    std::set<RelationTag> addTag(RelationTag tag, std::vector<RelationTag> incompatible, SrcLocation tagLoc,
+            std::set<RelationTag> tags);
 
     bool trace_scanning = false;
 

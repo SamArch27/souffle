@@ -17,18 +17,12 @@
 
 #pragma once
 
-#include "Util.h"
-
+#include <cstdio>
 #include <iostream>
 #include <string>
-
 #include <getopt.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 namespace souffle {
 
@@ -166,7 +160,7 @@ public:
                     if (!profiling) {
                         std::cerr << "\nError: profiling was not enabled in compilation\n\n";
                         printHelpPage(exec_name);
-                        exit(1);
+                        exit(EXIT_FAILURE);
                     }
                     profile_name = optarg;
                     break;
@@ -187,9 +181,7 @@ public:
                     std::cerr << "\nWarning: OpenMP was not enabled in compilation\n\n";
 #endif
                     break;
-                default:
-                    printHelpPage(exec_name);
-                    return false;
+                default: printHelpPage(exec_name); return false;
             }
         }
 

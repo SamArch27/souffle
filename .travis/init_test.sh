@@ -10,9 +10,10 @@ JOBS=$(nproc || sysctl -n hw.ncpu || echo 2)
 
 # create configure files
 ./bootstrap
-./configure
-make -j$JOBS
+./configure $1
 
+# build souffle
+make -j$JOBS
 
 set +e
 set +x

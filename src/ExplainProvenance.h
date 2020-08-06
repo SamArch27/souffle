@@ -16,17 +16,24 @@
 
 #pragma once
 
-#include "ExplainTree.h"
 #include "RamTypes.h"
 #include "SouffleInterface.h"
-#include "WriteStreamCSV.h"
-
+#include "SymbolTable.h"
+#include "utility/MiscUtil.h"
+#include "utility/StringUtil.h"
+#include "utility/tinyformat.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdio>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace souffle {
+class TreeNode;
 
 /** Equivalence class for variables in query command */
 class Equivalence {
@@ -67,22 +74,25 @@ public:
     }
 
     /** Extract index of the first occurrence of the varible */
-    std::pair<size_t, size_t> getFirstIdx() {
+    const std::pair<size_t, size_t>& getFirstIdx() const {
         return indices[0];
     }
 
     /** Get indices of equivalent variables */
-    std::vector<std::pair<size_t, size_t>> getIndices() {
+    const std::vector<std::pair<size_t, size_t>>& getIndices() const {
         return indices;
     }
 
-    /** Get type of the variable of the equivalence class, 'i' for RamDomain, 's' for symbol */
-    char getType() {
+    /** Get type of the variable of the equivalence class,
+     * 'i' for RamSigned, 's' for symbol
+     * 'u' for RamUnsigned, 'f' for RamFloat
+     */
+    char getType() const {
         return type;
     }
 
     /** Get the symbol of variable */
-    std::string getSymbol() {
+    const std::string& getSymbol() const {
         return symbol;
     }
 
@@ -108,16 +118,17 @@ public:
 
     /** Verify if the query product satisfies constant constraint */
     bool verify(const std::vector<tuple>& product) const {
-        for (auto constr : constConstrs) {
-            if (product[constr.first.first][constr.first.second] != constr.second) {
-                return false;
-            }
-        }
-        return true;
+        return std::all_of(constConstrs.begin(), constConstrs.end(), [&product](auto constr) {
+            return product[constr.first.first][constr.first.second] == constr.second;
+        });
     }
 
     /** Get the constant constraint vector */
     std::vector<std::pair<std::pair<size_t, size_t>, RamDomain>>& getConstraints() {
+        return constConstrs;
+    }
+
+    const std::vector<std::pair<std::pair<size_t, size_t>, RamDomain>>& getConstraints() const {
         return constConstrs;
     }
 
@@ -147,8 +158,7 @@ inline std::vector<std::string> split(const std::string& s, char delim, int time
 
 class ExplainProvenance {
 public:
-    ExplainProvenance(SouffleProgram& prog, bool useSublevels)
-            : prog(prog), symTable(prog.getSymbolTable()), useSublevels(useSublevels) {}
+    ExplainProvenance(SouffleProgram& prog) : prog(prog), symTable(prog.getSymbolTable()) {}
     virtual ~ExplainProvenance() = default;
 
     virtual void setup() = 0;
@@ -167,7 +177,7 @@ public:
 
     virtual std::string getRule(std::string relName, size_t ruleNum) = 0;
 
-    virtual std::vector<std::string> getRules(std::string relName) = 0;
+    virtual std::vector<std::string> getRules(const std::string& relName) = 0;
 
     virtual std::string measureRelation(std::string relName) = 0;
 
@@ -182,7 +192,6 @@ public:
 protected:
     SouffleProgram& prog;
     SymbolTable& symTable;
-    bool useSublevels;
 
     std::vector<RamDomain> argsToNums(
             const std::string& relName, const std::vector<std::string>& args) const {
@@ -194,21 +203,16 @@ protected:
         }
 
         for (size_t i = 0; i < args.size(); i++) {
-            if (*rel->getAttrType(i) == 's') {
-                // remove quotation marks
-                if (args[i].size() >= 2 && args[i][0] == '"' && args[i][args[i].size() - 1] == '"') {
-                    auto originalStr = args[i].substr(1, args[i].size() - 2);
-                    nums.push_back(symTable.lookup(originalStr));
-                }
-            } else {
-                nums.push_back(std::stoi(args[i]));
-            }
+            nums.push_back(valueRead(rel->getAttrType(i)[0], args[i]));
         }
 
         return nums;
     }
 
-    std::vector<std::string> numsToArgs(
+    /**
+     * Decode arguments from their ram representation and return as strings.
+     **/
+    std::vector<std::string> decodeArguments(
             const std::string& relName, const std::vector<RamDomain>& nums) const {
         std::vector<std::string> args;
 
@@ -218,14 +222,34 @@ protected:
         }
 
         for (size_t i = 0; i < nums.size(); i++) {
-            if (*rel->getAttrType(i) == 's') {
-                args.push_back("\"" + std::string(symTable.resolve(nums[i])) + "\"");
-            } else {
-                args.push_back(std::to_string(nums[i]));
-            }
+            args.push_back(valueShow(rel->getAttrType(i)[0], nums[i]));
         }
 
         return args;
+    }
+
+    std::string valueShow(const char type, const RamDomain value) const {
+        switch (type) {
+            case 'i': return tfm::format("%d", ramBitCast<RamSigned>(value));
+            case 'u': return tfm::format("%d", ramBitCast<RamUnsigned>(value));
+            case 'f': return tfm::format("%f", ramBitCast<RamFloat>(value));
+            case 's': return tfm::format("\"%s\"", symTable.resolve(value));
+            case 'r': return tfm::format("record #%d", value);
+            default: fatal("unhandled type attr code");
+        }
+    }
+
+    RamDomain valueRead(const char type, const std::string& value) const {
+        switch (type) {
+            case 'i': return ramBitCast(RamSignedFromString(value));
+            case 'u': return ramBitCast(RamUnsignedFromString(value));
+            case 'f': return ramBitCast(RamFloatFromString(value));
+            case 's':
+                assert(2 <= value.size() && value[0] == '"' && value.back() == '"');
+                return symTable.lookup(value.substr(1, value.size() - 2));
+            case 'r': fatal("not implemented");
+            default: fatal("unhandled type attr code");
+        }
     }
 };
 

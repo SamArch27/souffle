@@ -17,8 +17,10 @@
 #pragma once
 
 #include "RamTypes.h"
-#include <cassert>
+#include "TypeAttribute.h"
+#include "utility/MiscUtil.h"
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace souffle {
@@ -58,17 +60,157 @@ enum class BinaryConstraintOp {
     NOT_CONTAINS  // whether a sub-string is not contained in a string
 };
 
+char const* toBinaryConstraintSymbol(const BinaryConstraintOp op);
+
+inline std::ostream& operator<<(std::ostream& os, BinaryConstraintOp x) {
+    return os << toBinaryConstraintSymbol(x);
+}
+
+inline BinaryConstraintOp getEqConstraint(const std::string& type) {
+    switch (type[0]) {
+            /*
+        case 'f': return BinaryConstraintOp::FEQ;
+            case 'u': return BinaryConstraintOp::EQ;
+            case 'i': return BinaryConstraintOp::EQ;
+            */
+        default: return BinaryConstraintOp::EQ;
+    }
+}
+
+inline BinaryConstraintOp getLessEqualConstraint(const std::string& type) {
+    switch (type[0]) {
+            /*
+        case 'f': return BinaryConstraintOp::FLE;
+            case 'u': return BinaryConstraintOp::ULE;
+            case 'i': return BinaryConstraintOp::LE;
+            */
+        default: return BinaryConstraintOp::LE;
+    }
+}
+
+inline BinaryConstraintOp getGreaterEqualConstraint(const std::string& type) {
+    switch (type[0]) {
+            /*
+        case 'f': return BinaryConstraintOp::FGE;
+            case 'u': return BinaryConstraintOp::UGE;
+            case 'i': return BinaryConstraintOp::GE;
+            */
+        default: return BinaryConstraintOp::GE;
+    }
+}
+
+inline BinaryConstraintOp getLessThanConstraint(const std::string& type) {
+    switch (type[0]) {
+            /*
+        case 'f': return BinaryConstraintOp::FLT;
+            case 'u': return BinaryConstraintOp::ULT;
+            case 'i': return BinaryConstraintOp::LT;
+            */
+        default: return BinaryConstraintOp::LT;
+    }
+}
+
+inline BinaryConstraintOp getGreaterThanConstraint(const std::string& type) {
+    switch (type[0]) {
+            /*
+        case 'f': return BinaryConstraintOp::FGT;
+            case 'u': return BinaryConstraintOp::UGT;
+            case 'i': return BinaryConstraintOp::GT;
+            */
+        default: return BinaryConstraintOp::GT;
+    }
+}
+
 inline bool isEqConstraint(const BinaryConstraintOp constraintOp) {
     switch (constraintOp) {
         case BinaryConstraintOp::EQ:
-        case BinaryConstraintOp::FEQ:
-            return true;
-        default:
-            break;
+        case BinaryConstraintOp::FEQ: return true;
+        default: break;
     }
     return false;
 }
 
+// need to distinguish which inequalities are indexable and thus introduce isIneqConstraint
+inline bool isIneqSigned(const BinaryConstraintOp constraintOp) {
+    switch (constraintOp) {
+        case BinaryConstraintOp::LT:
+        case BinaryConstraintOp::GT:
+        case BinaryConstraintOp::LE:
+        case BinaryConstraintOp::GE: return true;
+        default: break;
+    }
+    return false;
+}
+
+inline bool isIneqUnsigned(const BinaryConstraintOp constraintOp) {
+    switch (constraintOp) {
+        case BinaryConstraintOp::ULT:
+        case BinaryConstraintOp::UGT:
+        case BinaryConstraintOp::ULE:
+        case BinaryConstraintOp::UGE: return true;
+        default: break;
+    }
+    return false;
+}
+
+inline bool isIneqFloat(const BinaryConstraintOp constraintOp) {
+    switch (constraintOp) {
+        case BinaryConstraintOp::FLT:
+        case BinaryConstraintOp::FGT:
+        case BinaryConstraintOp::FLE:
+        case BinaryConstraintOp::FGE: return true;
+        default: break;
+    }
+    return false;
+}
+
+inline bool isLessThanSigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::LT;
+}
+
+inline bool isGreaterThanSigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::GT;
+}
+
+inline bool isLessEqualSigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::LE;
+}
+
+inline bool isGreaterEqualSigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::GE;
+}
+
+inline bool isLessThanUnsigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::ULT;
+}
+
+inline bool isGreaterThanUnsigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::UGT;
+}
+
+inline bool isLessEqualUnsigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::ULE;
+}
+
+inline bool isGreaterEqualUnsigned(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::UGE;
+}
+
+inline bool isLessThanFloat(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::FLT;
+}
+
+inline bool isGreaterThanFloat(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::FGT;
+}
+
+inline bool isLessEqualFloat(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::FLE;
+}
+
+inline bool isGreaterEqualFloat(const BinaryConstraintOp constraintOp) {
+    return constraintOp == BinaryConstraintOp::FGE;
+}
 /**
  * Utility function, informing whether constraint is overloaded.
  * Only the signed version's are treated as overloaded (as they are returned by the parser).
@@ -80,10 +222,8 @@ inline bool isOverloaded(const BinaryConstraintOp constraintOp) {
         case BinaryConstraintOp::LT:
         case BinaryConstraintOp::LE:
         case BinaryConstraintOp::GT:
-        case BinaryConstraintOp::GE:
-            return true;
-        default:
-            break;
+        case BinaryConstraintOp::GE: return true;
+        default: break;
     }
     return false;
 }
@@ -95,9 +235,7 @@ inline bool isOverloaded(const BinaryConstraintOp constraintOp) {
 inline BinaryConstraintOp convertOverloadedConstraint(
         const BinaryConstraintOp constraintOp, const TypeAttribute toType) {
     auto FAIL = [&]() -> BinaryConstraintOp {
-        std::cerr << "invalid binary constraint overload: " << int(constraintOp) << " " << int(toType);
-        assert(false && "invalid binary constraint overload");
-        exit(EXIT_FAILURE);
+        fatal("invalid binary constraint overload: op = %s; type = %s", constraintOp, toType);
     };
 
     // clang-format off
@@ -116,7 +254,6 @@ inline BinaryConstraintOp convertOverloadedConstraint(
         case TypeAttribute::Symbol  : return BinaryConstraintOp::S##op; \
         case TypeAttribute::Record  : return FAIL();                    \
         }                                                               \
-        assert(false && "unhandled TypeAttr");                          \
         break; /* HACK: GCC-9 is incorrectly reporting a case fallthru */
     // clang-format on
 
@@ -129,16 +266,13 @@ inline BinaryConstraintOp convertOverloadedConstraint(
         COMPARE_CONSTRAINT(GT)
         COMPARE_CONSTRAINT(GE)
 
-        default:
-            assert(false && "Invalid constraint conversion");
+        default: fatal("invalid constraint conversion: constraint = %s", constraintOp);
     }
+
+    UNREACHABLE_BAD_CASE_ANALYSIS
 
 #undef COMPARE_CONSTRAINT_FLOAT_OR_RAW
 #undef COMPARE_CONSTRAINT
-
-    assert(isOverloaded(constraintOp) && "missing handler for overloadable constraint op");
-    assert(!isOverloaded(constraintOp) && "can't overload this binary op");
-    exit(EXIT_FAILURE);
 }
 
 /**
@@ -148,106 +282,72 @@ inline BinaryConstraintOp convertOverloadedConstraint(
  */
 inline BinaryConstraintOp negatedConstraintOp(const BinaryConstraintOp op) {
     switch (op) {
-        case BinaryConstraintOp::EQ:
-            return BinaryConstraintOp::NE;
-        case BinaryConstraintOp::FEQ:
-            return BinaryConstraintOp::FNE;
-        case BinaryConstraintOp::NE:
-            return BinaryConstraintOp::EQ;
-        case BinaryConstraintOp::FNE:
-            return BinaryConstraintOp::FEQ;
+        case BinaryConstraintOp::EQ: return BinaryConstraintOp::NE;
+        case BinaryConstraintOp::FEQ: return BinaryConstraintOp::FNE;
+        case BinaryConstraintOp::NE: return BinaryConstraintOp::EQ;
+        case BinaryConstraintOp::FNE: return BinaryConstraintOp::FEQ;
 
-        case BinaryConstraintOp::LT:
-            return BinaryConstraintOp::GE;
-        case BinaryConstraintOp::ULT:
-            return BinaryConstraintOp::UGE;
-        case BinaryConstraintOp::FLT:
-            return BinaryConstraintOp::FGE;
-        case BinaryConstraintOp::SLT:
-            return BinaryConstraintOp::SGE;
+        case BinaryConstraintOp::LT: return BinaryConstraintOp::GE;
+        case BinaryConstraintOp::ULT: return BinaryConstraintOp::UGE;
+        case BinaryConstraintOp::FLT: return BinaryConstraintOp::FGE;
+        case BinaryConstraintOp::SLT: return BinaryConstraintOp::SGE;
 
-        case BinaryConstraintOp::LE:
-            return BinaryConstraintOp::GT;
-        case BinaryConstraintOp::ULE:
-            return BinaryConstraintOp::UGT;
-        case BinaryConstraintOp::FLE:
-            return BinaryConstraintOp::FGT;
-        case BinaryConstraintOp::SLE:
-            return BinaryConstraintOp::SGT;
+        case BinaryConstraintOp::LE: return BinaryConstraintOp::GT;
+        case BinaryConstraintOp::ULE: return BinaryConstraintOp::UGT;
+        case BinaryConstraintOp::FLE: return BinaryConstraintOp::FGT;
+        case BinaryConstraintOp::SLE: return BinaryConstraintOp::SGT;
 
-        case BinaryConstraintOp::GE:
-            return BinaryConstraintOp::LT;
-        case BinaryConstraintOp::UGE:
-            return BinaryConstraintOp::ULT;
-        case BinaryConstraintOp::FGE:
-            return BinaryConstraintOp::FLT;
-        case BinaryConstraintOp::SGE:
-            return BinaryConstraintOp::SLT;
+        case BinaryConstraintOp::GE: return BinaryConstraintOp::LT;
+        case BinaryConstraintOp::UGE: return BinaryConstraintOp::ULT;
+        case BinaryConstraintOp::FGE: return BinaryConstraintOp::FLT;
+        case BinaryConstraintOp::SGE: return BinaryConstraintOp::SLT;
 
-        case BinaryConstraintOp::GT:
-            return BinaryConstraintOp::LE;
-        case BinaryConstraintOp::UGT:
-            return BinaryConstraintOp::ULE;
-        case BinaryConstraintOp::FGT:
-            return BinaryConstraintOp::FLE;
-        case BinaryConstraintOp::SGT:
-            return BinaryConstraintOp::SLE;
+        case BinaryConstraintOp::GT: return BinaryConstraintOp::LE;
+        case BinaryConstraintOp::UGT: return BinaryConstraintOp::ULE;
+        case BinaryConstraintOp::FGT: return BinaryConstraintOp::FLE;
+        case BinaryConstraintOp::SGT: return BinaryConstraintOp::SLE;
 
-        case BinaryConstraintOp::MATCH:
-            return BinaryConstraintOp::NOT_MATCH;
-        case BinaryConstraintOp::NOT_MATCH:
-            return BinaryConstraintOp::MATCH;
-        case BinaryConstraintOp::CONTAINS:
-            return BinaryConstraintOp::NOT_CONTAINS;
-        case BinaryConstraintOp::NOT_CONTAINS:
-            return BinaryConstraintOp::CONTAINS;
+        case BinaryConstraintOp::MATCH: return BinaryConstraintOp::NOT_MATCH;
+        case BinaryConstraintOp::NOT_MATCH: return BinaryConstraintOp::MATCH;
+        case BinaryConstraintOp::CONTAINS: return BinaryConstraintOp::NOT_CONTAINS;
+        case BinaryConstraintOp::NOT_CONTAINS: return BinaryConstraintOp::CONTAINS;
     }
-    assert(false && "Unsupported Operator!");
-    exit(EXIT_FAILURE);
+
+    UNREACHABLE_BAD_CASE_ANALYSIS
 }
 
 /**
  * Converts operator to its symbolic representation
  */
-inline std::string toBinaryConstraintSymbol(const BinaryConstraintOp op) {
+inline char const* toBinaryConstraintSymbol(const BinaryConstraintOp op) {
     switch (op) {
         case BinaryConstraintOp::FEQ:
-        case BinaryConstraintOp::EQ:
-            return "=";
+        case BinaryConstraintOp::EQ: return "=";
         case BinaryConstraintOp::FNE:
-        case BinaryConstraintOp::NE:
-            return "!=";
+        case BinaryConstraintOp::NE: return "!=";
         case BinaryConstraintOp::SLT:
         case BinaryConstraintOp::ULT:
         case BinaryConstraintOp::FLT:
-        case BinaryConstraintOp::LT:
-            return "<";
+        case BinaryConstraintOp::LT: return "<";
         case BinaryConstraintOp::SLE:
         case BinaryConstraintOp::ULE:
         case BinaryConstraintOp::FLE:
-        case BinaryConstraintOp::LE:
-            return "<=";
+        case BinaryConstraintOp::LE: return "<=";
         case BinaryConstraintOp::SGT:
         case BinaryConstraintOp::UGT:
         case BinaryConstraintOp::FGT:
-        case BinaryConstraintOp::GT:
-            return ">";
+        case BinaryConstraintOp::GT: return ">";
         case BinaryConstraintOp::SGE:
         case BinaryConstraintOp::UGE:
         case BinaryConstraintOp::FGE:
-        case BinaryConstraintOp::GE:
-            return ">=";
-        case BinaryConstraintOp::MATCH:
-            return "match";
-        case BinaryConstraintOp::CONTAINS:
-            return "contains";
-        case BinaryConstraintOp::NOT_MATCH:
-            return "not_match";
-        case BinaryConstraintOp::NOT_CONTAINS:
-            return "not_contains";
+        case BinaryConstraintOp::GE: return ">=";
+        case BinaryConstraintOp::MATCH: return "match";
+        case BinaryConstraintOp::CONTAINS: return "contains";
+        case BinaryConstraintOp::NOT_MATCH: return "not_match";
+        case BinaryConstraintOp::NOT_CONTAINS: return "not_contains";
     }
-    assert(false && "Unsupported Operator!");
-    exit(EXIT_FAILURE);
+
+    UNREACHABLE_BAD_CASE_ANALYSIS
 }
 
 /**
@@ -265,9 +365,8 @@ inline BinaryConstraintOp toBinaryConstraintOp(const std::string& symbol) {
     if (symbol == "contains") return BinaryConstraintOp::CONTAINS;
     if (symbol == "not_match") return BinaryConstraintOp::NOT_MATCH;
     if (symbol == "not_contains") return BinaryConstraintOp::NOT_CONTAINS;
-    std::cout << "Unrecognised operator: " << symbol << "\n";
-    assert(false && "Unsupported Operator!");
-    exit(EXIT_FAILURE);
+
+    fatal("unrecognised binary operator: symbol = `%s`", symbol);
 }
 
 /**
@@ -294,17 +393,15 @@ inline bool isOrderedBinaryConstraintOp(const BinaryConstraintOp op) {
         case BinaryConstraintOp::SLT:
         case BinaryConstraintOp::SLE:
         case BinaryConstraintOp::SGE:
-        case BinaryConstraintOp::SGT:
-            return true;
+        case BinaryConstraintOp::SGT: return true;
 
         case BinaryConstraintOp::MATCH:
         case BinaryConstraintOp::NOT_MATCH:
         case BinaryConstraintOp::CONTAINS:
-        case BinaryConstraintOp::NOT_CONTAINS:
-            return false;
+        case BinaryConstraintOp::NOT_CONTAINS: return false;
     }
-    assert(false && "Uncovered case!");
-    exit(EXIT_FAILURE);
+
+    UNREACHABLE_BAD_CASE_ANALYSIS
 }
 
 /**
@@ -335,12 +432,10 @@ inline std::vector<TypeAttribute> getBinaryConstraintTypes(const BinaryConstrain
         case BinaryConstraintOp::MATCH:
         case BinaryConstraintOp::NOT_MATCH:
         case BinaryConstraintOp::CONTAINS:
-        case BinaryConstraintOp::NOT_CONTAINS:
-            return {TypeAttribute::Symbol};
+        case BinaryConstraintOp::NOT_CONTAINS: return {TypeAttribute::Symbol};
     }
 
-    assert(false && "Uncovered case!");
-    exit(EXIT_FAILURE);
+    UNREACHABLE_BAD_CASE_ANALYSIS
 
 #undef COMPARE_EQUALS
 #undef COMPARE_OP

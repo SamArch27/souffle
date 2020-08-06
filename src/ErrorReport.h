@@ -17,10 +17,9 @@
 #pragma once
 
 #include "SrcLocation.h"
-
 #include <algorithm>
 #include <cassert>
-#include <ostream>
+#include <iostream>
 #include <set>
 #include <string>
 #include <utility>
@@ -69,7 +68,7 @@ private:
 
 class Diagnostic {
 public:
-    enum Type { ERROR, WARNING };
+    enum class Type { ERROR, WARNING };
 
     Diagnostic(Type type, DiagnosticMessage primaryMessage, std::vector<DiagnosticMessage> additionalMessages)
             : type(type), primaryMessage(std::move(primaryMessage)),
@@ -91,7 +90,7 @@ public:
     }
 
     void print(std::ostream& out) const {
-        out << (type == ERROR ? "Error: " : "Warning: ");
+        out << (type == Type::ERROR ? "Error: " : "Warning: ");
         out << primaryMessage;
         for (const DiagnosticMessage& additionalMessage : additionalMessages) {
             out << additionalMessage;
@@ -120,10 +119,10 @@ public:
             }
         }
 
-        if (type == ERROR && other.getType() == WARNING) {
+        if (type == Type::ERROR && other.getType() == Type::WARNING) {
             return true;
         }
-        if (other.getType() == ERROR && type == WARNING) {
+        if (other.getType() == Type::ERROR && type == Type::WARNING) {
             return false;
         }
 
@@ -151,12 +150,12 @@ public:
 
     unsigned getNumErrors() const {
         return std::count_if(diagnostics.begin(), diagnostics.end(),
-                [](Diagnostic d) -> bool { return d.getType() == Diagnostic::ERROR; });
+                [](Diagnostic d) -> bool { return d.getType() == Diagnostic::Type::ERROR; });
     }
 
     unsigned getNumWarnings() const {
         return std::count_if(diagnostics.begin(), diagnostics.end(),
-                [](Diagnostic d) -> bool { return d.getType() == Diagnostic::WARNING; });
+                [](Diagnostic d) -> bool { return d.getType() == Diagnostic::Type::WARNING; });
     }
 
     unsigned getNumIssues() const {
@@ -165,19 +164,29 @@ public:
 
     /** Adds an error with the given message and location */
     void addError(const std::string& message, SrcLocation location) {
-        diagnostics.insert(Diagnostic(Diagnostic::ERROR, DiagnosticMessage(message, std::move(location))));
+        diagnostics.insert(
+                Diagnostic(Diagnostic::Type::ERROR, DiagnosticMessage(message, std::move(location))));
     }
 
     /** Adds a warning with the given message and location */
     void addWarning(const std::string& message, SrcLocation location) {
         if (!nowarn) {
             diagnostics.insert(
-                    Diagnostic(Diagnostic::WARNING, DiagnosticMessage(message, std::move(location))));
+                    Diagnostic(Diagnostic::Type::WARNING, DiagnosticMessage(message, std::move(location))));
         }
     }
 
     void addDiagnostic(const Diagnostic& diagnostic) {
         diagnostics.insert(diagnostic);
+    }
+
+    void exitIfErrors() {
+        if (getNumErrors() == 0) {
+            return;
+        }
+
+        std::cerr << *this << getNumErrors() << " errors generated, evaluation aborted\n";
+        exit(EXIT_FAILURE);
     }
 
     void print(std::ostream& out) const {

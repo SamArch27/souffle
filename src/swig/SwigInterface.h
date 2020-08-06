@@ -14,17 +14,11 @@
  *
  ***********************************************************************/
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
-
-#include "souffle/RamTypes.h"
-#include "souffle/SouffleInterface.h"
-#include "souffle/SymbolTable.h"
-
 #pragma once
+
+#include "souffle/SouffleInterface.h"
+#include <iostream>
+#include <string>
 
 /**
  * Abstract base class for generated Datalog programs
@@ -91,4 +85,7 @@ public:
  * the supported souffle::SouffleProgram methods.
  * @param name Name of the datalog file/ instance to be created
  */
-SWIGSouffleProgram* newInstance(const std::string& name);
+SWIGSouffleProgram* newInstance(const std::string& name) {
+    auto* prog = souffle::ProgramFactory::newInstance(name);
+    return new SWIGSouffleProgram(prog);
+}

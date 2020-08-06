@@ -46,9 +46,12 @@ dnl $2 -- directory containing the expected output files
 m4_define([SORTED_SAME_FILES],[
   for i in $1
   do
-    sort "$i" > "$i.sorted.generated"
-    sort $2/"$i" > "$i.sorted.expected"
-    SAME_FILE(["$i.sorted.generated"], ["$i.sorted.expected"])
+    if ls "$i" 2>&1 >/dev/null;
+    then
+      sort "$i" > "$i.sorted.generated"
+      sort $2/"$i" > "$i.sorted.expected"
+      SAME_FILE(["$i.sorted.generated"], ["$i.sorted.expected"])
+    fi
   done
 ])
 
@@ -98,14 +101,8 @@ m4_define([TEST_EVAL],[
   ls *.csv|wc -l >"num.generated"
   ls EXPECTEDDIR/*.csv|wc -l >"num.expected"
 
-  # remove mpi messages
-  cat TESTNAME.out | \
-  tr '\n' '\r' | \
-  perl -pi -e 's/--*\x0D.*\x0D--*\x0D//g' | \
-  tr '\r' '\n' > TESTNAME.nompi.out
-
   # sort output files as printsize statements are non-deterministically ordered
-  SORTED_SAME_FILE([TESTNAME.nompi.out],[EXPECTEDDIR/TESTNAME.out])
+  SORTED_SAME_FILE([TESTNAME.out],[EXPECTEDDIR/TESTNAME.out])
   SAME_FILE([TESTNAME.err],[EXPECTEDDIR/TESTNAME.err])
   SAME_FILE([num.generated],[num.expected])
 ])
@@ -131,16 +128,8 @@ m4_define([TEST_EVAL_IN],[
   ls *.csv|wc -l >"num.generated"
   ls EXPECTEDDIR/*.csv|wc -l >"num.expected"
 
-  # remove non-deterministic record numbering and mpi error messages
-  cat TESTNAME.out | \
-  sed 's/subproof \(@<:@a-zA-Z0-9?_@:>@*\)(@<:@0-9@:>@*)/subproof \1()/g' | \
-  sed -e '$a\' | \
-  tr '\n' '\r' | \
-  perl -pi -e 's/--*\x0D.*\x0D--*\x0D//g' | \
-  tr '\r' '\n' > TESTNAME.nompi.out
-
   # sort output files as printsize statements are non-deterministically ordered
-  SORTED_SAME_FILE([TESTNAME.nompi.out],[EXPECTEDDIR/TESTNAME.out])
+  SORTED_SAME_FILE([TESTNAME.out],[EXPECTEDDIR/TESTNAME.out])
   SAME_FILE([TESTNAME.err],[EXPECTEDDIR/TESTNAME.err])
   SAME_FILE([num.generated],[num.expected])
 ])
@@ -206,11 +195,10 @@ m4_define([NEGATIVE_TEST],[
 dnl Defines most relevant Souffle flag configurations for testing.
 dnl NOTE: This is the default configuration that can be overridden
 dnl using SOUFFLE_CONFS environment variable.
-m4_define([DEFAULT_CONFS], [[],      dnl run default interpreter in sequential
-                                     dnl run interpreter in parallel
-                                     dnl dnl                            dnl compile, then execute in parallel
-  [-X rtree -c]                           dnl compile, then execute in parallel
-])
+
+m4_define([DEFAULT_CONFS], [[-j8],   dnl run interpreter in parallel
+    [-c -j8]                         dnl compile, then execute in parallel
+])                          
 
 dnl Store user-defined souffle flag configuration given by the SOUFFLE_CONFS env (if any)
 m4_define([ENV_CONFS],

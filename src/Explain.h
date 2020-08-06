@@ -16,25 +16,31 @@
 
 #pragma once
 
+#include "ExplainProvenance.h"
 #include "ExplainProvenanceImpl.h"
-
+#include "ExplainTree.h"
+#include <algorithm>
 #include <csignal>
+#include <cstdio>
+#include <fstream>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <regex>
 #include <string>
+#include <utility>
+#include <vector>
 #include <unistd.h>
 
 #ifdef USE_NCURSES
 #include <ncurses.h>
 #endif
 
-#include "SouffleInterface.h"
-#include "WriteStreamCSV.h"
-
 #define MAX_TREE_HEIGHT 500
 #define MAX_TREE_WIDTH 500
 
 namespace souffle {
+class SouffleProgram;
 
 class ExplainConfig {
 public:
@@ -213,7 +219,6 @@ public:
                     "9]+|\"[^\"]*\"|[a-zA-Z_][a-zA-Z_0-9]*))*)?\\)",
                     std::regex_constants::extended);
             std::smatch relationMatcher;
-            std::smatch argsMatcher;
             std::string relationStr = command[1];
             // use relationRegex to match each relation string and call parseQueryTuple() to parse the
             // relation name and arguments
@@ -374,7 +379,7 @@ private:
 
 class ExplainConsole : public Explain {
 public:
-    ExplainConsole(ExplainProvenance& provenance) : Explain(provenance) {}
+    explicit ExplainConsole(ExplainProvenance& provenance) : Explain(provenance) {}
 
     /* The main explain call */
     void explain() override {
@@ -456,7 +461,7 @@ private:
 #ifdef USE_NCURSES
 class ExplainNcurses : public Explain {
 public:
-    ExplainNcurses(ExplainProvenance& provenance) : Explain(provenance) {}
+    explicit ExplainNcurses(ExplainProvenance& provenance) : Explain(provenance) {}
 
     /* The main explain call */
     void explain() override {
@@ -619,8 +624,8 @@ private:
 };
 #endif
 
-inline void explain(SouffleProgram& prog, bool ncurses, bool useSubtreelevels) {
-    ExplainProvenanceImpl prov(prog, useSubtreelevels);
+inline void explain(SouffleProgram& prog, bool ncurses) {
+    ExplainProvenanceImpl prov(prog);
 
     if (ncurses) {
 #ifdef USE_NCURSES

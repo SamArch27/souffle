@@ -8,6 +8,11 @@ set -x
 # create deployment directory
 mkdir deploy
 
+git fetch --tags --unshallow || true
+
+./bootstrap
+./configure --enable-host-packaging
+
 JOBS=$(sysctl -n hw.ncpu)
 make -j$JOBS package
 

@@ -15,21 +15,30 @@
  ***********************************************************************/
 
 #include "ParserDriver.h"
-#include "AstClause.h"
-#include "AstComponent.h"
-#include "AstFunctorDeclaration.h"
-#include "AstIO.h"
-#include "AstPragma.h"
-#include "AstProgram.h"
-#include "AstQualifiedName.h"
-#include "AstRelation.h"
-#include "AstTranslationUnit.h"
-#include "AstType.h"
-#include "DebugReport.h"
 #include "ErrorReport.h"
-#include "Util.h"
+#include "Global.h"
+#include "ast/Clause.h"
+#include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/FunctorDeclaration.h"
+#include "ast/IO.h"
+#include "ast/Pragma.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/SubsetType.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Type.h"
+#include "ast/Utils.h"
+#include "utility/ContainerUtil.h"
+#include "utility/FunctionalUtil.h"
+#include "utility/StreamUtil.h"
+#include "utility/StringUtil.h"
+#include "utility/tinyformat.h"
+#include <algorithm>
 #include <memory>
 #include <utility>
+#include <vector>
 
 using YY_BUFFER_STATE = struct yy_buffer_state*;
 extern YY_BUFFER_STATE yy_scan_string(const char*, yyscan_t scanner);
@@ -38,10 +47,6 @@ extern int yylex_init_extra(scanner_data* data, yyscan_t* scanner);
 extern void yyset_in(FILE* in_str, yyscan_t scanner);
 
 namespace souffle {
-
-ParserDriver::ParserDriver() = default;
-
-ParserDriver::~ParserDriver() = default;
 
 std::unique_ptr<AstTranslationUnit> ParserDriver::parse(
         const std::string& filename, FILE* in, ErrorReport& errorReport, DebugReport& debugReport) {
@@ -98,7 +103,7 @@ void ParserDriver::addPragma(std::unique_ptr<AstPragma> p) {
 void ParserDriver::addFunctorDeclaration(std::unique_ptr<AstFunctorDeclaration> f) {
     const std::string& name = f->getName();
     if (const AstFunctorDeclaration* prev = getFunctorDeclaration(*translationUnit->getProgram(), name)) {
-        Diagnostic err(Diagnostic::ERROR,
+        Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of functor " + toString(name), f->getSrcLoc()),
                 {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
@@ -110,7 +115,7 @@ void ParserDriver::addFunctorDeclaration(std::unique_ptr<AstFunctorDeclaration> 
 void ParserDriver::addRelation(std::unique_ptr<AstRelation> r) {
     const auto& name = r->getQualifiedName();
     if (AstRelation* prev = getRelation(*translationUnit->getProgram(), name)) {
-        Diagnostic err(Diagnostic::ERROR,
+        Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of relation " + toString(name), r->getSrcLoc()),
                 {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
@@ -120,10 +125,10 @@ void ParserDriver::addRelation(std::unique_ptr<AstRelation> r) {
 }
 
 void ParserDriver::addIO(std::unique_ptr<AstIO> d) {
-    if (d->getType() == AstIO::PrintsizeIO) {
+    if (d->getType() == AstIoType::printsize) {
         for (const auto& cur : translationUnit->getProgram()->getIOs()) {
-            if (cur->getQualifiedName() == d->getQualifiedName() && cur->getType() == AstIO::PrintsizeIO) {
-                Diagnostic err(Diagnostic::ERROR,
+            if (cur->getQualifiedName() == d->getQualifiedName() && cur->getType() == AstIoType::printsize) {
+                Diagnostic err(Diagnostic::Type::ERROR,
                         DiagnosticMessage("Redefinition of printsize directives for relation " +
                                                   toString(d->getQualifiedName()),
                                 d->getSrcLoc()),
@@ -139,7 +144,7 @@ void ParserDriver::addIO(std::unique_ptr<AstIO> d) {
 void ParserDriver::addType(std::unique_ptr<AstType> type) {
     const auto& name = type->getQualifiedName();
     if (const AstType* prev = getType(*translationUnit->getProgram(), name)) {
-        Diagnostic err(Diagnostic::ERROR,
+        Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of type " + toString(name), type->getSrcLoc()),
                 {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
@@ -158,6 +163,56 @@ void ParserDriver::addInstantiation(std::unique_ptr<AstComponentInit> ci) {
     translationUnit->getProgram()->addInstantiation(std::move(ci));
 }
 
+void ParserDriver::addIoFromDeprecatedTag(AstRelation& rel) {
+    if (rel.hasQualifier(RelationQualifier::INPUT)) {
+        addIO(mk<AstIO>(AstIoType::input, rel.getQualifiedName(), rel.getSrcLoc()));
+    }
+
+    if (rel.hasQualifier(RelationQualifier::OUTPUT)) {
+        addIO(mk<AstIO>(AstIoType::output, rel.getQualifiedName(), rel.getSrcLoc()));
+    }
+
+    if (rel.hasQualifier(RelationQualifier::PRINTSIZE)) {
+        addIO(mk<AstIO>(AstIoType::printsize, rel.getQualifiedName(), rel.getSrcLoc()));
+    }
+}
+
+std::set<RelationTag> ParserDriver::addDeprecatedTag(
+        RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags) {
+    if (!Global::config().has("legacy")) {
+        warning(tagLoc, tfm::format("Deprecated %s qualifier was used", tag));
+    }
+    return addTag(tag, std::move(tagLoc), std::move(tags));
+}
+
+std::set<RelationTag> ParserDriver::addReprTag(
+        RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags) {
+    return addTag(tag, {RelationTag::BTREE, RelationTag::BRIE, RelationTag::EQREL}, std::move(tagLoc),
+            std::move(tags));
+}
+
+std::set<RelationTag> ParserDriver::addTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags) {
+    return addTag(tag, {tag}, std::move(tagLoc), std::move(tags));
+}
+
+std::set<RelationTag> ParserDriver::addTag(RelationTag tag, std::vector<RelationTag> incompatible,
+        SrcLocation tagLoc, std::set<RelationTag> tags) {
+    if (any_of(incompatible, [&](auto&& x) { return contains(tags, x); })) {
+        error(tagLoc, tfm::format("%s qualifier already set", join(incompatible, "/")));
+    }
+
+    tags.insert(tag);
+    return tags;
+}
+
+Own<AstSubsetType> ParserDriver::mkDeprecatedSubType(
+        AstQualifiedName name, AstQualifiedName baseTypeName, SrcLocation loc) {
+    if (!Global::config().has("legacy")) {
+        warning(loc, "Deprecated type declaration used");
+    }
+    return mk<AstSubsetType>(std::move(name), std::move(baseTypeName), std::move(loc));
+}
+
 void ParserDriver::warning(const SrcLocation& loc, const std::string& msg) {
     translationUnit->getErrorReport().addWarning(msg, loc);
 }
@@ -165,7 +220,8 @@ void ParserDriver::error(const SrcLocation& loc, const std::string& msg) {
     translationUnit->getErrorReport().addError(msg, loc);
 }
 void ParserDriver::error(const std::string& msg) {
-    translationUnit->getErrorReport().addDiagnostic(Diagnostic(Diagnostic::ERROR, DiagnosticMessage(msg)));
+    translationUnit->getErrorReport().addDiagnostic(
+            Diagnostic(Diagnostic::Type::ERROR, DiagnosticMessage(msg)));
 }
 
 }  // end of namespace souffle

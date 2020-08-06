@@ -20,7 +20,7 @@ unset GIT_LITERAL_PATHSPECS
 
 #Change the delimiter used by 'for' so we can handle spaces in names
 IFS=$'\n'
-for FILE in $(git diff --cached --name-only "*.cpp" "*.h")
+for FILE in $(git diff --diff-filter=d --cached --name-only "*.cpp" "*.h")
 do
     # Store the current version in case it has been modified
     TMPFILE="$(mktemp)"

@@ -52,13 +52,16 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
+#include <iosfwd>
 #include <limits>
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -593,10 +596,10 @@ inline const Json& JsonObject::operator[](const std::string& key) const {
     return (iter == m_value.end()) ? static_null() : iter->second;
 }
 inline const Json& JsonArray::operator[](size_t i) const {
-    if (i >= m_value.size())
+    if (i >= m_value.size()) {
         return static_null();
-    else
-        return m_value[i];
+    }
+    return m_value[i];
 }
 
 /* * * * * * * * * * * * * * * * * * * *
@@ -604,15 +607,23 @@ inline const Json& JsonArray::operator[](size_t i) const {
  */
 
 inline bool Json::operator==(const Json& other) const {
-    if (m_ptr == other.m_ptr) return true;
-    if (m_ptr->type() != other.m_ptr->type()) return false;
+    if (m_ptr == other.m_ptr) {
+        return true;
+    }
+    if (m_ptr->type() != other.m_ptr->type()) {
+        return false;
+    }
 
     return m_ptr->equals(other.m_ptr.get());
 }
 
 inline bool Json::operator<(const Json& other) const {
-    if (m_ptr == other.m_ptr) return false;
-    if (m_ptr->type() != other.m_ptr->type()) return m_ptr->type() < other.m_ptr->type();
+    if (m_ptr == other.m_ptr) {
+        return false;
+    }
+    if (m_ptr->type() != other.m_ptr->type()) {
+        return m_ptr->type() < other.m_ptr->type();
+    }
 
     return m_ptr->less(other.m_ptr.get());
 }
@@ -662,8 +673,10 @@ struct JsonParser final {
     }
 
     template <typename T>
-    T fail(std::string&& msg, const T err_ret) {
-        if (!failed) err = std::move(msg);
+    T fail(std::string&& msg, T err_ret) {
+        if (!failed) {
+            err = std::move(msg);
+        }
         failed = true;
         return err_ret;
     }
@@ -673,7 +686,9 @@ struct JsonParser final {
      * Advance until the current character is non-whitespace.
      */
     void consume_whitespace() {
-        while (str[i] == ' ' || str[i] == '\r' || str[i] == '\n' || str[i] == '\t') i++;
+        while (str[i] == ' ' || str[i] == '\r' || str[i] == '\n' || str[i] == '\t') {
+            i++;
+        }
     }
 
     /* consume_comment()
@@ -684,7 +699,9 @@ struct JsonParser final {
         bool comment_found = false;
         if (str[i] == '/') {
             i++;
-            if (i == str.size()) return fail("unexpected end of input after start of comment", false);
+            if (i == str.size()) {
+                return fail("unexpected end of input after start of comment", false);
+            }
             if (str[i] == '/') {  // inline comment
                 i++;
                 // advance until next line, or end of input
@@ -704,8 +721,9 @@ struct JsonParser final {
                 }
                 i += 2;
                 comment_found = true;
-            } else
+            } else {
                 return fail("malformed comment", false);
+            }
         }
         return comment_found;
     }
@@ -720,7 +738,9 @@ struct JsonParser final {
             bool comment_found = false;
             do {
                 comment_found = consume_comment();
-                if (failed) return;
+                if (failed) {
+                    return;
+                }
                 consume_whitespace();
             } while (comment_found);
         }
@@ -733,8 +753,12 @@ struct JsonParser final {
      */
     char get_next_token() {
         consume_garbage();
-        if (failed) return static_cast<char>(0);
-        if (i == str.size()) return fail("unexpected end of input", static_cast<char>(0));
+        if (failed) {
+            return static_cast<char>(0);
+        }
+        if (i == str.size()) {
+            return fail("unexpected end of input", static_cast<char>(0));
+        }
 
         return str[i++];
     }
@@ -744,7 +768,9 @@ struct JsonParser final {
      * Encode pt as UTF-8 and add it to out.
      */
     void encode_utf8(long pt, std::string& out) {
-        if (pt < 0) return;
+        if (pt < 0) {
+            return;
+        }
 
         if (pt < 0x80) {
             out += static_cast<char>(pt);
@@ -780,7 +806,9 @@ struct JsonParser final {
                 return out;
             }
 
-            if (in_range(ch, 0, 0x1f)) return fail("unescaped " + esc(ch) + " in std::string", "");
+            if (in_range(ch, 0, 0x1f)) {
+                return fail("unescaped " + esc(ch) + " in std::string", "");
+            }
 
             // The usual case: non-escaped characters
             if (ch != '\\') {
@@ -791,7 +819,9 @@ struct JsonParser final {
             }
 
             // Handle escapes
-            if (i == str.size()) return fail("unexpected end of input in std::string", "");
+            if (i == str.size()) {
+                return fail("unexpected end of input in std::string", "");
+            }
 
             ch = str[i++];
 
@@ -859,15 +889,21 @@ struct JsonParser final {
     Json parse_number() {
         size_t start_pos = i;
 
-        if (str[i] == '-') i++;
+        if (str[i] == '-') {
+            i++;
+        }
 
         // Integer part
         if (str[i] == '0') {
             i++;
-            if (in_range(str[i], '0', '9')) return fail("leading 0s not permitted in numbers");
+            if (in_range(str[i], '0', '9')) {
+                return fail("leading 0s not permitted in numbers");
+            }
         } else if (in_range(str[i], '1', '9')) {
             i++;
-            while (in_range(str[i], '0', '9')) i++;
+            while (in_range(str[i], '0', '9')) {
+                i++;
+            }
         } else {
             return fail("invalid " + esc(str[i]) + " in number");
         }
@@ -880,20 +916,30 @@ struct JsonParser final {
         // Decimal part
         if (str[i] == '.') {
             i++;
-            if (!in_range(str[i], '0', '9')) return fail("at least one digit required in fractional part");
+            if (!in_range(str[i], '0', '9')) {
+                return fail("at least one digit required in fractional part");
+            }
 
-            while (in_range(str[i], '0', '9')) i++;
+            while (in_range(str[i], '0', '9')) {
+                i++;
+            }
         }
 
         // Exponent part
         if (str[i] == 'e' || str[i] == 'E') {
             i++;
 
-            if (str[i] == '+' || str[i] == '-') i++;
+            if (str[i] == '+' || str[i] == '-') {
+                i++;
+            }
 
-            if (!in_range(str[i], '0', '9')) return fail("at least one digit required in exponent");
+            if (!in_range(str[i], '0', '9')) {
+                return fail("at least one digit required in exponent");
+            }
 
-            while (in_range(str[i], '0', '9')) i++;
+            while (in_range(str[i], '0', '9')) {
+                i++;
+            }
         }
 
         return std::strtod(str.c_str() + start_pos, nullptr);
@@ -925,41 +971,63 @@ struct JsonParser final {
         }
 
         char ch = get_next_token();
-        if (failed) return Json();
+        if (failed) {
+            return Json();
+        }
 
         if (ch == '-' || (ch >= '0' && ch <= '9')) {
             i--;
             return parse_number();
         }
 
-        if (ch == 't') return expect("true", true);
+        if (ch == 't') {
+            return expect("true", true);
+        }
 
-        if (ch == 'f') return expect("false", false);
+        if (ch == 'f') {
+            return expect("false", false);
+        }
 
-        if (ch == 'n') return expect("null", Json());
+        if (ch == 'n') {
+            return expect("null", Json());
+        }
 
-        if (ch == '"') return parse_string();
+        if (ch == '"') {
+            return parse_string();
+        }
 
         if (ch == '{') {
             std::map<std::string, Json> data;
             ch = get_next_token();
-            if (ch == '}') return data;
+            if (ch == '}') {
+                return data;
+            }
 
             while (true) {
                 if (ch != '"') return fail("expected '\"' in object, got " + esc(ch));
 
                 std::string key = parse_string();
-                if (failed) return Json();
+                if (failed) {
+                    return Json();
+                }
 
                 ch = get_next_token();
-                if (ch != ':') return fail("expected ':' in object, got " + esc(ch));
+                if (ch != ':') {
+                    return fail("expected ':' in object, got " + esc(ch));
+                }
 
                 data[std::move(key)] = parse_json(depth + 1);
-                if (failed) return Json();
+                if (failed) {
+                    return Json();
+                }
 
                 ch = get_next_token();
-                if (ch == '}') break;
-                if (ch != ',') return fail("expected ',' in object, got " + esc(ch));
+                if (ch == '}') {
+                    break;
+                }
+                if (ch != ',') {
+                    return fail("expected ',' in object, got " + esc(ch));
+                }
 
                 ch = get_next_token();
             }
@@ -969,16 +1037,24 @@ struct JsonParser final {
         if (ch == '[') {
             std::vector<Json> data;
             ch = get_next_token();
-            if (ch == ']') return data;
+            if (ch == ']') {
+                return data;
+            }
 
             while (true) {
                 i--;
                 data.push_back(parse_json(depth + 1));
-                if (failed) return Json();
+                if (failed) {
+                    return Json();
+                }
 
                 ch = get_next_token();
-                if (ch == ']') break;
-                if (ch != ',') return fail("expected ',' in list, got " + esc(ch));
+                if (ch == ']') {
+                    break;
+                }
+                if (ch != ',') {
+                    return fail("expected ',' in list, got " + esc(ch));
+                }
 
                 ch = get_next_token();
                 (void)ch;
@@ -997,8 +1073,12 @@ inline Json Json::parse(const std::string& in, std::string& err, JsonParse strat
 
     // Check for any trailing garbage
     parser.consume_garbage();
-    if (parser.failed) return Json();
-    if (parser.i != in.size()) return parser.fail("unexpected trailing " + esc(in[parser.i]));
+    if (parser.failed) {
+        return Json();
+    }
+    if (parser.i != in.size()) {
+        return parser.fail("unexpected trailing " + esc(in[parser.i]));
+    }
 
     return result;
 }
@@ -1010,11 +1090,15 @@ inline std::vector<Json> parse_multi(const std::string& in, std::string::size_ty
     std::vector<Json> json_vec;
     while (parser.i != in.size() && !parser.failed) {
         json_vec.push_back(parser.parse_json(0));
-        if (parser.failed) break;
+        if (parser.failed) {
+            break;
+        }
 
         // Check for another object
         parser.consume_garbage();
-        if (parser.failed) break;
+        if (parser.failed) {
+            break;
+        }
         parser_stop_pos = parser.i;
     }
     return json_vec;

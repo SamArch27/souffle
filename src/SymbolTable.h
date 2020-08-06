@@ -16,15 +16,19 @@
 
 #pragma once
 
-#include "ParallelUtils.h"
 #include "RamTypes.h"
-#include "Util.h"
-#include <cassert>
+#include "utility/MiscUtil.h"
+#include "utility/ParallelUtil.h"
+#include "utility/StreamUtil.h"
+#include <algorithm>
+#include <cstdlib>
 #include <deque>
 #include <initializer_list>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace souffle {
 
@@ -126,8 +130,7 @@ public:
             (void)lease;  // avoid warning;
             auto result = strToNum.find(symbol);
             if (result == strToNum.end()) {
-                std::cerr << "Error string not found in call to SymbolTable::lookupExisting.\n";
-                exit(1);
+                fatal("Error string not found in call to `SymbolTable::lookupExisting`: `%s`", symbol);
             }
             return static_cast<RamDomain>(result->second);
         }
@@ -149,8 +152,7 @@ public:
             auto pos = static_cast<size_t>(index);
             if (pos >= size()) {
                 // TODO: use different error reporting here!!
-                std::cerr << "Error index out of bounds in call to SymbolTable::resolve.\n";
-                exit(1);
+                fatal("Error index out of bounds in call to `SymbolTable::resolve`. index = `%d`", index);
             }
             return numToStr[pos];
         }

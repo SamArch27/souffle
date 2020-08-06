@@ -11,6 +11,10 @@ ARG SOUFFLE_MAKE_JOBS="2"
 ENV CC "${SOUFFLE_CC}"
 ENV CXX "${SOUFFLE_CXX}"
 
+RUN apt install -y git
+
+USER souffle
+
 RUN git clone https://github.com/${SOUFFLE_GITHUB_USER}/souffle /home/souffle/souffle
 
 WORKDIR /home/souffle/souffle
@@ -22,12 +26,14 @@ RUN git clean -xdf
 RUN ./bootstrap
 RUN ./configure ${SOUFFLE_CONFIGURE_OPTIONS}
 RUN make -j${SOUFFLE_MAKE_JOBS}
-RUN ./src/souffle
+RUN ./src/souffle --version
 
 USER root
 
 RUN make install -j${SOUFFLE_MAKE_JOBS}
 
-WORKDIR /
+USER souffle
+
+WORKDIR /home/souffle
 
 RUN souffle -h

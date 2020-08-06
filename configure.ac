@@ -11,6 +11,7 @@ m4_define([SOUFFLE_VERSION], m4_esyscmd([
   echo $souffle_version| tr -d '\n']))
 
 AC_INIT(souffle, SOUFFLE_VERSION, [https://github.com/souffle-lang/souffle/issues], souffle, [https://github.com/souffle-lang/souffle])
+AC_CONFIG_AUX_DIR([auxfiles])
 AC_PREREQ(2.68)
 AC_COPYRIGHT(['2013-15 Oracle and/or its affiliates'])
 
@@ -26,13 +27,13 @@ AC_CANONICAL_HOST   # host_cpu, host_vendor, and host_os
 
 AM_INIT_AUTOMAKE([foreign subdir-objects 1.9 tar-pax])
 AM_MAINTAINER_MODE
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 AC_CONFIG_MACRO_DIR([m4])
 
 dnl Do not set default CFLAGS and CXXFLAGS
 ENV_CXXFLAGS="$CXXFLAGS"
-CXXFLAGS=""
+CXXFLAGS=" -fwrapv "
 
 # Disable provenance
 AC_ARG_ENABLE(
@@ -166,9 +167,8 @@ if test -n "$SOUFFLE_PACKAGING"; then
       DISTRIBUTION=osx
     ;;
     linux*)
-      AC_CHECK_PROG(LSB_RELEASE, lsb_release, lsb_release)
-      AS_IF([test -z "$LSB_RELEASE"], [AC_MSG_ERROR([lsb_release required to detect LINUX distribution not found.])])
-      DISTRIBUTION=[`lsb_release -i | sed 's/^.*:[ \t]\+//' | tr '[A-Z]' '[a-z]'`]
+      DISTRIBUTION=[`. /etc/os-release; echo $ID`]
+      AS_IF([test -z "$DISTRIBUTION"], [DISTRIBUTION=unknown])
     ;;
     *BSD* | *bsd* )
       DISTRIBUTION=bsd
@@ -270,13 +270,13 @@ AC_CONFIG_TESTDIR([tests])
 AC_CONFIG_FILES([
   Makefile
   src/Makefile
+  src/tests/Makefile
   tests/Makefile
   tests/atlocal
   tests/interface/functors/Makefile
 ])
 AC_CONFIG_LINKS([include/souffle/BinaryConstraintOps.h:src/BinaryConstraintOps.h])
 AC_CONFIG_LINKS([include/souffle/BTree.h:src/BTree.h])
-AC_CONFIG_LINKS([include/souffle/CompiledIndexUtils.h:src/CompiledIndexUtils.h])
 AC_CONFIG_LINKS([include/souffle/CompiledOptions.h:src/CompiledOptions.h])
 AC_CONFIG_LINKS([include/souffle/RecordTable.h:src/RecordTable.h])
 AC_CONFIG_LINKS([include/souffle/CompiledSouffle.h:src/CompiledSouffle.h])
@@ -287,12 +287,9 @@ AC_CONFIG_LINKS([include/souffle/ExplainProvenance.h:src/ExplainProvenance.h])
 AC_CONFIG_LINKS([include/souffle/ExplainProvenanceImpl.h:src/ExplainProvenanceImpl.h])
 AC_CONFIG_LINKS([include/souffle/ExplainTree.h:src/ExplainTree.h])
 AC_CONFIG_LINKS([include/souffle/EquivalenceRelation.h:src/EquivalenceRelation.h])
-AC_CONFIG_LINKS([include/souffle/RWOperation.h:src/RWOperation.h])
 AC_CONFIG_LINKS([include/souffle/IOSystem.h:src/IOSystem.h])
-AC_CONFIG_LINKS([include/souffle/IterUtils.h:src/IterUtils.h])
 AC_CONFIG_LINKS([include/souffle/LambdaBTree.h:src/LambdaBTree.h])
 AC_CONFIG_LINKS([include/souffle/Logger.h:src/Logger.h])
-AC_CONFIG_LINKS([include/souffle/ParallelUtils.h:src/ParallelUtils.h])
 AC_CONFIG_LINKS([include/souffle/PiggyList.h:src/PiggyList.h])
 AC_CONFIG_LINKS([include/souffle/ProfileDatabase.h:src/ProfileDatabase.h])
 AC_CONFIG_LINKS([include/souffle/ProfileEvent.h:src/ProfileEvent.h])
@@ -300,16 +297,29 @@ AC_CONFIG_LINKS([include/souffle/RamTypes.h:src/RamTypes.h])
 AC_CONFIG_LINKS([include/souffle/ReadStream.h:src/ReadStream.h])
 AC_CONFIG_LINKS([include/souffle/ReadStreamCSV.h:src/ReadStreamCSV.h])
 AC_CONFIG_LINKS([include/souffle/ReadStreamSQLite.h:src/ReadStreamSQLite.h])
+AC_CONFIG_LINKS([include/souffle/ReadStreamJSON.h:src/ReadStreamJSON.h])
+AC_CONFIG_LINKS([include/souffle/SerialisationStream.h:src/SerialisationStream.h])
 AC_CONFIG_LINKS([include/souffle/SignalHandler.h:src/SignalHandler.h])
 AC_CONFIG_LINKS([include/souffle/SouffleInterface.h:src/SouffleInterface.h])
 AC_CONFIG_LINKS([include/souffle/SymbolTable.h:src/SymbolTable.h])
 AC_CONFIG_LINKS([include/souffle/Table.h:src/Table.h])
+AC_CONFIG_LINKS([include/souffle/TypeAttribute.h:src/TypeAttribute.h])
 AC_CONFIG_LINKS([include/souffle/Brie.h:src/Brie.h])
 AC_CONFIG_LINKS([include/souffle/UnionFind.h:src/UnionFind.h])
-AC_CONFIG_LINKS([include/souffle/Util.h:src/Util.h])
+AC_CONFIG_LINKS([include/souffle/utility/CacheUtil.h:src/utility/CacheUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/ContainerUtil.h:src/utility/ContainerUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/EvaluatorUtil.h:src/utility/EvaluatorUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/FileUtil.h:src/utility/FileUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/FunctionalUtil.h:src/utility/FunctionalUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/MiscUtil.h:src/utility/MiscUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/StreamUtil.h:src/utility/StreamUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/StringUtil.h:src/utility/StringUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/ParallelUtil.h:src/utility/ParallelUtil.h])
+AC_CONFIG_LINKS([include/souffle/utility/tinyformat.h:src/utility/tinyformat.h])
 AC_CONFIG_LINKS([include/souffle/WriteStream.h:src/WriteStream.h])
 AC_CONFIG_LINKS([include/souffle/WriteStreamCSV.h:src/WriteStreamCSV.h])
 AC_CONFIG_LINKS([include/souffle/WriteStreamSQLite.h:src/WriteStreamSQLite.h])
+AC_CONFIG_LINKS([include/souffle/WriteStreamJSON.h:src/WriteStreamJSON.h])
 AC_CONFIG_LINKS([include/souffle/gzfstream.h:src/gzfstream.h])
 AC_CONFIG_LINKS([include/souffle/json11.h:src/json11.h])
 AC_CONFIG_LINKS([include/souffle/profile/Cell.h:src/profile/Cell.h])
@@ -337,7 +347,6 @@ AC_CONFIG_LINKS([include/souffle/profile/htmlJsChartistPlugin.h:src/profile/html
 AC_CONFIG_LINKS([include/souffle/profile/htmlJsTableSort.h:src/profile/htmlJsTableSort.h])
 AC_CONFIG_LINKS([include/souffle/profile/htmlMain.h:src/profile/htmlMain.h])
 AC_CONFIG_LINKS([include/souffle/swig/SwigInterface.h:src/swig/SwigInterface.h])
-AC_CONFIG_LINKS([include/souffle/swig/SwigInterface.cpp:src/swig/SwigInterface.cpp])
 AC_CONFIG_LINKS([include/souffle/swig/SwigInterface.i:src/swig/SwigInterface.i])
 AC_CONFIG_LINKS([utilities/bash-completion/completions/souffle:debian/souffle.bash-completion])
 

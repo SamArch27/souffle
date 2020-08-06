@@ -63,39 +63,9 @@ public:
     Point end = {};
 
     /** A comparison for source locations */
-    bool operator<(const SrcLocation& other) const {
-        if (filenames.back() < other.filenames.back()) {
-            return true;
-        }
-        if (filenames.back() > other.filenames.back()) {
-            return false;
-        }
-        if (start < other.start) {
-            return true;
-        }
-        if (start > other.start) {
-            return false;
-        }
-        if (end < other.end) {
-            return true;
-        }
-        return false;
-    }
+    bool operator<(const SrcLocation& other) const;
 
-    void setFilename(std::string filename) {
-        if (filenames.empty()) {
-            filenames.emplace_back(filename);
-            return;
-        }
-        if (filenames.back() == filename) {
-            return;
-        }
-        if (filenames.size() > 1 && filenames.at(filenames.size() - 2) == filename) {
-            filenames.pop_back();
-            return;
-        }
-        filenames.emplace_back(filename);
-    }
+    void setFilename(std::string filename);
 
     /** An extended string describing this location in a end-user friendly way */
     std::string extloc() const;

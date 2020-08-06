@@ -28,13 +28,20 @@
 
 #include "CompiledTuple.h"
 #include "RamTypes.h"
-#include "Util.h"
-
+#include "utility/CacheUtil.h"
+#include "utility/ContainerUtil.h"
+#include "utility/StreamUtil.h"
+#include <algorithm>
 #include <atomic>
 #include <bitset>
+#include <cassert>
+#include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <iterator>
+#include <limits>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 /**
@@ -1843,7 +1850,7 @@ public:
     /**
      * The type of the stored entries / tuples.
      */
-    using entry_type = typename ram::Tuple<RamDomain, Dim>;
+    using entry_type = typename souffle::Tuple<RamDomain, Dim>;
 
     // -- operation wrappers --
 
@@ -1969,9 +1976,16 @@ protected:
     mutable hint_statistics hint_stats;
 
 public:
-    // Obtains a reference to the internally maintained hint statistics
-    const hint_statistics& getHintStatistics() const {
-        return hint_stats;
+    void printStats(std::ostream& out) const {
+        out << "---------------------------------\n";
+        out << "  insert-hint (hits/misses/total): " << hint_stats.inserts.getHits() << "/"
+            << hint_stats.inserts.getMisses() << "/" << hint_stats.inserts.getAccesses() << "\n";
+        out << "  contains-hint (hits/misses/total):" << hint_stats.contains.getHits() << "/"
+            << hint_stats.contains.getMisses() << "/" << hint_stats.contains.getAccesses() << "\n";
+        out << "  get-boundaries-hint (hits/misses/total):" << hint_stats.get_boundaries.getHits() << "/"
+            << hint_stats.get_boundaries.getMisses() << "/" << hint_stats.get_boundaries.getAccesses()
+            << "\n";
+        out << "---------------------------------\n";
     }
 };
 
@@ -2295,7 +2309,7 @@ class Trie : public detail::TrieBase<Dim, Trie<Dim>> {
     store_type store;
 
 public:
-    using entry_type = typename ram::Tuple<RamDomain, Dim>;
+    using entry_type = typename souffle::Tuple<RamDomain, Dim>;
     using element_type = entry_type;
 
     // ---------------------------------------------------------------------
@@ -2814,236 +2828,9 @@ private:
 };
 
 /**
- * A template specialization for the 0-ary try.
- */
-template <>
-class Trie<0u> : public detail::TrieBase<0u, Trie<0u>> {
-    template <unsigned Dim>
-    friend class Trie;
-
-    template <unsigned Dim, typename Derived>
-    friend class detail::TrieBase;
-
-    using base = typename detail::TrieBase<0u, Trie<0u>>;
-
-    using entry_type = typename ram::Tuple<RamDomain, 0>;
-
-    // the singleton instance of the 0-ary tuple
-    static const ram::Tuple<RamDomain, 0> instance;
-
-    // a flag determining whether this trie is empty or contains the singleton instance
-    bool present = false;
-
-public:
-    using element_type = entry_type;
-    struct op_context {};
-    using operation_hints = op_context;
-
-    using base::contains;
-    using base::insert;
-
-    // a simple default constructor
-    Trie() = default;
-
-    /**
-     * Clears the content of this trie.
-     */
-    void clear() {
-        present = false;
-    }
-
-    /**
-     * Determines whether this trie is empty or not.
-     */
-    bool empty() const {
-        return !present;
-    }
-
-    /**
-     * Determines the number of elements stores in this trie.
-     */
-    std::size_t size() const {
-        return (present) ? 1 : 0;
-    }
-
-    /**
-     * Computes the total memory usage of this data structure.
-     */
-    std::size_t getMemoryUsage() const {
-        // compute the total memory usage
-        return sizeof(*this);
-    }
-
-    /**
-     * Inserts a new element into this trie.
-     *
-     * @return true if the trie has been empty before, false otherwise
-     */
-    bool insert(const entry_type&) {
-        bool res = !present;
-        present = true;
-        return res;
-    }
-
-    /**
-     * Inserts a new element into this trie. An operation context may
-     * be provided, but will be ignored.
-     *
-     * @return true if the trie has been empty before, false otherwise
-     */
-    bool insert(const entry_type& tuple, op_context&) {
-        return insert(tuple);
-    }
-
-    /**
-     * Adds all elements of the given trie to this trie.
-     */
-    void insertAll(const Trie& other) {
-        present = present || other.present;
-    }
-
-    /**
-     * Determines whether the given 0-ary tuple is present within this trie.
-     */
-    bool contains(const entry_type&) const {
-        return present;
-    }
-
-    /**
-     * Determines whether the given 0-ary tuple is present within this trie.
-     * An operation context may be provided, but ignored.
-     */
-    bool contains(const entry_type& tuple, op_context&) const {
-        return contains(tuple);
-    }
-
-    // ---------------------------------------------------------------------
-    //                           Iterator
-    // ---------------------------------------------------------------------
-
-    /**
-     * The iterator core for this type of trie level.
-     */
-    template <unsigned I = 0>
-    class iterator_core {
-        bool end;
-
-    public:
-        iterator_core(bool end = true) : end(end) {}
-
-        template <typename Tuple>
-        iterator_core(bool end, Tuple&) : end(end) {}
-
-        bool inc() {
-            auto res = end;
-            end = true;
-            return res;
-        }
-
-        template <typename Tuple>
-        bool inc(Tuple&) {
-            return inc();
-        }
-
-        bool operator==(const iterator_core& other) const {
-            return end && other.end;
-        }
-
-        bool operator!=(const iterator_core& other) const {
-            return !(*this == other);
-        }
-
-        // enables this iterator core to be printed (for debugging)
-        void print(std::ostream& out) const {
-            out << ((end) ? "end" : "single");
-        }
-
-        friend std::ostream& operator<<(std::ostream& out, const iterator_core& iter) {
-            iter.print(out);
-            return out;
-        }
-    };
-
-    using iterator = typename base::template iterator<iterator_core>;
-
-    /**
-     * Obtains an iterator referencing the first element in this trie or
-     * end() if this trie is empty.
-     */
-    iterator begin() const {
-        return iterator(!present);
-    }
-
-    /**
-     * Obtains an iterator positions after the last element stored in this
-     * trie.
-     */
-    iterator end() const {
-        return iterator();
-    }
-
-    /**
-     * Partitions this trie into a list of disjoint sub-sets.
-     */
-    std::vector<range<iterator>> partition(unsigned /* chunks */) const {
-        // shortcut for empty trie
-        if (empty()) return std::vector<range<iterator>>();
-        return toVector(make_range(begin(), end()));
-    }
-
-    /**
-     * Obtains boundaries for the given entry. Since tuples stored
-     * in this trie have no components, the result will always be the
-     * full range [begin(),...,end()]. Levels != 0 are not allowed.
-     */
-    template <unsigned levels>
-    range<iterator> getBoundaries(const entry_type&) const {
-        static_assert(levels == 0, "No dimensions to query!");
-        return make_range(begin(), end());
-    }
-
-    /**
-     * Obtains boundaries for the given entry. Since tuples stored
-     * in this trie have no components, the result will always be the
-     * full range [begin(),...,end()]. Levels != 0 are not allowed.
-     */
-    template <unsigned levels>
-    range<iterator> getBoundaries(const entry_type& entry, op_context&) const {
-        return getBoundaries<levels>(entry);
-    }
-
-private:
-    /**
-     * Initialized the core iterator of this level.
-     */
-    template <unsigned I, typename Tuple>
-    iterator_core<I> getBeginCoreIterator(Tuple&) const {
-        return iterator_core<I>(!present);
-    }
-
-    /**
-     * The internal implementation of the insert operation on this level
-     * as it is utilized by the TrieBase class.
-     */
-    template <unsigned I, typename Tuple>
-    bool insert_internal(const Tuple& tuple, op_context&) {
-        return insert(tuple);
-    }
-
-    /**
-     * The internal implementation of the contains operation on this level
-     * as it is utilized by the TrieBase class.
-     */
-    template <unsigned I, typename Tuple>
-    bool contains_internal(const Tuple&, op_context&) const {
-        return present;
-    }
-};
-
-/**
- * A template specialization for tries containing tuples exhibiting a single
- * element. For improved memory efficiency, this level is the leaf-node level
- * of all tires exhibiting an arity >= 1. Internally, values are stored utilizing
+ * A template specialization for tries representing a set.
+ * For improved memory efficiency, this level is the leaf-node level
+ * of all tries exhibiting an arity >= 1. Internally, values are stored utilizing
  * sparse bit maps.
  */
 template <>

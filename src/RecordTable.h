@@ -18,13 +18,13 @@
 #pragma once
 
 #include "CompiledTuple.h"
-#include "ParallelUtils.h"
 #include "RamTypes.h"
 #include <cassert>
-#include <iostream>
+#include <cstddef>
 #include <limits>
-#include <map>
+#include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace souffle {
@@ -117,8 +117,13 @@ public:
     }
     /** @brief convert record reference to a record */
     const RamDomain* unpack(RamDomain ref, size_t arity) const {
-        auto iter = maps.find(arity);
-        assert(iter != maps.end() && "Attempting to unpack non-existing record");
+        std::unordered_map<size_t, RecordMap>::const_iterator iter;
+#pragma omp critical(RecordTableGetForArity)
+        {
+            // Find a previously emplaced map
+            iter = maps.find(arity);
+        }
+        assert(iter != maps.end() && "Attempting to unpack record for non-existing arity");
         return (iter->second).unpack(ref);
     }
 
@@ -140,7 +145,7 @@ private:
 
 /** @brief helper to convert tuple to record reference for the synthesiser */
 template <std::size_t Arity>
-inline RamDomain pack(RecordTable& recordTab, ram::Tuple<RamDomain, Arity> tuple) {
+inline RamDomain pack(RecordTable& recordTab, Tuple<RamDomain, Arity> tuple) {
     return recordTab.pack(static_cast<RamDomain*>(tuple.data), Arity);
 }
 

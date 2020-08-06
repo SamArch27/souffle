@@ -34,7 +34,7 @@
     #include <unistd.h>
     #include <cstring>
 
-    #include "AstProgram.h"
+    #include "ast/Program.h"
 
     #include "SrcLocation.h"
     #define YYLTYPE SrcLocation
@@ -43,7 +43,14 @@
     #include "RamTypes.h"
     #include "parser.hh"
 
-    #include "Util.h"
+    #include "utility/StringUtil.h"
+    #include "utility/FileUtil.h"
+    #include "utility/StreamUtil.h"
+    #include "utility/MiscUtil.h"
+    #include "utility/FunctionalUtil.h"
+    #include "utility/ContainerUtil.h"
+    #include "utility/CacheUtil.h"
+    #include "utility/ParallelUtil.h"
 
     #define register
 
@@ -88,17 +95,13 @@
 "bshru"                               { return yy::parser::make_BW_SHIFT_R_UNSIGNED(yylloc); }
 "land"                                { return yy::parser::make_L_AND(yylloc); }
 "lor"                                 { return yy::parser::make_L_OR(yylloc); }
+"lxor"                                { return yy::parser::make_L_XOR(yylloc); }
 "lnot"                                { return yy::parser::make_L_NOT(yylloc); }
-"itou"                                { return yy::parser::make_ITOU(yylloc); }
-"itof"                                { return yy::parser::make_ITOF(yylloc); }
-"utoi"                                { return yy::parser::make_UTOI(yylloc); }
-"utof"                                { return yy::parser::make_UTOF(yylloc); }
-"ftoi"                                { return yy::parser::make_FTOI(yylloc); }
-"ftou"                                { return yy::parser::make_FTOU(yylloc); }
 "match"                               { return yy::parser::make_TMATCH(yylloc); }
 "mean"                                { return yy::parser::make_MEAN(yylloc); }
 "cat"                                 { return yy::parser::make_CAT(yylloc); }
 "ord"                                 { return yy::parser::make_ORD(yylloc); }
+"range"                               { return yy::parser::make_RANGE(yylloc); }
 "strlen"                              { return yy::parser::make_STRLEN(yylloc); }
 "substr"                              { return yy::parser::make_SUBSTR(yylloc); }
 "contains"                            { return yy::parser::make_TCONTAINS(yylloc); }
@@ -108,6 +111,7 @@
 "printsize"                           { return yy::parser::make_PRINTSIZE_QUALIFIER(yylloc); }
 "eqrel"                               { return yy::parser::make_EQREL_QUALIFIER(yylloc); }
 "inline"                              { return yy::parser::make_INLINE_QUALIFIER(yylloc); }
+"magic"                               { return yy::parser::make_MAGIC_QUALIFIER(yylloc); }
 "brie"                                { return yy::parser::make_BRIE_QUALIFIER(yylloc); }
 "btree"                               { return yy::parser::make_BTREE_QUALIFIER(yylloc); }
 "rtree"                               { return yy::parser::make_RTREE_QUALIFIER(yylloc); }
@@ -120,8 +124,10 @@
 "sum"                                 { return yy::parser::make_SUM(yylloc); }
 "true"                                { return yy::parser::make_TRUE(yylloc); }
 "false"                               { return yy::parser::make_FALSE(yylloc); }
-"to_string"                           { return yy::parser::make_TOSTRING(yylloc); }
+"to_float"                            { return yy::parser::make_TOFLOAT(yylloc); }
 "to_number"                           { return yy::parser::make_TONUMBER(yylloc); }
+"to_string"                           { return yy::parser::make_TOSTRING(yylloc); }
+"to_unsigned"                         { return yy::parser::make_TOUNSIGNED(yylloc); }
 ".plan"                               { return yy::parser::make_PLAN(yylloc); }
 "|"                                   { return yy::parser::make_PIPE(yylloc); }
 "["                                   { return yy::parser::make_LBRACKET(yylloc); }
@@ -173,9 +179,12 @@
                                         }
                                       }
 [0-9]+[.][0-9]+                       { return yy::parser::make_FLOAT(yytext, yylloc); }
+[0-9]+                                { return yy::parser::make_NUMBER(yytext, yylloc); }
 0b[0-1]+                              { return yy::parser::make_NUMBER(yytext, yylloc); }
 0x[a-fA-F0-9]+                        { return yy::parser::make_NUMBER(yytext, yylloc); }
-0|([1-9][0-9]*)                       { return yy::parser::make_NUMBER(yytext, yylloc); }
+[0-9]+u                               { return yy::parser::make_UNSIGNED(yytext, yylloc); }
+0b[0-1]+u                             { return yy::parser::make_UNSIGNED(yytext, yylloc); }
+0x[a-fA-F0-9]+u                       { return yy::parser::make_UNSIGNED(yytext, yylloc); }
 [\?a-zA-Z]|[_\?a-zA-Z][_\?a-zA-Z0-9]+ {
                                         return yy::parser::make_IDENT(yytext, yylloc);
                                       }

@@ -20,13 +20,11 @@
 #pragma once
 
 #include "BTree.h"
-#include "ParallelUtils.h"
-#include "Util.h"
+#include "utility/ContainerUtil.h"
+#include "utility/ParallelUtil.h"
+#include <atomic>
 #include <cassert>
-#include <functional>
-#include <iostream>
-#include <iterator>
-#include <type_traits>
+#include <typeinfo>
 #include <vector>
 
 namespace souffle {

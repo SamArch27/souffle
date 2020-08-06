@@ -14,7 +14,11 @@ source scl_source enable devtoolset-7
 set -e
 set -x
 
+# Ensure we have the tags before attempting to use them
+# Avoids issues with shallow clones not finding tags.
 git fetch --tags --unshallow
+echo -n "Version: "
+git describe --tags --abbrev=0 --always
 
 ./bootstrap
 ./configure --prefix=`pwd`/usr

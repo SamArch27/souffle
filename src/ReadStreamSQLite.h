@@ -16,23 +16,28 @@
 
 #include "RamTypes.h"
 #include "ReadStream.h"
-#include "RecordTable.h"
 #include "SymbolTable.h"
+#include "utility/MiscUtil.h"
+#include "utility/StringUtil.h"
+#include <cassert>
+#include <cstdint>
 #include <fstream>
+#include <map>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
-
+#include <vector>
 #include <sqlite3.h>
 
 namespace souffle {
+class RecordTable;
 
 class ReadStreamSQLite : public ReadStream {
 public:
-    ReadStreamSQLite(const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable)
-            : ReadStream(rwOperation, symbolTable, recordTable), dbFilename(rwOperation.get("filename")),
-              relationName(rwOperation.get("name")) {
+    ReadStreamSQLite(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable)
+            : ReadStream(rwOperation, symbolTable, recordTable), dbFilename(getFileName(rwOperation)),
+              relationName(rwOperation.at("name")) {
         openDB();
         checkTableExists();
         prepareSelectStatement();
@@ -66,18 +71,14 @@ protected:
             }
 
             try {
-                switch (typeAttributes.at(column)[0]) {
-                    case 's':
-                        tuple[column] = symbolTable.unsafeLookup(element);
-                        break;
+                auto&& ty = typeAttributes.at(column);
+                switch (ty[0]) {
+                    case 's': tuple[column] = symbolTable.unsafeLookup(element); break;
                     case 'i':
                     case 'u':
                     case 'f':
-                    case 'r':
-                        tuple[column] = RamSignedFromString(element);
-                        break;
-                    default:
-                        assert(false && "Invalid type attribute");
+                    case 'r': tuple[column] = RamSignedFromString(element); break;
+                    default: fatal("invalid type attribute: `%c`", ty[0]);
                 }
             } catch (...) {
                 std::stringstream errorMessage;
@@ -151,16 +152,36 @@ protected:
         throw std::invalid_argument(
                 "Required table or view does not exist in " + dbFilename + " for relation " + relationName);
     }
-    const std::string& dbFilename;
-    const std::string& relationName;
+
+    /**
+     * Return given filename or construct from relation name.
+     * Default name is [configured path]/[relation name].sqlite
+     *
+     * @param rwOperation map of IO configuration options
+     * @return input filename
+     */
+    static std::string getFileName(const std::map<std::string, std::string>& rwOperation) {
+        // legacy support for SQLite prior to 2020-03-18
+        // convert dbname to filename
+        auto name = getOr(rwOperation, "dbname", rwOperation.at("name") + ".sqlite");
+        name = getOr(rwOperation, "filename", name);
+
+        if (name.front() != '/') {
+            name = getOr(rwOperation, "fact-dir", ".") + "/" + name;
+        }
+        return name;
+    }
+
+    const std::string dbFilename;
+    const std::string relationName;
     sqlite3_stmt* selectStatement = nullptr;
     sqlite3* db = nullptr;
 };
 
 class ReadSQLiteFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(
-            const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable) override {
+    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
+            SymbolTable& symbolTable, RecordTable& recordTable) override {
         return std::make_unique<ReadStreamSQLite>(rwOperation, symbolTable, recordTable);
     }
 

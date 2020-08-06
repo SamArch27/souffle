@@ -17,22 +17,28 @@
 #include "RamTypes.h"
 #include "SymbolTable.h"
 #include "WriteStream.h"
-
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
-
+#include <vector>
 #include <sqlite3.h>
 
 namespace souffle {
 
+class RecordTable;
+
 class WriteStreamSQLite : public WriteStream {
 public:
-    WriteStreamSQLite(
-            const RWOperation& rwOperation, const SymbolTable& symbolTable, const RecordTable& recordTable)
-            : WriteStream(rwOperation, symbolTable, recordTable), dbFilename(rwOperation.get("filename")),
-              relationName(rwOperation.get("name")) {
+    WriteStreamSQLite(const std::map<std::string, std::string>& rwOperation, const SymbolTable& symbolTable,
+            const RecordTable& recordTable)
+            : WriteStream(rwOperation, symbolTable, recordTable), dbFilename(getFileName(rwOperation)),
+              relationName(rwOperation.at("name")) {
         openDB();
         createTables();
         prepareStatements();
@@ -54,12 +60,8 @@ protected:
             RamDomain value = 0;  // Silence warning
 
             switch (typeAttributes.at(i)[0]) {
-                case 's':
-                    value = getSymbolTableID(tuple[i]);
-                    break;
-                default:
-                    value = tuple[i];
-                    break;
+                case 's': value = getSymbolTableID(tuple[i]); break;
+                default: value = tuple[i]; break;
             }
 
 #if RAM_DOMAIN_SIZE == 64
@@ -248,8 +250,27 @@ private:
         executeSQL(createTableText.str(), db);
     }
 
-    const std::string& dbFilename;
-    const std::string& relationName;
+    /**
+     * Return given filename or construct from relation name.
+     * Default name is [configured path]/[relation name].sqlite
+     *
+     * @param rwOperation map of IO configuration options
+     * @return input filename
+     */
+    static std::string getFileName(const std::map<std::string, std::string>& rwOperation) {
+        // legacy support for SQLite prior to 2020-03-18
+        // convert dbname to filename
+        auto name = getOr(rwOperation, "dbname", rwOperation.at("name") + ".sqlite");
+        name = getOr(rwOperation, "filename", name);
+
+        if (name.front() != '/') {
+            name = getOr(rwOperation, "output-dir", ".") + "/" + name;
+        }
+        return name;
+    }
+
+    const std::string dbFilename;
+    const std::string relationName;
     const std::string symbolTableName = "__SymbolTable";
 
     std::unordered_map<uint64_t, uint64_t> dbSymbolTable;
@@ -261,8 +282,8 @@ private:
 
 class WriteSQLiteFactory : public WriteStreamFactory {
 public:
-    std::unique_ptr<WriteStream> getWriter(const RWOperation& rwOperation, const SymbolTable& symbolTable,
-            const RecordTable& recordTable) override {
+    std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+            const SymbolTable& symbolTable, const RecordTable& recordTable) override {
         return std::make_unique<WriteStreamSQLite>(rwOperation, symbolTable, recordTable);
     }
 

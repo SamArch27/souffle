@@ -14,12 +14,12 @@
 
 #pragma once
 
-#include "RWOperation.h"
 #include "RamTypes.h"
 #include "ReadStream.h"
-#include "RecordTable.h"
 #include "SymbolTable.h"
-#include "Util.h"
+#include "utility/ContainerUtil.h"
+#include "utility/FileUtil.h"
+#include "utility/StringUtil.h"
 
 #ifdef USE_LIBZ
 #include "gzfstream.h"
@@ -27,28 +27,33 @@
 #include <fstream>
 #endif
 
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace souffle {
+class RecordTable;
 
 class ReadStreamCSV : public ReadStream {
 public:
-    ReadStreamCSV(std::istream& file, const RWOperation& rwOperation, SymbolTable& symbolTable,
-            RecordTable& recordTable)
+    ReadStreamCSV(std::istream& file, const std::map<std::string, std::string>& rwOperation,
+            SymbolTable& symbolTable, RecordTable& recordTable)
             : ReadStream(rwOperation, symbolTable, recordTable),
-              delimiter(rwOperation.getOr("delimiter", "\t")), file(file), lineNumber(0),
+              delimiter(getOr(rwOperation, "delimiter", "\t")), file(file), lineNumber(0),
               inputMap(getInputColumnMap(rwOperation, arity)) {
         while (inputMap.size() < arity) {
             int size = static_cast<int>(inputMap.size());
             inputMap[size] = size;
         }
     }
-
-    ~ReadStreamCSV() override = default;
 
 protected:
     /**
@@ -85,26 +90,30 @@ protected:
             ++columnsFilled;
 
             try {
-                switch (typeAttributes.at(inputMap[column])[0]) {
-                    case 's':
+                auto&& ty = typeAttributes.at(inputMap[column]);
+                switch (ty[0]) {
+                    case 's': {
                         tuple[inputMap[column]] = symbolTable.unsafeLookup(element);
                         charactersRead = element.size();
                         break;
-                    case 'r':
-                        tuple[inputMap[column]] =
-                                readRecord(element, typeAttributes[inputMap[column]], 0, &charactersRead);
+                    }
+                    case 'r': {
+                        tuple[inputMap[column]] = readRecord(element, ty, 0, &charactersRead);
                         break;
-                    case 'i':
+                    }
+                    case 'i': {
                         tuple[inputMap[column]] = RamSignedFromString(element, &charactersRead);
                         break;
-                    case 'u':
+                    }
+                    case 'u': {
                         tuple[inputMap[column]] = ramBitCast(readRamUnsigned(element, charactersRead));
                         break;
-                    case 'f':
+                    }
+                    case 'f': {
                         tuple[inputMap[column]] = ramBitCast(RamFloatFromString(element, &charactersRead));
                         break;
-                    default:
-                        assert(false && "Invalid type attribute");
+                    }
+                    default: fatal("invalid type attribute: `%c`", ty[0]);
                 }
                 // Check if everything was read.
                 if (charactersRead != element.size()) {
@@ -197,8 +206,9 @@ protected:
         return element;
     }
 
-    std::map<int, int> getInputColumnMap(const RWOperation& rwOperation, const unsigned arity_) const {
-        std::string columnString = rwOperation.getOr("columns", "");
+    std::map<int, int> getInputColumnMap(
+            const std::map<std::string, std::string>& rwOperation, const unsigned arity_) const {
+        std::string columnString = getOr(rwOperation, "columns", "");
         std::map<int, int> inputColumnMap;
 
         if (!columnString.empty()) {
@@ -228,19 +238,18 @@ protected:
 
 class ReadFileCSV : public ReadStreamCSV {
 public:
-    ReadFileCSV(const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable)
+    ReadFileCSV(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable)
             : ReadStreamCSV(fileHandle, rwOperation, symbolTable, recordTable),
               baseName(souffle::baseName(getFileName(rwOperation))),
               fileHandle(getFileName(rwOperation), std::ios::in | std::ios::binary) {
-        if (!rwOperation.has("intermediate")) {
-            if (!fileHandle.is_open()) {
-                throw std::invalid_argument("Cannot open fact file " + baseName + "\n");
-            }
-            // Strip headers if we're using them
-            if (rwOperation.has("headers") && rwOperation.get("headers") == "true") {
-                std::string line;
-                getline(file, line);
-            }
+        if (!fileHandle.is_open()) {
+            throw std::invalid_argument("Cannot open fact file " + baseName + "\n");
+        }
+        // Strip headers if we're using them
+        if (getOr(rwOperation, "headers", "false") == "true") {
+            std::string line;
+            getline(file, line);
         }
     }
 
@@ -264,9 +273,21 @@ public:
     ~ReadFileCSV() override = default;
 
 protected:
-    std::string getFileName(const RWOperation& rwOperation) const {
-        return rwOperation.getOr("filename", rwOperation.get("name") + ".facts");
+    /**
+     * Return given filename or construct from relation name.
+     * Default name is [configured path]/[relation name].facts
+     *
+     * @param rwOperation map of IO configuration options
+     * @return input filename
+     */
+    static std::string getFileName(const std::map<std::string, std::string>& rwOperation) {
+        auto name = getOr(rwOperation, "filename", rwOperation.at("name") + ".facts");
+        if (name.front() != '/') {
+            name = getOr(rwOperation, "fact-dir", ".") + "/" + name;
+        }
+        return name;
     }
+
     std::string baseName;
 #ifdef USE_LIBZ
     gzfstream::igzfstream fileHandle;
@@ -277,8 +298,8 @@ protected:
 
 class ReadCinCSVFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(
-            const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable) override {
+    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
+            SymbolTable& symbolTable, RecordTable& recordTable) override {
         return std::make_unique<ReadStreamCSV>(std::cin, rwOperation, symbolTable, recordTable);
     }
 
@@ -291,8 +312,8 @@ public:
 
 class ReadFileCSVFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(
-            const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable) override {
+    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
+            SymbolTable& symbolTable, RecordTable& recordTable) override {
         return std::make_unique<ReadFileCSV>(rwOperation, symbolTable, recordTable);
     }
 

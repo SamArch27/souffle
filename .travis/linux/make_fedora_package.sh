@@ -12,7 +12,11 @@ DESCRIPTION="Translator of declarative Datalog programs into the C++ language.\
 set -e
 set -x
 
+# Ensure we have the tags before attempting to use them
+# Avoids issues with shallow clones not finding tags.
 git fetch --tags --unshallow
+echo -n "Version: "
+git describe --tags --abbrev=0 --always
 
 ./bootstrap
 ./configure --prefix=`pwd`/usr

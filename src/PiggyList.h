@@ -1,11 +1,11 @@
 #pragma once
 
-#include "ParallelUtils.h"
+#include "utility/ParallelUtil.h"
 #include <array>
 #include <atomic>
 #include <cstring>
 #include <iostream>
-#include <list>
+#include <iterator>
 
 #ifdef _WIN32
 /**

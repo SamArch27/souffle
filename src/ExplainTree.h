@@ -16,8 +16,10 @@
 
 #pragma once
 
-#include "Util.h"
+#include "utility/StringUtil.h"
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <sstream>

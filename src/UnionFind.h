@@ -18,15 +18,11 @@
 
 #include "LambdaBTree.h"
 #include "PiggyList.h"
-
 #include <atomic>
-#include <exception>
-#include <iterator>
-#include <limits>
-#include <list>
-#include <mutex>
-#include <unordered_map>
-#include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <utility>
 
 namespace souffle {
 

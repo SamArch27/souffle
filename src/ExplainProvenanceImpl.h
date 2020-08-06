@@ -18,24 +18,34 @@
 
 #include "BinaryConstraintOps.h"
 #include "ExplainProvenance.h"
-#include "Util.h"
-
+#include "ExplainTree.h"
+#include "RamTypes.h"
+#include "SouffleInterface.h"
+#include "SymbolTable.h"
+#include "utility/ContainerUtil.h"
+#include "utility/MiscUtil.h"
+#include "utility/StreamUtil.h"
+#include "utility/StringUtil.h"
 #include <algorithm>
+#include <cassert>
 #include <chrono>
+#include <cstdio>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <regex>
 #include <sstream>
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
-
-#include <cstdio>
 
 namespace souffle {
 
 class ExplainProvenanceImpl : public ExplainProvenance {
 public:
-    ExplainProvenanceImpl(SouffleProgram& prog, bool useSublevels) : ExplainProvenance(prog, useSublevels) {
+    ExplainProvenanceImpl(SouffleProgram& prog) : ExplainProvenance(prog) {
         setup();
     }
 
@@ -56,7 +66,7 @@ public:
                 RamDomain ruleNum;
                 tuple >> ruleNum;
 
-                for (size_t i = 1; i < rel->getArity() - 1; i++) {
+                for (size_t i = 1; i + 1 < rel->getArity(); i++) {
                     std::string bodyLit;
                     tuple >> bodyLit;
                     bodyLiterals.push_back(bodyLit);
@@ -71,10 +81,10 @@ public:
         }
     }
 
-    std::unique_ptr<TreeNode> explain(std::string relName, std::vector<RamDomain> tuple, int ruleNum,
-            int levelNum, std::vector<RamDomain> subtreeLevels, size_t depthLimit) {
+    std::unique_ptr<TreeNode> explain(
+            std::string relName, std::vector<RamDomain> tuple, int ruleNum, int levelNum, size_t depthLimit) {
         std::stringstream joinedArgs;
-        joinedArgs << join(numsToArgs(relName, tuple), ", ");
+        joinedArgs << join(decodeArguments(relName, tuple), ", ");
         auto joinedArgsStr = joinedArgs.str();
 
         // if fact
@@ -89,10 +99,6 @@ public:
             tuple.push_back(ruleNum);
             tuple.push_back(levelNum);
 
-            for (auto subtreeLevel : subtreeLevels) {
-                tuple.push_back(subtreeLevel);
-            }
-
             // find if subproof exists already
             size_t idx = 0;
             auto it = std::find(subproofs.begin(), subproofs.end(), tuple);
@@ -106,20 +112,13 @@ public:
             return std::make_unique<LeafNode>("subproof " + relName + "(" + std::to_string(idx) + ")");
         }
 
+        tuple.push_back(levelNum);
+
         auto internalNode = std::make_unique<InnerNode>(
                 relName + "(" + joinedArgsStr + ")", "(R" + std::to_string(ruleNum) + ")");
 
         // make return vector pointer
         std::vector<RamDomain> ret;
-
-        if (useSublevels) {
-            // add subtree level numbers to tuple
-            for (auto subtreeLevel : subtreeLevels) {
-                tuple.push_back(subtreeLevel);
-            }
-        } else {
-            tuple.push_back(levelNum);
-        }
 
         // execute subroutine to get subproofs
         prog.executeSubroutine(relName + "_" + std::to_string(ruleNum) + "_subproof", tuple, ret);
@@ -140,7 +139,7 @@ public:
 
             // handle negated atom names
             auto bodyRelAtomName = bodyRel;
-            if (bodyRel[0] == '!') {
+            if (bodyRel[0] == '!' && bodyRel != "!=") {
                 bodyRelAtomName = bodyRel.substr(1);
             }
 
@@ -170,15 +169,10 @@ public:
 
             tupleCurInd += 2;
 
-            std::vector<RamDomain> subsubtreeLevels;
-            for (; tupleCurInd < tupleEnd; tupleCurInd++) {
-                subsubtreeLevels.push_back(ret[tupleCurInd]);
-            }
-
             // for a negation, display the corresponding tuple and do not recurse
             if (bodyRel[0] == '!' && bodyRel != "!=") {
                 std::stringstream joinedTuple;
-                joinedTuple << join(numsToArgs(bodyRelAtomName, subproofTuple), ", ");
+                joinedTuple << join(decodeArguments(bodyRelAtomName, subproofTuple), ", ");
                 auto joinedTupleStr = joinedTuple.str();
                 internalNode->add_child(std::make_unique<LeafNode>(bodyRel + "(" + joinedTupleStr + ")"));
                 internalNode->setSize(internalNode->getSize() + 1);
@@ -186,8 +180,7 @@ public:
             } else if (isConstraint) {
                 std::stringstream joinedConstraint;
 
-                // FIXME: We need type info in order to figure out if the constraint is a string constraint or
-                // not!
+                // FIXME: We need type info in order to figure out how to print arguments.
                 BinaryConstraintOp rawBinOp = toBinaryConstraintOp(bodyRel);
                 if (isOrderedBinaryConstraintOp(rawBinOp)) {
                     joinedConstraint << subproofTuple[0] << " " << bodyRel << " " << subproofTuple[1];
@@ -200,8 +193,8 @@ public:
                 internalNode->setSize(internalNode->getSize() + 1);
                 // otherwise, for a normal tuple, recurse
             } else {
-                auto child = explain(bodyRel, subproofTuple, subproofRuleNum, subproofLevelNum,
-                        subsubtreeLevels, depthLimit - 1);
+                auto child =
+                        explain(bodyRel, subproofTuple, subproofRuleNum, subproofLevelNum, depthLimit - 1);
                 internalNode->setSize(internalNode->getSize() + child->getSize());
                 internalNode->add_child(std::move(child));
             }
@@ -219,17 +212,16 @@ public:
             return std::make_unique<LeafNode>("Relation not found");
         }
 
-        std::tuple<int, int, std::vector<RamDomain>> tupleInfo = findTuple(relName, tuple);
+        std::tuple<int, int> tupleInfo = findTuple(relName, tuple);
 
         int ruleNum = std::get<0>(tupleInfo);
         int levelNum = std::get<1>(tupleInfo);
-        std::vector<RamDomain> subtreeLevels = std::get<2>(tupleInfo);
 
         if (ruleNum < 0 || levelNum == -1) {
             return std::make_unique<LeafNode>("Tuple not found");
         }
 
-        return explain(relName, tuple, ruleNum, levelNum, subtreeLevels, depthLimit);
+        return explain(relName, tuple, ruleNum, levelNum, depthLimit);
     }
 
     std::unique_ptr<TreeNode> explainSubproof(
@@ -248,15 +240,9 @@ public:
         RamDomain levelNum;
         levelNum = tup[rel->getArity() - rel->getAuxiliaryArity() + 1];
 
-        std::vector<RamDomain> subtreeLevels;
-
-        for (size_t i = rel->getArity() - rel->getAuxiliaryArity() + 2; i < rel->getArity(); i++) {
-            subtreeLevels.push_back(tup[i]);
-        }
-
         tup.erase(tup.begin() + rel->getArity() - rel->getAuxiliaryArity(), tup.end());
 
-        return explain(relName, tup, ruleNum, levelNum, subtreeLevels, depthLimit);
+        return explain(relName, tup, ruleNum, levelNum, depthLimit);
     }
 
     std::vector<std::string> explainNegationGetVariables(
@@ -264,8 +250,7 @@ public:
         std::vector<std::string> variables;
 
         // check that the tuple actually doesn't exist
-        std::tuple<int, int, std::vector<RamDomain>> foundTuple =
-                findTuple(relName, argsToNums(relName, args));
+        std::tuple<int, int> foundTuple = findTuple(relName, argsToNums(relName, args));
         if (std::get<0>(foundTuple) != -1 || std::get<1>(foundTuple) != -1) {
             // return a sentinel value
             return std::vector<std::string>({"@"});
@@ -444,13 +429,14 @@ public:
 
             // handle negated atom names
             auto bodyRelAtomName = bodyRel;
-            if (bodyRel[0] == '!') {
+            if (bodyRel[0] == '!' && bodyRel != "!=") {
                 bodyRelAtomName = bodyRel.substr(1);
             }
 
             // construct a label for a node containing a literal (either constraint or atom)
             std::stringstream childLabel;
             if (isConstraint) {
+                // for a binary constraint, display the corresponding values and do not recurse
                 assert(atomRepresentation.size() == 3 && "not a binary constraint");
 
                 childLabel << bodyVariables[atomRepresentation[1]] << " " << bodyRel << " "
@@ -498,7 +484,7 @@ public:
         }
     }
 
-    std::vector<std::string> getRules(std::string relName) override {
+    std::vector<std::string> getRules(const std::string& relName) override {
         std::vector<std::string> relRules;
         // go through all rules
         for (auto& rule : rules) {
@@ -545,6 +531,14 @@ public:
                     std::string s;
                     tuple >> s;
                     n = symTable.lookupExisting(s);
+                } else if (*rel->getAttrType(i) == 'f') {
+                    RamFloat element;
+                    tuple >> element;
+                    n = ramBitCast(element);
+                } else if (*rel->getAttrType(i) == 'u') {
+                    RamUnsigned element;
+                    tuple >> element;
+                    n = ramBitCast(element);
                 } else {
                     tuple >> n;
                 }
@@ -558,16 +552,8 @@ public:
             RamDomain levelNum;
             tuple >> levelNum;
 
-            std::vector<RamDomain> subtreeLevels;
-
-            for (size_t i = rel->getArity() - rel->getAuxiliaryArity() + 2; i < rel->getArity(); i++) {
-                RamDomain subLevel;
-                tuple >> subLevel;
-                subtreeLevels.push_back(subLevel);
-            }
-
             std::cout << "Tuples expanded: "
-                      << explain(relName, currentTuple, ruleNum, levelNum, subtreeLevels, 10000)->getSize();
+                      << explain(relName, currentTuple, ruleNum, levelNum, 10000)->getSize();
 
             numTuples++;
             proc++;
@@ -656,32 +642,49 @@ public:
                     } else {
                         nameToEquivalenceIter->second.push_back(std::make_pair(idx, j));
                     }
-                    // arg is a symbol
-                } else if (std::regex_match(rel.second[j], argsMatcher, symbolRegex)) {
-                    if (*(relation->getAttrType(j)) != 's') {
-                        std::cout << argsMatcher.str(0) << " does not match type defined in relation"
-                                  << std::endl;
-                        return;
-                    }
-                    // find index of symbol and add indices pair to constConstraints
-                    RamDomain rd = prog.getSymbolTable().lookup(argsMatcher[1]);
-                    constConstraints.push_back(std::make_pair(std::make_pair(idx, j), rd));
-                    if (!containVar) {
-                        constTuple.push_back(rd);
-                    }
-                    // arg is number
-                } else if (std::regex_match(rel.second[j], argsMatcher, numberRegex)) {
-                    if (*(relation->getAttrType(j)) != 'i') {
-                        std::cout << argsMatcher.str(0) << " does not match type defined in relation"
-                                  << std::endl;
-                        return;
-                    }
-                    // convert number string to number and add index, number pair to constConstraints
-                    RamDomain rd = std::stoi(argsMatcher[0]);
-                    constConstraints.push_back(std::make_pair(std::make_pair(idx, j), rd));
-                    if (!containVar) {
-                        constTuple.push_back(rd);
-                    }
+                    continue;
+                }
+
+                RamDomain rd;
+                switch (*(relation->getAttrType(j))) {
+                    case 's':
+                        if (!std::regex_match(rel.second[j], argsMatcher, symbolRegex)) {
+                            std::cout << argsMatcher.str(0) << " does not match type defined in relation"
+                                      << std::endl;
+                            return;
+                        }
+                        rd = prog.getSymbolTable().lookup(argsMatcher[1]);
+                        break;
+                    case 'f':
+                        if (!canBeParsedAsRamFloat(rel.second[j])) {
+                            std::cout << rel.second[j] << " does not match type defined in relation"
+                                      << std::endl;
+                            return;
+                        }
+                        rd = ramBitCast(RamFloatFromString(rel.second[j]));
+                        break;
+                    case 'i':
+                        if (!canBeParsedAsRamSigned(rel.second[j])) {
+                            std::cout << rel.second[j] << " does not match type defined in relation"
+                                      << std::endl;
+                            return;
+                        }
+                        rd = ramBitCast(RamSignedFromString(rel.second[j]));
+                        break;
+                    case 'u':
+                        if (!canBeParsedAsRamUnsigned(rel.second[j])) {
+                            std::cout << rel.second[j] << " does not match type defined in relation"
+                                      << std::endl;
+                            return;
+                        }
+                        rd = ramBitCast(RamUnsignedFromString(rel.second[j]));
+                        break;
+                    default: continue;
+                }
+
+                constConstraints.push_back(std::make_pair(std::make_pair(idx, j), rd));
+                if (!containVar) {
+                    constTuple.push_back(rd);
                 }
             }
 
@@ -729,15 +732,12 @@ private:
     std::vector<std::string> constraintList = {
             "=", "!=", "<", "<=", ">=", ">", "match", "contains", "not_match", "not_contains"};
 
-    std::tuple<int, int, std::vector<RamDomain>> findTuple(
-            const std::string& relName, std::vector<RamDomain> tup) {
+    std::tuple<int, int> findTuple(const std::string& relName, std::vector<RamDomain> tup) {
         auto rel = prog.getRelation(relName);
 
         if (rel == nullptr) {
-            return std::make_tuple(-1, -1, std::vector<RamDomain>());
+            return std::make_tuple(-1, -1);
         }
-
-        // TODO (darth_tytus): update to reflect new types.
 
         // find correct tuple
         for (auto& tuple : *rel) {
@@ -750,6 +750,14 @@ private:
                     std::string s;
                     tuple >> s;
                     n = symTable.lookupExisting(s);
+                } else if (*rel->getAttrType(i) == 'f') {
+                    RamFloat element;
+                    tuple >> element;
+                    n = ramBitCast(element);
+                } else if (*rel->getAttrType(i) == 'u') {
+                    RamUnsigned element;
+                    tuple >> element;
+                    n = ramBitCast(element);
                 } else {
                     tuple >> n;
                 }
@@ -769,20 +777,11 @@ private:
                 RamDomain levelNum;
                 tuple >> levelNum;
 
-                std::vector<RamDomain> subtreeLevels;
-
-                for (size_t i = rel->getArity() - rel->getAuxiliaryArity() + 2; i < rel->getArity(); i++) {
-                    RamDomain subLevel;
-                    tuple >> subLevel;
-                    subtreeLevels.push_back(subLevel);
-                }
-
-                return std::make_tuple(ruleNum, levelNum, subtreeLevels);
+                return std::make_tuple(ruleNum, levelNum);
             }
         }
-
         // if no tuple exists
-        return std::make_tuple(-1, -1, std::vector<RamDomain>());
+        return std::make_tuple(-1, -1);
     }
 
     /*
@@ -826,61 +825,39 @@ private:
             }
 
             if (isSolution) {
+                std::cout << solution.str();  // print previous solution (if any)
+                solution.str(std::string());  // reset solution and process
+
+                size_t c = 0;
+                for (auto&& var : nameToEquivalence) {
+                    auto idx = var.second.getFirstIdx();
+                    auto raw = element[idx.first][idx.second];
+
+                    solution << var.second.getSymbol() << " = ";
+                    switch (var.second.getType()) {
+                        case 'i': solution << ramBitCast<RamSigned>(raw); break;
+                        case 'f': solution << ramBitCast<RamFloat>(raw); break;
+                        case 'u': solution << ramBitCast<RamUnsigned>(raw); break;
+                        case 's': solution << prog.getSymbolTable().resolve(raw); break;
+                        default: fatal("invalid type: `%c`", var.second.getType());
+                    }
+
+                    auto sep = ++c < nameToEquivalence.size() ? ", " : " ";
+                    solution << sep;
+                }
+
                 solutionCount++;
-                // first solution has been found
-                if (solutionCount == 1) {
-                    size_t c = 0;
-                    for (auto var : nameToEquivalence) {
-                        auto idx = var.second.getFirstIdx();
-                        if (var.second.getType() == 'i') {
-                            solution << var.second.getSymbol() << " = "
-                                     << std::to_string(element[idx.first][idx.second]);
-                        } else {
-                            solution << var.second.getSymbol() << " = "
-                                     << prog.getSymbolTable().resolve(element[idx.first][idx.second]);
-                        }
-                        if (++c < nameToEquivalence.size()) {
-                            solution << ", ";
-                        } else {
-                            solution << " ";
-                        }
-                    }
-                    // query has more than one solution
-                } else {
-                    // print previous solution
-                    std::cout << solution.str();
-                    // store the current solution
-                    solution.str(std::string());
-                    size_t c = 0;
-                    for (auto var : nameToEquivalence) {
-                        auto idx = var.second.getFirstIdx();
-                        if (var.second.getType() == 'i') {
-                            solution << var.second.getSymbol() << " = "
-                                     << std::to_string(element[idx.first][idx.second]);
-                        } else {
-                            solution << var.second.getSymbol() << " = "
-                                     << prog.getSymbolTable().resolve(element[idx.first][idx.second]);
-                        }
-                        if (++c < nameToEquivalence.size()) {
-                            solution << ", ";
-                        } else {
-                            solution << " ";
-                        }
-                    }
-                    std::string input;
-                    // get user input whether find next solution or break from current query
-                    while (getline(std::cin, input)) {
-                        if (input == ";") {
-                            break;
-                        } else if (input == ".") {
-                            return;
-                        } else {
-                            std::cout << "use ; to find next solution, use . to break from current query"
-                                      << std::endl;
-                        }
+                // query has more than one solution; query whether to find next solution or stop
+                if (1 < solutionCount) {
+                    for (std::string input; getline(std::cin, input);) {
+                        if (input == ";") break;   // print next solution?
+                        if (input == ".") return;  // break from query?
+
+                        std::cout << "use ; to find next solution, use . to break from current query\n";
                     }
                 }
             }
+
             // increment the iterators
             size_t i = varRels.size() - 1;
             bool terminate = true;

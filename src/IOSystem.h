@@ -14,13 +14,14 @@
 
 #pragma once
 
-#include "RWOperation.h"
 #include "RamTypes.h"
 #include "ReadStream.h"
 #include "ReadStreamCSV.h"
+#include "ReadStreamJSON.h"
 #include "SymbolTable.h"
 #include "WriteStream.h"
 #include "WriteStreamCSV.h"
+#include "WriteStreamJSON.h"
 
 #ifdef USE_SQLITE
 #include "ReadStreamSQLite.h"
@@ -29,9 +30,11 @@
 
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 namespace souffle {
+class RecordTable;
 
 class IOSystem {
 public:
@@ -51,9 +54,9 @@ public:
     /**
      * Return a new WriteStream
      */
-    std::unique_ptr<WriteStream> getWriter(const RWOperation& rwOperation, const SymbolTable& symbolTable,
-            const RecordTable& recordTable) const {
-        std::string ioType = rwOperation.get("IO");
+    std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+            const SymbolTable& symbolTable, const RecordTable& recordTable) const {
+        std::string ioType = rwOperation.at("IO");
         if (outputFactories.count(ioType) == 0) {
             throw std::invalid_argument("Requested output type <" + ioType + "> is not supported.");
         }
@@ -62,9 +65,9 @@ public:
     /**
      * Return a new ReadStream
      */
-    std::unique_ptr<ReadStream> getReader(
-            const RWOperation& rwOperation, SymbolTable& symbolTable, RecordTable& recordTable) const {
-        std::string ioType = rwOperation.get("IO");
+    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
+            SymbolTable& symbolTable, RecordTable& recordTable) const {
+        std::string ioType = rwOperation.at("IO");
         if (inputFactories.count(ioType) == 0) {
             throw std::invalid_argument("Requested input type <" + ioType + "> is not supported.");
         }
@@ -76,9 +79,13 @@ private:
     IOSystem() {
         registerReadStreamFactory(std::make_shared<ReadFileCSVFactory>());
         registerReadStreamFactory(std::make_shared<ReadCinCSVFactory>());
+        registerReadStreamFactory(std::make_shared<ReadFileJSONFactory>());
+        registerReadStreamFactory(std::make_shared<ReadCinJSONFactory>());
         registerWriteStreamFactory(std::make_shared<WriteFileCSVFactory>());
         registerWriteStreamFactory(std::make_shared<WriteCoutCSVFactory>());
         registerWriteStreamFactory(std::make_shared<WriteCoutPrintSizeFactory>());
+        registerWriteStreamFactory(std::make_shared<WriteFileJSONFactory>());
+        registerWriteStreamFactory(std::make_shared<WriteCoutJSONFactory>());
 #ifdef USE_SQLITE
         registerReadStreamFactory(std::make_shared<ReadSQLiteFactory>());
         registerWriteStreamFactory(std::make_shared<WriteSQLiteFactory>());

@@ -17,11 +17,12 @@
 
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <iostream>
+#include <system_error>
 
 namespace souffle {
-
-namespace ram {
 
 /**
  * The type of object stored within relations representing the actual
@@ -39,7 +40,7 @@ struct Tuple {
     // the stored data
     Domain data[arity];
 
-    // constructores, destructors and assignment are default
+    // constructors, destructors and assignment are default
 
     // provide access to components
     const Domain& operator[](std::size_t index) const {
@@ -164,7 +165,6 @@ struct Tuple<Domain, 0> {
     }
 };
 #endif  // _MSC_VER
-}  // end namespace ram
 }  // end of namespace souffle
 
 // -- add hashing support --
@@ -172,8 +172,8 @@ struct Tuple<Domain, 0> {
 namespace std {
 
 template <typename Domain, std::size_t arity>
-struct hash<souffle::ram::Tuple<Domain, arity>> {
-    size_t operator()(const souffle::ram::Tuple<Domain, arity>& value) const {
+struct hash<souffle::Tuple<Domain, arity>> {
+    size_t operator()(const souffle::Tuple<Domain, arity>& value) const {
         std::hash<Domain> hash;
         size_t res = 0;
         for (unsigned i = 0; i < arity; i++) {

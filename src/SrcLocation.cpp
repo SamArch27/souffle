@@ -15,7 +15,7 @@
  ***********************************************************************/
 
 #include "SrcLocation.h"
-#include "Util.h"
+#include "utility/FileUtil.h"
 #include <cctype>
 #include <cstdio>
 #include <fstream>
@@ -43,6 +43,45 @@ std::string getCurrentFilename(const std::vector<std::string>& filenames) {
     }
 
     return path + "/" + baseName(filenames.back());
+}
+
+bool SrcLocation::operator<(const SrcLocation& other) const {
+    // Translate filename stack into current files
+    std::string filename = getCurrentFilename(filenames);
+    std::string otherFilename = getCurrentFilename(other.filenames);
+
+    if (filename < otherFilename) {
+        return true;
+    }
+
+    if (filename > otherFilename) {
+        return false;
+    }
+    if (start < other.start) {
+        return true;
+    }
+    if (start > other.start) {
+        return false;
+    }
+    if (end < other.end) {
+        return true;
+    }
+    return false;
+}
+
+void SrcLocation::setFilename(std::string filename) {
+    if (filenames.empty()) {
+        filenames.emplace_back(filename);
+        return;
+    }
+    if (filenames.back() == filename) {
+        return;
+    }
+    if (filenames.size() > 1 && filenames.at(filenames.size() - 2) == filename) {
+        filenames.pop_back();
+        return;
+    }
+    filenames.emplace_back(filename);
 }
 
 std::string SrcLocation::extloc() const {

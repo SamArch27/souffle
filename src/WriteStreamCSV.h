@@ -14,29 +14,34 @@
 
 #pragma once
 
-#include "ParallelUtils.h"
-#include "RWOperation.h"
 #include "RamTypes.h"
 #include "SymbolTable.h"
 #include "WriteStream.h"
+#include "utility/ContainerUtil.h"
+#include "utility/MiscUtil.h"
+#include "utility/ParallelUtil.h"
 #ifdef USE_LIBZ
 #include "gzfstream.h"
 #endif
 
-#include <cassert>
-#include <fstream>
-#include <memory>
+#include <cstddef>
+#include <iomanip>
+#include <iostream>
+#include <map>
 #include <ostream>
 #include <string>
+#include <vector>
 
 namespace souffle {
 
+class RecordTable;
+
 class WriteStreamCSV : public WriteStream {
 protected:
-    WriteStreamCSV(
-            const RWOperation& rwOperation, const SymbolTable& symbolTable, const RecordTable& recordTable)
+    WriteStreamCSV(const std::map<std::string, std::string>& rwOperation, const SymbolTable& symbolTable,
+            const RecordTable& recordTable)
             : WriteStream(rwOperation, symbolTable, recordTable),
-              delimiter(rwOperation.getOr("delimiter", "\t")){};
+              delimiter(getOr(rwOperation, "delimiter", "\t")){};
 
     const std::string delimiter;
 
@@ -53,36 +58,26 @@ protected:
 
     void writeNextTupleElement(std::ostream& destination, const std::string& type, RamDomain value) {
         switch (type[0]) {
-            case 's':
-                destination << symbolTable.unsafeResolve(value);
-                break;
-            case 'i':
-                destination << value;
-                break;
-            case 'u':
-                destination << ramBitCast<RamUnsigned>(value);
-                break;
-            case 'f':
-                destination << ramBitCast<RamFloat>(value);
-                break;
-            case 'r':
-                outputRecord(destination, value, type);
-                break;
-            default:
-                assert(false && "Unsupported type attribute");
+            case 's': destination << symbolTable.unsafeResolve(value); break;
+            case 'i': destination << value; break;
+            case 'u': destination << ramBitCast<RamUnsigned>(value); break;
+            case 'f': destination << ramBitCast<RamFloat>(value); break;
+            case 'r': outputRecord(destination, value, type); break;
+            default: fatal("unsupported type attribute: `%c`", type[0]);
         }
     }
 };
 
 class WriteFileCSV : public WriteStreamCSV {
 public:
-    WriteFileCSV(
-            const RWOperation& rwOperation, const SymbolTable& symbolTable, const RecordTable& recordTable)
+    WriteFileCSV(const std::map<std::string, std::string>& rwOperation, const SymbolTable& symbolTable,
+            const RecordTable& recordTable)
             : WriteStreamCSV(rwOperation, symbolTable, recordTable),
-              file(rwOperation.get("filename"), std::ios::out | std::ios::binary) {
-        if (rwOperation.has("headers") && rwOperation.get("headers") == "true") {
-            file << rwOperation.get("attributeNames") << std::endl;
+              file(getFileName(rwOperation), std::ios::out | std::ios::binary) {
+        if (getOr(rwOperation, "headers", "false") == "true") {
+            file << rwOperation.at("attributeNames") << std::endl;
         }
+        file << std::setprecision(std::numeric_limits<RamFloat>::max_digits10);
     }
 
     ~WriteFileCSV() override = default;
@@ -97,18 +92,34 @@ protected:
     void writeNextTuple(const RamDomain* tuple) override {
         writeNextTupleCSV(file, tuple);
     }
+
+    /**
+     * Return given filename or construct from relation name.
+     * Default name is [configured path]/[relation name].csv
+     *
+     * @param rwOperation map of IO configuration options
+     * @return input filename
+     */
+    static std::string getFileName(const std::map<std::string, std::string>& rwOperation) {
+        auto name = getOr(rwOperation, "filename", rwOperation.at("name") + ".csv");
+        if (name.front() != '/') {
+            name = getOr(rwOperation, "output-dir", ".") + "/" + name;
+        }
+        return name;
+    }
 };
 
 #ifdef USE_LIBZ
 class WriteGZipFileCSV : public WriteStreamCSV {
 public:
-    WriteGZipFileCSV(
-            const RWOperation& rwOperation, const SymbolTable& symbolTable, const RecordTable& recordTable)
+    WriteGZipFileCSV(const std::map<std::string, std::string>& rwOperation, const SymbolTable& symbolTable,
+            const RecordTable& recordTable)
             : WriteStreamCSV(rwOperation, symbolTable, recordTable),
-              file(rwOperation.get("filename"), std::ios::out | std::ios::binary) {
-        if (rwOperation.has("headers") && rwOperation.get("headers") == "true") {
-            file << rwOperation.get("attributeNames") << std::endl;
+              file(getFileName(rwOperation), std::ios::out | std::ios::binary) {
+        if (getOr(rwOperation, "headers", "false") == "true") {
+            file << rwOperation.at("attributeNames") << std::endl;
         }
+        file << std::setprecision(std::numeric_limits<RamFloat>::max_digits10);
     }
 
     ~WriteGZipFileCSV() override = default;
@@ -122,20 +133,36 @@ protected:
         writeNextTupleCSV(file, tuple);
     }
 
+    /**
+     * Return given filename or construct from relation name.
+     * Default name is [configured path]/[relation name].csv
+     *
+     * @param rwOperation map of IO configuration options
+     * @return input filename
+     */
+    static std::string getFileName(const std::map<std::string, std::string>& rwOperation) {
+        auto name = getOr(rwOperation, "filename", rwOperation.at("name") + ".csv.gz");
+        if (name.front() != '/') {
+            name = getOr(rwOperation, "output-dir", ".") + "/" + name;
+        }
+        return name;
+    }
+
     gzfstream::ogzfstream file;
 };
 #endif
 
 class WriteCoutCSV : public WriteStreamCSV {
 public:
-    WriteCoutCSV(
-            const RWOperation& rwOperation, const SymbolTable& symbolTable, const RecordTable& recordTable)
+    WriteCoutCSV(const std::map<std::string, std::string>& rwOperation, const SymbolTable& symbolTable,
+            const RecordTable& recordTable)
             : WriteStreamCSV(rwOperation, symbolTable, recordTable) {
-        std::cout << "---------------\n" << rwOperation.get("name");
-        if (rwOperation.has("headers") && rwOperation.get("headers") == "true") {
-            std::cout << "\n" << rwOperation.get("attributeNames");
+        std::cout << "---------------\n" << rwOperation.at("name");
+        if (getOr(rwOperation, "headers", "false") == "true") {
+            std::cout << "\n" << rwOperation.at("attributeNames");
         }
         std::cout << "\n===============\n";
+        std::cout << std::setprecision(std::numeric_limits<RamFloat>::max_digits10);
     }
 
     ~WriteCoutCSV() override {
@@ -154,20 +181,20 @@ protected:
 
 class WriteCoutPrintSize : public WriteStream {
 public:
-    explicit WriteCoutPrintSize(const RWOperation& rwOperation)
+    explicit WriteCoutPrintSize(const std::map<std::string, std::string>& rwOperation)
             : WriteStream(rwOperation, {}, {}), lease(souffle::getOutputLock().acquire()) {
-        std::cout << rwOperation.get("name") << "\t";
+        std::cout << rwOperation.at("name") << "\t";
     }
 
     ~WriteCoutPrintSize() override = default;
 
 protected:
     void writeNullary() override {
-        assert(false && "attempting to iterate over a print size operation");
+        fatal("attempting to iterate over a print size operation");
     }
 
     void writeNextTuple(const RamDomain* /* tuple */) override {
-        assert(false && "attempting to iterate over a print size operation");
+        fatal("attempting to iterate over a print size operation");
     }
 
     void writeSize(std::size_t size) override {
@@ -179,10 +206,10 @@ protected:
 
 class WriteFileCSVFactory : public WriteStreamFactory {
 public:
-    std::unique_ptr<WriteStream> getWriter(const RWOperation& rwOperation, const SymbolTable& symbolTable,
-            const RecordTable& recordTable) override {
+    std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+            const SymbolTable& symbolTable, const RecordTable& recordTable) override {
 #ifdef USE_LIBZ
-        if (rwOperation.has("compress")) {
+        if (contains(rwOperation, "compress")) {
             return std::make_unique<WriteGZipFileCSV>(rwOperation, symbolTable, recordTable);
         }
 #endif
@@ -197,8 +224,8 @@ public:
 
 class WriteCoutCSVFactory : public WriteStreamFactory {
 public:
-    std::unique_ptr<WriteStream> getWriter(const RWOperation& rwOperation, const SymbolTable& symbolTable,
-            const RecordTable& recordTable) override {
+    std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+            const SymbolTable& symbolTable, const RecordTable& recordTable) override {
         return std::make_unique<WriteCoutCSV>(rwOperation, symbolTable, recordTable);
     }
 
@@ -211,8 +238,8 @@ public:
 
 class WriteCoutPrintSizeFactory : public WriteStreamFactory {
 public:
-    std::unique_ptr<WriteStream> getWriter(
-            const RWOperation& rwOperation, const SymbolTable&, const RecordTable&) override {
+    std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+            const SymbolTable&, const RecordTable&) override {
         return std::make_unique<WriteCoutPrintSize>(rwOperation);
     }
     const std::string& getName() const override {
