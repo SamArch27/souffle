@@ -74,22 +74,17 @@ public:
      */
     using ExpressionPair = std::pair<std::unique_ptr<RamExpression>, std::unique_ptr<RamExpression>>;
 
-    ExpressionPair getSignedExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-    ExpressionPair getUnsignedExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-    ExpressionPair getFloatExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-
     ExpressionPair getLowerUpperExpression(RamCondition* c, size_t& element, int level);
 
     /**
-     * @param AttributeTypes to indicate type of each attribute in the relation
+     * @brief Construct query patterns for an indexable operation
      * @param Query pattern that is to be constructed
      * @param Flag to indicate whether operation is indexable
      * @param A list of conditions that will be transformed to query patterns
      * @param Tuple identifier of the indexable operation
      * @result Remaining conditions that could not be transformed to an index
      */
-    std::unique_ptr<RamCondition> constructPattern(const std::vector<std::string>& attributeTypes,
-            RamPattern& queryPattern, bool& indexable,
+    std::unique_ptr<RamCondition> constructPattern(RamPattern& queryPattern, bool& indexable,
             std::vector<std::unique_ptr<RamCondition>> conditionList, int identifier);
 
     /**

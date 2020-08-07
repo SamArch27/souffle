@@ -5,6 +5,7 @@ ADD_EXECUTABLE(souffle
         ./src/swig/SwigInterface.h
         ./src/swig/SwigInterface.cpp
         ./src/swig/SwigInterface.i
+        ./src/CompiledIndexUtils.h
         ./src/ProfileEvent.h
         ./src/CompiledRecord.h
         ./src/AstAttribute.h

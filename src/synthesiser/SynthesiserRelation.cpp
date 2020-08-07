@@ -22,22 +22,6 @@
 
 namespace souffle {
 
-std::string SynthesiserRelation::getTypeAttributeString(const std::vector<std::string>& attributeTypes,
-        const std::unordered_set<uint32_t>& attributesUsed) const {
-    std::stringstream type;
-    for (size_t i = 0; i < attributeTypes.size(); ++i) {
-        // consider only attributes used in a lex-order
-        if (attributesUsed.find(i) != attributesUsed.end()) {
-            switch (attributeTypes[i][0]) {
-                case 'f': type << 'f'; break;
-                case 'u': type << 'u'; break;
-                default: type << 'i';  // consider all non-float/unsigned types (i.e. records) as RamSigned
-            }
-        }
-    }
-    return type.str();
-}
-
 std::unique_ptr<SynthesiserRelation> SynthesiserRelation::getSynthesiserRelation(
         const RamRelation& ramRel, const MinIndexSelection& indexSet, bool isProvenance) {
     SynthesiserRelation* rel;
@@ -65,6 +49,7 @@ std::unique_ptr<SynthesiserRelation> SynthesiserRelation::getSynthesiserRelation
     }
 
     assert(rel != nullptr && "relation type not specified");
+
     // generate index set
     rel->computeIndices();
 
@@ -158,16 +143,8 @@ void SynthesiserDirectRelation::computeIndices() {
 
 /** Generate type name of a direct indexed relation */
 std::string SynthesiserDirectRelation::getTypeName() {
-    // collect all attributes used in the lex-order
-    std::unordered_set<uint32_t> attributesUsed;
-    for (auto& ind : getIndices()) {
-        for (auto& attr : ind) {
-            attributesUsed.insert(attr);
-        }
-    }
-
     std::stringstream res;
-    res << "t_btree_" << getTypeAttributeString(relation.getAttributeTypes(), attributesUsed);
+    res << "t_btree_" << getArity();
 
     for (auto& ind : getIndices()) {
         res << "__" << join(ind, "_");
@@ -184,7 +161,6 @@ std::string SynthesiserDirectRelation::getTypeName() {
 void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
     size_t auxiliaryArity = relation.getAuxiliaryArity();
-    auto types = relation.getAttributeTypes();
     const auto& inds = getIndices();
     size_t numIndexes = inds.size();
     std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
@@ -216,34 +192,20 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
             indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
         }
 
-        std::vector<std::string> typecasts;
-        typecasts.reserve(types.size());
-
-        for (auto type : types) {
-            switch (type[0]) {
-                case 'f': typecasts.push_back("ramBitCast<RamFloat>"); break;
-                case 'u': typecasts.push_back("ramBitCast<RamUnsigned>"); break;
-                default: typecasts.push_back("ramBitCast<RamSigned>");
-            }
-        }
-
         auto genstruct = [&](std::string name, size_t bound) {
             out << "struct " << name << "{\n";
             out << " int operator()(const t_tuple& a, const t_tuple& b) const {\n";
             out << "  return ";
             std::function<void(size_t)> gencmp = [&](size_t i) {
                 size_t attrib = ind[i];
-                const auto& typecast = typecasts[i];
-
-                out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib
-                    << "])) ? -1 : (" << typecast << "(a[" << attrib << "]) > " << typecast << "(b[" << attrib
-                    << "])) ? 1 :(";
+                out << "(a[" << attrib << "] < b[" << attrib << "]) ? -1 : ((a[" << attrib << "] > b["
+                    << attrib << "]) ? 1 :(";
                 if (i + 1 < bound) {
                     gencmp(i + 1);
                 } else {
                     out << "0";
                 }
-                out << ")";
+                out << "))";
             };
             gencmp(0);
             out << ";\n }\n";
@@ -251,14 +213,11 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
             out << "  return ";
             std::function<void(size_t)> genless = [&](size_t i) {
                 size_t attrib = ind[i];
-                const auto& typecast = typecasts[i];
-
-                out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib << "]))";
+                out << " a[" << attrib << "] < b[" << attrib << "]";
                 if (i + 1 < bound) {
-                    out << "|| (" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib
-                        << "])) && (";
+                    out << "|| (a[" << attrib << "] == b[" << attrib << "] && (";
                     genless(i + 1);
-                    out << ")";
+                    out << "))";
                 }
             };
             genless(0);
@@ -267,9 +226,7 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
             out << "return ";
             std::function<void(size_t)> geneq = [&](size_t i) {
                 size_t attrib = ind[i];
-                const auto& typecast = typecasts[i];
-
-                out << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib << "]))";
+                out << "a[" << attrib << "] == b[" << attrib << "]";
                 if (i + 1 < bound) {
                     out << "&&";
                     geneq(i + 1);
@@ -285,13 +242,12 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
 
         // for provenance, all indices must be full so we use btree_set
         // also strong/weak comparators and updater methods
-
         if (isProvenance) {
             std::string comparator_aux;
             if (provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
                 // index for bottom up phase
                 comparator_aux = "t_comparator_" + std::to_string(i) + "_aux";
-                genstruct(comparator_aux, ind.size() - auxiliaryArity);
+                genstruct(comparator_aux, ind.size() - 2);
             } else {
                 // index for top down phase
                 comparator_aux = comparator;
@@ -317,10 +273,7 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
     // create a struct storing hints for each btree
     out << "struct context {\n";
     for (size_t i = 0; i < numIndexes; i++) {
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_lower"
-            << ";\n";
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_upper"
-            << ";\n";
+        out << "t_ind_" << i << "::operation_hints hints_" << i << ";\n";
     }
     out << "};\n";
     out << "context createContext() { return context(); }\n";
@@ -332,12 +285,10 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
-    out << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << "_lower"
-        << ")) {\n";
+    out << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << ")) {\n";
     for (size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
-            out << "ind_" << i << ".insert(t, h.hints_" << i << "_lower"
-                << ");\n";
+            out << "ind_" << i << ".insert(t, h.hints_" << i << ");\n";
         }
     }
     out << "return true;\n";
@@ -365,8 +316,7 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
 
     // contains methods
     out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << "_lower"
-        << ");\n";
+    out << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << ");\n";
     out << "}\n";
 
     out << "bool contains(const t_tuple& t) const {\n";
@@ -381,8 +331,7 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
 
     // find methods
     out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << "_lower"
-        << ");\n";
+    out << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << ");\n";
     out << "}\n";
 
     out << "iterator find(const t_tuple& t) const {\n";
@@ -413,35 +362,33 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // count size of search pattern
-        size_t eqSize = 0;
+        size_t indSize = 0;
         for (size_t column = 0; column < arity; column++) {
-            if (search[column] == AttributeConstraint::Equal) {
-                eqSize++;
+            if (search[column] != AttributeConstraint::None) {
+                indSize++;
             }
         }
 
-        out << "t_comparator_" << indNum << " comparator;\n";
-        out << "int cmp = comparator(lower, upper);\n";
-
-        // if search signature is full we can apply this specialization
-        if (eqSize == arity) {
-            // use the more efficient find() method if lower == upper
-            out << "if (cmp == 0) {\n";
-            out << "    auto pos = ind_" << indNum << ".find(lower, h.hints_" << indNum << "_lower);\n";
-            out << "    auto fin = ind_" << indNum << ".end();\n";
-            out << "    if (pos != fin) {fin = pos; ++fin;}\n";
-            out << "    return make_range(pos, fin);\n";
-            out << "}\n";
+        // use the more efficient find() method if the search pattern is full
+        if (indSize == arity) {
+            out << "auto pos = ind_" << indNum << ".find(lower, h.hints_" << indNum << ");\n";
+            out << "auto fin = ind_" << indNum << ".end();\n";
+            out << "if (pos != fin) {fin = pos; ++fin;}\n";
+            out << "return make_range(pos, fin);\n";
+        } else {
+            // generate lower and upper bounds for range search
+            out << "t_tuple low(lower); t_tuple high(lower);\n";
+            // check which indices to pad out
+            for (size_t column = 0; column < arity; column++) {
+                // if bit number column is not set
+                if (search[column] == AttributeConstraint::None) {
+                    out << "low[" << column << "] = MIN_RAM_SIGNED;\n";
+                    out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
+                }
+            }
+            out << "return make_range(ind_" << indNum << ".lower_bound(low, h.hints_" << indNum << "), ind_"
+                << indNum << ".upper_bound(high, h.hints_" << indNum << "));\n";
         }
-        // if lower_bound > upper_bound then we return an empty range
-        out << "if (cmp > 0) {\n";
-        out << "    return make_range(ind_" << indNum << ".end(), ind_" << indNum << ".end());\n";
-        out << "}\n";
-        // otherwise use the general method
-        out << "return make_range(ind_" << indNum << ".lower_bound(lower, h.hints_" << indNum << "_lower"
-            << "), ind_" << indNum << ".upper_bound(upper, h.hints_" << indNum << "_upper"
-            << "));\n";
-
         out << "}\n";
 
         out << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
@@ -500,7 +447,7 @@ void SynthesiserDirectRelation::generateTypeStruct(std::ostream& out) {
 
     // end struct
     out << "};\n";
-}  // namespace souffle
+}
 
 // -------- Indirect Indexed B-Tree Relation --------
 
@@ -528,16 +475,8 @@ void SynthesiserIndirectRelation::computeIndices() {
 
 /** Generate type name of a indirect indexed relation */
 std::string SynthesiserIndirectRelation::getTypeName() {
-    // collect all attributes used in the lex-order
-    std::unordered_set<uint32_t> attributesUsed;
-    for (auto& ind : getIndices()) {
-        for (auto& attr : ind) {
-            attributesUsed.insert(attr);
-        }
-    }
-
     std::stringstream res;
-    res << "t_btree_" << getTypeAttributeString(relation.getAttributeTypes(), attributesUsed);
+    res << "t_btree_" << getArity();
 
     for (auto& ind : getIndices()) {
         res << "__" << join(ind, "_");
@@ -638,8 +577,7 @@ void SynthesiserIndirectRelation::generateTypeStruct(std::ostream& out) {
     // Create a struct storing the context hints for each index
     out << "struct context {\n";
     for (size_t i = 0; i < numIndexes; i++) {
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_lower;\n";
-        out << "t_ind_" << i << "::operation_hints hints_" << i << "_upper;\n";
+        out << "t_ind_" << i << "::operation_hints hints_" << i << ";\n";
     }
     out << "};\n";
     out << "context createContext() { return context(); }\n";
@@ -656,12 +594,11 @@ void SynthesiserIndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "auto lease = insert_lock.acquire();\n";
     out << "if (contains(t, h)) return false;\n";
     out << "masterCopy = &dataTable.insert(t);\n";
-    out << "ind_" << masterIndex << ".insert(masterCopy, h.hints_" << masterIndex << "_lower);\n";
+    out << "ind_" << masterIndex << ".insert(masterCopy, h.hints_" << masterIndex << ");\n";
     out << "}\n";
     for (size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex) {
-            out << "ind_" << i << ".insert(masterCopy, h.hints_" << i << "_lower"
-                << ");\n";
+            out << "ind_" << i << ".insert(masterCopy, h.hints_" << i << ");\n";
         }
     }
     out << "return true;\n";
@@ -688,8 +625,7 @@ void SynthesiserIndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // contains methods
     out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(&t, h.hints_" << masterIndex << "_lower"
-        << ");\n";
+    out << "return ind_" << masterIndex << ".contains(&t, h.hints_" << masterIndex << ");\n";
     out << "}\n";
 
     out << "bool contains(const t_tuple& t) const {\n";
@@ -704,8 +640,7 @@ void SynthesiserIndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // find methods
     out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(&t, h.hints_" << masterIndex << "_lower"
-        << ");\n";
+    out << "return ind_" << masterIndex << ".find(&t, h.hints_" << masterIndex << ");\n";
     out << "}\n";
 
     out << "iterator find(const t_tuple& t) const {\n";
@@ -734,38 +669,33 @@ void SynthesiserIndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // count size of search pattern
-        size_t eqSize = 0;
+        size_t indSize = 0;
         for (size_t column = 0; column < arity; column++) {
-            if (search[column] == AttributeConstraint::Equal) {
-                eqSize++;
+            if (search[column] != AttributeConstraint::None) {
+                indSize++;
             }
         }
 
-        out << "t_comparator_" << indNum << " comparator;\n";
-        out << "int cmp = comparator(&lower, &upper);\n";
-
         // use the more efficient find() method if the search pattern is full
-        if (eqSize == arity) {
-            // if lower == upper we can just do a find
-            out << "if (cmp == 0) {\n";
-            out << "    auto pos = find(lower, h);\n";
-            out << "    auto fin = end();\n";
-            out << "    if (pos != fin) {fin = pos; ++fin;}\n";
-            out << "    return make_range(pos, fin);\n";
-            out << "}\n";
+        if (indSize == arity) {
+            out << "auto pos = find(lower, h);\n";
+            out << "auto fin = end();\n";
+            out << "if (pos != fin) {fin = pos; ++fin;}\n";
+            out << "return make_range(pos, fin);\n";
+        } else {
+            // generate lower and upper bounds for range search
+            out << "t_tuple low(lower); t_tuple high(lower);\n";
+            // check which indices to pad out
+            for (size_t column = 0; column < arity; column++) {
+                // if bit number column is not set
+                if (search[column] == AttributeConstraint::None) {
+                    out << "low[" << column << "] = MIN_RAM_SIGNED;\n";
+                    out << "high[" << column << "] = MAX_RAM_SIGNED;\n";
+                }
+            }
+            out << "return range<iterator_" << indNum << ">(ind_" << indNum << ".lower_bound(&low, h.hints_"
+                << indNum << "), ind_" << indNum << ".upper_bound(&high, h.hints_" << indNum << "));\n";
         }
-        // if lower > upper then we have an empty range
-        out << "if (cmp > 0) {\n";
-        out << "    return range<iterator_" << indNum << ">(ind_" << indNum << ".end(), ind_" << indNum
-            << ".end());\n";
-        out << "}\n";
-
-        // otherwise do the default method
-        out << "return range<iterator_" << indNum << ">(ind_" << indNum << ".lower_bound(&lower, h.hints_"
-            << indNum << "_lower"
-            << "), ind_" << indNum << ".upper_bound(&upper, h.hints_" << indNum << "_upper"
-            << "));\n";
-
         out << "}\n";
 
         out << "range<iterator_" << indNum << "> lowerUpperRange_" << search;
@@ -855,16 +785,8 @@ void SynthesiserBrieRelation::computeIndices() {
 
 /** Generate type name of a brie relation */
 std::string SynthesiserBrieRelation::getTypeName() {
-    // collect all attributes used in the lex-order
-    std::unordered_set<uint32_t> attributesUsed;
-    for (auto& ind : getIndices()) {
-        for (auto& attr : ind) {
-            attributesUsed.insert(attr);
-        }
-    }
-
     std::stringstream res;
-    res << "t_brie_" << getTypeAttributeString(relation.getAttributeTypes(), attributesUsed);
+    res << "t_brie_" << getArity();
 
     for (auto& ind : getIndices()) {
         res << "__" << join(ind, "_");
@@ -1246,7 +1168,7 @@ void SynthesiserEqrelRelation::generateTypeStruct(std::ostream& out) {
         // if the bit is set then set it in the search signature
         for (size_t j = 0; j < arity; j++) {
             if (i & (1 << j)) {
-                s[j] = AttributeConstraint::Equal;
+                s.set(j, AttributeConstraint::Equal);
             }
         }
 

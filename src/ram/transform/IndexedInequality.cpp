@@ -52,9 +52,9 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
                 [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
             // find a RamIndexOperation
             if (const RamIndexOperation* indexOperation = dynamic_cast<RamIndexOperation*>(node.get())) {
-                auto indexSelection = idxAnalysis->getIndexes(indexOperation->getRelation());
-                auto attributesToDischarge = indexSelection.getAttributesToDischarge(
-                        idxAnalysis->getSearchSignature(indexOperation), indexOperation->getRelation());
+                auto attributesToDischarge =
+                        idxAnalysis->getIndexes(indexOperation->getRelation()).getAttributesToDischarge();
+
                 auto pattern = indexOperation->getRangePattern();
                 std::unique_ptr<RamCondition> condition;
                 RamPattern updatedPattern;
@@ -65,6 +65,7 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
                 for (RamExpression* p : indexOperation->getRangePattern().second) {
                     updatedPattern.second.emplace_back(p->clone());
                 }
+
                 for (auto i : attributesToDischarge) {
                     // move constraints out of the indexed inequality and into a conjuction
                     std::unique_ptr<RamConstraint> lowerBound;
@@ -92,8 +93,7 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
 
                 if (condition) {
                     auto nestedOp = souffle::clone(&indexOperation->getOperation());
-                    auto filter =
-                            std::make_unique<RamFilter>(souffle::clone(condition), souffle::clone(nestedOp));
+                    auto filter = std::make_unique<RamFilter>(std::move(condition), std::move(nestedOp));
 
                     // need to rewrite the node with the same index operation
                     if (const RamIndexScan* iscan = dynamic_cast<RamIndexScan*>(node.get())) {
@@ -113,16 +113,9 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
                                 ichoice->getTupleId(), souffle::clone(&ichoice->getCondition()),
                                 std::move(updatedPattern), std::move(filter), ichoice->getProfileText());
                     } else if (const RamIndexAggregate* iagg = dynamic_cast<RamIndexAggregate*>(node.get())) {
-                        // in the case of an aggregate we must strengthen the condition of the aggregate
-                        // it doesn't make sense to nest a filter operation because the aggregate needs the
-                        // condition in its scope
-                        auto strengthenedCondition = addCondition(
-                                std::unique_ptr<RamCondition>(souffle::clone(&iagg->getCondition())),
-                                std::move(condition));
-
-                        node = std::make_unique<RamIndexAggregate>(std::move(nestedOp), iagg->getFunction(),
+                        node = std::make_unique<RamIndexAggregate>(std::move(filter), iagg->getFunction(),
                                 std::make_unique<RamRelationReference>(&iagg->getRelation()),
-                                souffle::clone(&iagg->getExpression()), std::move(strengthenedCondition),
+                                souffle::clone(&iagg->getExpression()), souffle::clone(&iagg->getCondition()),
                                 std::move(updatedPattern), iagg->getTupleId());
                     } else {
                         fatal("New RamIndexOperation subclass found but not supported while making index.");
@@ -150,8 +143,10 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
                         continue;
                     }
                     // if lower and upper bounds are equal its also not a box query
-                    foundRealIndexableOperation = true;
-                    break;
+                    if (*(pattern.first[i]) == *(pattern.second[i])) {
+                        foundRealIndexableOperation = true;
+                        break;
+                    }
                 }
                 if (!foundRealIndexableOperation) {
                     // need to rewrite the node with a semantically equivalent operation to get rid of the

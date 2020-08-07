@@ -34,131 +34,6 @@
 
 namespace souffle {
 
-SearchSignature::SearchSignature(size_t arity) : constraints(arity, AttributeConstraint::None) {}
-
-size_t SearchSignature::arity() const {
-    return constraints.size();
-}
-
-// convenient operator overload
-AttributeConstraint& SearchSignature::operator[](std::size_t pos) {
-    assert(pos < constraints.size());
-    return constraints[pos];
-}
-
-const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
-    assert(pos < constraints.size());
-    return constraints[pos];
-}
-
-// comparison operators
-bool SearchSignature::operator<(const SearchSignature& other) const {
-    assert(constraints.size() == other.constraints.size());
-    return isComparable(*this, other) && isSubset(*this, other);
-}
-
-bool SearchSignature::operator==(const SearchSignature& other) const {
-    assert(constraints.size() == other.constraints.size());
-    return constraints == other.constraints;
-}
-
-bool SearchSignature::operator!=(const SearchSignature& other) const {
-    return !(*this == other);
-}
-
-bool SearchSignature::empty() const {
-    size_t len = constraints.size();
-    for (size_t i = 0; i < len; ++i) {
-        if (constraints[i] != AttributeConstraint::None) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool SearchSignature::containsEquality() const {
-    for (size_t i = 0; i < constraints.size(); ++i) {
-        if (constraints[i] == AttributeConstraint::Equal) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Note: We have 0 < 1 and 0 < 2 but we cannot say that 1 < 2.
-// The reason for this is to prevent search chains such as 100->101->201 which have no valid lex-order
-bool SearchSignature::isComparable(const SearchSignature& lhs, const SearchSignature& rhs) {
-    assert(lhs.arity() == rhs.arity());
-    if (lhs == rhs) {
-        return true;
-    }
-
-    bool withinDelta = true;
-    for (size_t i = 0; i < rhs.arity(); ++i) {
-        if (rhs[i] == AttributeConstraint::Inequal) {
-            if (lhs[i] != AttributeConstraint::None) {
-                withinDelta = false;
-            }
-        }
-    }
-    return withinDelta;
-}
-
-bool SearchSignature::isSubset(const SearchSignature& lhs, const SearchSignature& rhs) {
-    assert(lhs.arity() == rhs.arity());
-    size_t len = lhs.arity();
-    for (size_t i = 0; i < len; ++i) {
-        if (lhs[i] != AttributeConstraint::None && rhs[i] == AttributeConstraint::None) {
-            return false;
-        }
-    }
-    return true;
-}
-
-SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const SearchSignature& rhs) {
-    assert(lhs.arity() == rhs.arity());
-    SearchSignature delta(lhs.arity());
-    for (size_t i = 0; i < lhs.arity(); ++i) {
-        // if constraints are the same then delta is nothing
-        if (rhs[i] == AttributeConstraint::None) {
-            delta.constraints[i] = lhs[i];
-        } else {
-            delta.constraints[i] = AttributeConstraint::None;
-        }
-    }
-    return delta;
-}
-
-SearchSignature SearchSignature::getFullSearchSignature(size_t arity) {
-    SearchSignature res(arity);
-    for (size_t i = 0; i < arity; ++i) {
-        res.constraints[i] = AttributeConstraint::Equal;
-    }
-    return res;
-}
-
-SearchSignature SearchSignature::getDischarged(const SearchSignature& signature) {
-    SearchSignature res = signature;  // copy original
-    for (size_t i = 0; i < res.arity(); ++i) {
-        if (res[i] == AttributeConstraint::Inequal) {
-            res[i] = AttributeConstraint::None;
-        }
-    }
-    return res;
-}
-
-std::ostream& operator<<(std::ostream& out, const SearchSignature& signature) {
-    size_t len = signature.constraints.size();
-    for (size_t i = 0; i < len; ++i) {
-        switch (signature.constraints[i]) {
-            case AttributeConstraint::None: out << 0; break;
-            case AttributeConstraint::Equal: out << 1; break;
-            case AttributeConstraint::Inequal: out << 2; break;
-        }
-    }
-    return out;
-}
-
 void MaxMatching::addEdge(Node u, Node v) {
     assert(u >= 1 && v >= 1 && "Nodes must be greater than or equal to 1");
     if (graph.find(u) == graph.end()) {
@@ -239,13 +114,9 @@ bool MaxMatching::dfSearch(Node u) {
 
 const MaxMatching::Matchings& MaxMatching::solve() {
     while (bfSearch()) {
-        std::vector<Node> keys(graph.size());
         for (auto& it : graph) {
-            keys.push_back(it.first);
-        }
-        for (auto node : keys) {
-            if (getMatch(node) == NullVertex) {
-                dfSearch(node);
+            if (getMatch(it.first) == NullVertex) {
+                dfSearch(it.first);
             }
         }
     }
@@ -258,12 +129,14 @@ void MinIndexSelection::solve() {
         return;
     }
 
-    // map the signatures of each search to a unique index for the matching problem
+    // map the signatures of each searches to a unique index for the matching problem
     AttributeIndex currentIndex = 1;
     for (SearchSignature s : searches) {
+        // we skip if the search is empty
         if (s.empty()) {
             continue;
         }
+
         // map the signature to its unique index in each set
         signatureToIndexA.insert({s, currentIndex});
         signatureToIndexB.insert({s, currentIndex + 1});
@@ -275,12 +148,9 @@ void MinIndexSelection::solve() {
 
     // Construct the matching poblem
     for (auto search : searches) {
+        // For this node check if other nodes are strict subsets
         for (auto itt : searches) {
-            if (search == itt) {
-                continue;
-            }
-
-            if (search < itt) {
+            if (search.isStrictSubset(itt)) {
                 matching.addEdge(signatureToIndexA[search], signatureToIndexB[itt]);
             }
         }
@@ -292,45 +162,34 @@ void MinIndexSelection::solve() {
     const MaxMatching::Matchings& matchings = matching.solve();
 
     // Extract the chains given the nodes and matchings
-    ChainOrderMap chains = getChainsFromMatching(matchings, searches);
+    const ChainOrderMap chains = getChainsFromMatching(matchings, searches);
 
     // Should never get no chains back as we never call calculate on an empty graph
     assert(!chains.empty());
     for (const auto& chain : chains) {
         std::vector<uint32_t> ids;
-
         SearchSignature initDelta = *(chain.begin());
         insertIndex(ids, initDelta);
 
-        // build the lex-order
         for (auto iit = chain.begin(); next(iit) != chain.end(); ++iit) {
             SearchSignature delta = SearchSignature::getDelta(*next(iit), *iit);
             insertIndex(ids, delta);
         }
 
         assert(!ids.empty());
+
         orders.push_back(ids);
     }
 
-    // Validate the lex-order
-    for (auto chain : chains) {
-        for (auto search : chain) {
-            int idx = map(search);
-            size_t l = card(search);
-
-            SearchSignature k(search.arity());
-            for (size_t i = 0; i < l; i++) {
-                k[orders[idx][i]] = AttributeConstraint::Equal;
-            }
-            for (size_t i = 0; i < search.arity(); ++i) {
-                if (k[i] == AttributeConstraint::None && search[i] != AttributeConstraint::None) {
-                    assert("incorrect lexicographical order");
-                }
-                if (k[i] != AttributeConstraint::None && search[i] == AttributeConstraint::None) {
-                    assert("incorrect lexicographical order");
-                }
-            }
+    // Construct the matching poblem
+    for (auto search : searches) {
+        int idx = map(search);
+        size_t l = card(search);
+        SearchSignature k(search.arity());
+        for (size_t i = 0; i < l; i++) {
+            k.set(orders[idx][i], AttributeConstraint::Equal);
         }
+        assert(k == search && "incorrect lexicographical order");
     }
 }
 
@@ -346,19 +205,14 @@ MinIndexSelection::Chain MinIndexSelection::getChain(
     while (true) {
         auto mit = match.find(signatureToIndexB[start]);  // we start from B side
         // on each iteration we swap sides when collecting the chain so we use the corresponding index map
-        if (std::find(chain.begin(), chain.end(), start) == chain.end()) {
-            chain.push_back(start);
-        }
+        chain.insert(start);
 
         if (mit == match.end()) {
-            std::reverse(chain.begin(), chain.end());
             return chain;
         }
 
         SearchSignature a = indexToSignature.at(mit->second);
-        if (std::find(chain.begin(), chain.end(), a) == chain.end()) {
-            chain.push_back(a);
-        }
+        chain.insert(a);
         start = a;
     }
 }
@@ -369,13 +223,13 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
 
     // Get all unmatched nodes from A
     const SearchSet& umKeys = getUnmatchedKeys(match, nodes);
+
     // Case: if no unmatched nodes then we have an anti-chain
     if (umKeys.empty()) {
         for (auto node : nodes) {
-            Chain a;
-            a.push_back(node);
+            std::set<SearchSignature> a;
+            a.insert(node);
             chainToOrder.push_back(a);
-            removeExtraInequalities();
             return chainToOrder;
         }
     }
@@ -393,68 +247,8 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
     }
 
     assert(!chainToOrder.empty());
-    removeExtraInequalities();
+
     return chainToOrder;
-}
-
-void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature newSearch) {
-    auto delta = SearchSignature::getDelta(oldSearch, newSearch);
-    for (size_t i = 0; i < delta.arity(); ++i) {
-        if (delta[i] == AttributeConstraint::Inequal) {
-            dischargedMap[oldSearch].insert(i);
-        }
-    }
-
-    for (auto& chain : chainToOrder) {
-        for (auto& search : chain) {
-            if (search == oldSearch) {
-                search = newSearch;
-            }
-        }
-    }
-}
-
-void MinIndexSelection::removeExtraInequalities() {
-    for (auto chain : chainToOrder) {
-        for (auto oldSearch : chain) {
-            auto newSearch = oldSearch;
-            bool seenInequality = false;
-            for (size_t i = 0; i < oldSearch.arity(); ++i) {
-                if (oldSearch[i] == AttributeConstraint::Inequal) {
-                    if (seenInequality) {
-                        newSearch[i] = AttributeConstraint::None;
-                    } else {
-                        seenInequality = true;
-                    }
-                }
-            }
-            updateSearch(oldSearch, newSearch);
-        }
-    }
-}
-
-MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
-        const SearchSignature& s, const RamRelation& rel) {
-    // by default we have all attributes w/inequalities discharged
-    AttributeSet allInequalities;
-    for (size_t i = 0; i < s.arity(); ++i) {
-        if (s[i] == AttributeConstraint::Inequal) {
-            allInequalities.insert(i);
-        }
-    }
-
-    // if we don't have a btree then we don't retain any inequalities
-    if (rel.getRepresentation() != RelationRepresentation::BTREE &&
-            rel.getRepresentation() != RelationRepresentation::DEFAULT) {
-        return allInequalities;
-    }
-
-    // do not support indexed inequalities with provenance
-    if (Global::config().has("provenance")) {
-        return allInequalities;
-    }
-
-    return dischargedMap[s];
 }
 
 void RamIndexAnalysis::run(const RamTranslationUnit& translationUnit) {
@@ -543,25 +337,28 @@ void RamIndexAnalysis::print(std::ostream& os) const {
 
         /* Print searches */
         os << "Relation " << relName << "\n";
-        os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
+        os << "\tNumber of Primitive Searches: " << indexes.getSearches().size() << "\n";
+
+        const auto& attrib = rel.getAttributeNames();
+        size_t arity = rel.getArity();
 
         /* print searches */
-        for (auto& search : indexes.getSearches()) {
+        for (auto& cols : indexes.getSearches()) {
             os << "\t\t";
-            os << search;
+            for (size_t i = 0; i < arity; i++) {
+                if (cols[i] != AttributeConstraint::None) {
+                    os << attrib[i] << " ";
+                }
+            }
             os << "\n";
         }
-
-        /* print chains */
-        for (auto& chain : indexes.getAllChains()) {
-            os << join(chain, "-->") << "\n";
-        }
-        os << "\n";
 
         os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
         for (auto& order : indexes.getAllOrders()) {
             os << "\t\t";
-            os << join(order, "<") << "\n";
+            for (auto& i : order) {
+                os << attrib[i] << " ";
+            }
             os << "\n";
         }
     }
@@ -576,7 +373,7 @@ SearchSignature searchSignature(size_t arity, Iter const& bgn, Iter const& end) 
     size_t i = 0;
     for (auto cur = bgn; cur != end; ++cur, ++i) {
         if (!isRamUndefValue(*cur)) {
-            keys[i] = AttributeConstraint::Equal;
+            keys.set(i, AttributeConstraint::Equal);
         }
     }
     return keys;
@@ -593,16 +390,17 @@ SearchSignature RamIndexAnalysis::getSearchSignature(const RamIndexOperation* se
 
     auto lower = search->getRangePattern().first;
     auto upper = search->getRangePattern().second;
+
     SearchSignature keys(arity);
     for (size_t i = 0; i < arity; ++i) {
         // if both bounds are undefined
         if (isRamUndefValue(lower[i]) && isRamUndefValue(upper[i])) {
-            keys[i] = AttributeConstraint::None;
+            keys.set(i, AttributeConstraint::None);
             // if bounds are equal we have an equality
         } else if (*lower[i] == *upper[i]) {
-            keys[i] = AttributeConstraint::Equal;
+            keys.set(i, AttributeConstraint::Equal);
         } else {
-            keys[i] = AttributeConstraint::Inequal;
+            keys.set(i, AttributeConstraint::Inequal);
         }
     }
     return keys;
@@ -618,13 +416,13 @@ SearchSignature RamIndexAnalysis::getSearchSignature(
     // all payload attributes should be equalities
     for (size_t i = 0; i < values.size() - auxiliaryArity; i++) {
         if (!isRamUndefValue(values[i])) {
-            keys[i] = AttributeConstraint::Equal;
+            keys.set(i, AttributeConstraint::Equal);
         }
     }
 
     // all auxiliary attributes should be free
     for (size_t i = values.size() - auxiliaryArity; i < values.size(); i++) {
-        keys[i] = AttributeConstraint::None;
+        keys.set(i, AttributeConstraint::None);
     }
 
     return keys;

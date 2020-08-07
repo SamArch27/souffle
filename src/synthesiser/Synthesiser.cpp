@@ -197,65 +197,6 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             };
         }
 
-        std::pair<std::stringstream, std::stringstream> getPaddedRangeBounds(const RamRelation& rel,
-                const std::vector<RamExpression*>& rangePatternLower,
-                const std::vector<RamExpression*>& rangePatternUpper) {
-            std::stringstream low;
-            std::stringstream high;
-
-            // making this distinction for provenance
-            size_t realArity = rel.getArity();
-            size_t arity = rangePatternLower.size();
-
-            low << "Tuple<RamDomain," << realArity << ">{{";
-            high << "Tuple<RamDomain," << realArity << ">{{";
-
-            for (size_t column = 0; column < arity; column++) {
-                std::string supremum;
-                std::string infimum;
-
-                switch (rel.getAttributeTypes()[column][0]) {
-                    case 'f':
-                        supremum = "ramBitCast<RamFloat>(MIN_RAM_FLOAT)";
-                        infimum = "ramBitCast<RamFloat>(MAX_RAM_FLOAT)";
-                        break;
-                    case 'u':
-                        supremum = "ramBitCast<RamUnsigned>(MIN_RAM_UNSIGNED)";
-                        infimum = "ramBitCast<RamUnsigned>(MAX_RAM_UNSIGNED)";
-                        break;
-                    default:
-                        supremum = "ramBitCast<RamSigned>(MIN_RAM_SIGNED)";
-                        infimum = "ramBitCast<RamSigned>(MAX_RAM_SIGNED)";
-                }
-
-                // if we have an inequality where either side is not set
-                if (column != 0) {
-                    low << ", ";
-                    high << ", ";
-                }
-
-                if (isRamUndefValue(rangePatternLower[column])) {
-                    low << supremum;
-                } else {
-                    low << "ramBitCast(";
-                    visit(rangePatternLower[column], low);
-                    low << ")";
-                }
-
-                if (isRamUndefValue(rangePatternUpper[column])) {
-                    high << infimum;
-                } else {
-                    high << "ramBitCast(";
-                    visit(rangePatternUpper[column], high);
-                    high << ")";
-                }
-            }
-
-            low << "}}";
-            high << "}}";
-            return std::make_pair(std::move(low), std::move(high));
-        }
-
         // -- relation statements --
 
         void visitIO(const RamIO& io, std::ostream& out) override {
@@ -702,12 +643,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             assert(arity > 0 && "AstToRamTranslator failed/no index scans for nullaries");
 
             PRINT_BEGIN_COMMENT(out);
+
+            out << "const Tuple<RamDomain," << arity << "> lower{{";
+            out << join(rangePatternLower.begin(), rangePatternLower.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
+            out << "const Tuple<RamDomain," << arity << "> upper{{";
+            out << join(rangePatternUpper.begin(), rangePatternUpper.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
             auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
 
             out << "auto range = " << relName << "->"
-                << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                << rangeBounds.second.str() << "," << ctxName << ");\n";
+                << "lowerUpperRange_" << keys << "(lower, upper," << ctxName << ");\n";
             out << "for(const auto& env" << identifier << " : range) {\n";
 
             visitTupleOperation(iscan, out);
@@ -733,12 +681,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             preambleIssued = true;
 
             PRINT_BEGIN_COMMENT(out);
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+
+            out << "const Tuple<RamDomain," << arity << "> lower{{";
+            out << join(rangePatternLower.begin(), rangePatternLower.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
+            out << "const Tuple<RamDomain," << arity << "> upper{{";
+            out << join(rangePatternUpper.begin(), rangePatternUpper.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
             out << "auto range = " << relName
                 << "->"
                 // TODO (b-scholz): context may be missing here?
-                << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                << rangeBounds.second.str() << ");\n";
+                << "lowerUpperRange_" << keys << "(lower,upper);\n";
             out << "auto part = range.partition();\n";
             out << "PARALLEL_START\n";
             out << preamble.str();
@@ -767,12 +722,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
 
             // check list of keys
             assert(arity > 0 && "AstToRamTranslator failed");
+
+            out << "const Tuple<RamDomain," << arity << "> lower{{";
+            out << join(rangePatternLower.begin(), rangePatternLower.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
+            out << "const Tuple<RamDomain," << arity << "> upper{{";
+            out << join(rangePatternUpper.begin(), rangePatternUpper.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
             auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
 
             out << "auto range = " << relName << "->"
-                << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                << rangeBounds.second.str() << "," << ctxName << ");\n";
+                << "lowerUpperRange_" << keys << "(lower,upper," << ctxName << ");\n";
             out << "for(const auto& env" << identifier << " : range) {\n";
             out << "if( ";
 
@@ -806,12 +768,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             preambleIssued = true;
 
             PRINT_BEGIN_COMMENT(out);
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+
+            out << "const Tuple<RamDomain," << arity << "> lower{{";
+            out << join(rangePatternLower.begin(), rangePatternLower.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
+            out << "const Tuple<RamDomain," << arity << "> upper{{";
+            out << join(rangePatternUpper.begin(), rangePatternUpper.begin() + arity, ",", recWithDefault);
+            out << "}};\n";
+
             out << "auto range = " << relName
                 << "->"
                 // TODO (b-scholz): context may be missing here?
-                << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                << rangeBounds.second.str() << ");\n";
+                << "lowerUpperRange_" << keys << "(lower, upper);\n";
             out << "auto part = range.partition();\n";
             out << "PARALLEL_START\n";
             out << preamble.str();
@@ -974,13 +943,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 out << "for(const auto& env" << identifier << " : "
                     << "*" << relName << ") {\n";
             } else {
-                const auto& rangePatternLower = aggregate.getRangePattern().first;
-                const auto& rangePatternUpper = aggregate.getRangePattern().second;
+                const auto& patternsLower = aggregate.getRangePattern().first;
+                const auto& patternsUpper = aggregate.getRangePattern().second;
 
-                auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+                out << "const " << tuple_type << " lower{{";
+                out << join(patternsLower.begin(), patternsLower.begin() + arity, ",", recWithDefault);
+                out << "}};\n";
+
+                out << "const " << tuple_type << " upper{{";
+                out << join(patternsUpper.begin(), patternsUpper.begin() + arity, ",", recWithDefault);
+                out << "}};\n";
+
                 out << "auto range = " << relName << "->"
-                    << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                    << rangeBounds.second.str() << "," << ctxName << ");\n";
+                    << "lowerUpperRange_" << keys << "(lower,upper," << ctxName << ");\n";
 
                 out << "auto part = range.partition();\n";
                 out << "#pragma omp for reduction(" << op << ":" << sharedVariable << ")\n";
@@ -1136,14 +1111,19 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 out << "for(const auto& env" << identifier << " : "
                     << "*" << relName << ") {\n";
             } else {
-                const auto& rangePatternLower = aggregate.getRangePattern().first;
-                const auto& rangePatternUpper = aggregate.getRangePattern().second;
+                const auto& patternsLower = aggregate.getRangePattern().first;
+                const auto& patternsUpper = aggregate.getRangePattern().second;
 
-                auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+                out << "const " << tuple_type << " lower{{";
+                out << join(patternsLower.begin(), patternsLower.begin() + arity, ",", recWithDefault);
+                out << "}};\n";
+
+                out << "const " << tuple_type << " upper{{";
+                out << join(patternsUpper.begin(), patternsUpper.begin() + arity, ",", recWithDefault);
+                out << "}};\n";
 
                 out << "auto range = " << relName << "->"
-                    << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
-                    << rangeBounds.second.str() << "," << ctxName << ");\n";
+                    << "lowerUpperRange_" << keys << "(lower,upper," << ctxName << ");\n";
 
                 // aggregate result
                 out << "for(const auto& env" << identifier << " : range) {\n";
@@ -1698,16 +1678,15 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 return;
             }
 
-            auto rangePatternLower = exists.getValues();
-            auto rangePatternUpper = exists.getValues();
-
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
             // else we conduct a range query
             out << "!" << relName << "->"
                 << "lowerUpperRange";
             out << "_" << isa->getSearchSignature(&exists);
-            out << "(" << rangeBounds.first.str() << "," << rangeBounds.second.str() << "," << ctxName
-                << ").empty()" << after;
+            out << "(Tuple<RamDomain," << arity << ">{{";
+            out << join(exists.getValues(), ",", recWithDefault);
+            out << "}},Tuple<RamDomain," << arity << ">{{";
+            out << join(exists.getValues(), ",", recWithDefault);
+            out << "}}," << ctxName << ").empty()" << after;
             PRINT_END_COMMENT(out);
         }
 
@@ -1726,6 +1705,7 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             out << "auto existenceCheck = " << relName << "->"
                 << "lowerUpperRange";
             out << "_" << isa->getSearchSignature(&provExists);
+            out << "(Tuple<RamDomain," << arity << ">{{";
 
             // parts refers to payload + rule number
             size_t parts = arity - auxiliaryArity + 1;
@@ -1740,23 +1720,25 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                         "ProvenanceExistenceCheck should always be specified for payload");
             }
 
-            auto valsCopy = std::vector<RamExpression*>(vals.begin(), vals.begin() + parts);
-            auto rangeBounds = getPaddedRangeBounds(rel, valsCopy, valsCopy);
+            out << join(vals.begin(), vals.begin() + parts, ",", recWithDefault);
 
-            // remove the ending }} from both strings
-            rangeBounds.first.seekp(-2, std::ios_base::end);
-            rangeBounds.second.seekp(-2, std::ios_base::end);
-
-            // extra bounds for provenance height annotations
+            // extra 0 for provenance height annotations
             for (size_t i = 0; i < auxiliaryArity - 2; i++) {
-                rangeBounds.first << ",ramBitCast<RamDomain, RamSigned>(MIN_RAM_SIGNED)";
-                rangeBounds.second << ",ramBitCast<RamDomain, RamSigned>(MAX_RAM_SIGNED)";
+                out << "0,";
             }
-            rangeBounds.first << ",ramBitCast<RamDomain, RamSigned>(MIN_RAM_SIGNED)}}";
-            rangeBounds.second << ",ramBitCast<RamDomain, RamSigned>(MAX_RAM_SIGNED)}}";
+            out << "0";
 
-            out << "(" << rangeBounds.first.str() << "," << rangeBounds.second.str() << "," << ctxName
-                << ");\n";
+            // repeat original pattern for the upper bound
+            out << "}},Tuple<RamDomain," << arity << ">{{";
+            out << join(vals.begin(), vals.begin() + parts, ",", recWithDefault);
+
+            // extra 0 for provenance height annotations
+            for (size_t i = 0; i < auxiliaryArity - 2; i++) {
+                out << "0,";
+            }
+            out << "0";
+
+            out << "}}," << ctxName << ");\n";
             out << "if (existenceCheck.empty()) return false; else return ((*existenceCheck.begin())["
                 << arity - auxiliaryArity + 1 << "] <= ";
 
@@ -2150,6 +2132,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     const SymbolTable& symTable = translationUnit.getSymbolTable();
     const RamProgram& prog = translationUnit.getProgram();
     auto* idxAnalysis = translationUnit.getAnalysis<RamIndexAnalysis>();
+
     // ---------------------------------------------------------------
     //                      Code Generation
     // ---------------------------------------------------------------

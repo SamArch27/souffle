@@ -21,7 +21,6 @@
 #include "ram/Node.h"
 #include "utility/ContainerUtil.h"
 #include "utility/StreamUtil.h"
-#include "utility/tinyformat.h"
 #include <cassert>
 #include <cstdlib>
 #include <memory>
