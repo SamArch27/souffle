@@ -40,6 +40,11 @@ size_t SearchSignature::arity() const {
     return constraints.size();
 }
 
+size_t SearchSignature::constraintCount() const {
+    return std::count_if(constraints.begin(), constraints.end(),
+            [](AttributeConstraint c) { return c != AttributeConstraint::None; });
+}
+
 // convenient operator overload
 AttributeConstraint& SearchSignature::operator[](std::size_t pos) {
     assert(pos < constraints.size());
@@ -53,6 +58,10 @@ const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
 
 // comparison operators
 bool SearchSignature::operator<(const SearchSignature& other) const {
+    if (constraints.size() != other.constraints.size()) {
+        std::cout << "This: " << *this << std::endl;
+        std::cout << "Other: " << other << std::endl;
+    }
     assert(constraints.size() == other.constraints.size());
     return isComparable(*this, other) && isSubset(*this, other);
 }
@@ -258,6 +267,8 @@ void MinIndexSelection::solve() {
         return;
     }
 
+    removeExtraInequalities();
+
     // map the signatures of each search to a unique index for the matching problem
     AttributeIndex currentIndex = 1;
     for (SearchSignature s : searches) {
@@ -375,7 +386,7 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
             Chain a;
             a.push_back(node);
             chainToOrder.push_back(a);
-            removeExtraInequalities();
+            optimisePartialIndex();
             return chainToOrder;
         }
     }
@@ -393,7 +404,7 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
     }
 
     assert(!chainToOrder.empty());
-    removeExtraInequalities();
+    optimisePartialIndex();
     return chainToOrder;
 }
 
@@ -415,20 +426,96 @@ void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature 
 }
 
 void MinIndexSelection::removeExtraInequalities() {
-    for (auto chain : chainToOrder) {
-        for (auto oldSearch : chain) {
-            auto newSearch = oldSearch;
-            bool seenInequality = false;
-            for (size_t i = 0; i < oldSearch.arity(); ++i) {
-                if (oldSearch[i] == AttributeConstraint::Inequal) {
-                    if (seenInequality) {
-                        newSearch[i] = AttributeConstraint::None;
-                    } else {
-                        seenInequality = true;
+    for (auto oldSearch : searches) {
+        auto newSearch = oldSearch;
+        bool seenInequality = false;
+        for (size_t i = 0; i < oldSearch.arity(); ++i) {
+            if (oldSearch[i] == AttributeConstraint::Inequal) {
+                if (seenInequality) {
+                    newSearch[i] = AttributeConstraint::None;
+                } else {
+                    seenInequality = true;
+                }
+            }
+        }
+        updateSearch(oldSearch, newSearch);
+    }
+}
+
+bool MinIndexSelection::optimiseChainPair(Chain& leftChain, Chain& rightChain) {
+    // attempt to move the end chunk of the left chain into the right chain and decrease the cost
+    auto leftEnd = leftChain.back();
+    auto rightEnd = rightChain.back();
+    size_t oldCost = leftEnd.constraintCount() + rightEnd.constraintCount();
+
+    // find a place to insert it into
+    for (auto lhs_it = leftChain.begin(); lhs_it != leftChain.end(); ++lhs_it) {
+        for (auto rhs_it = rightChain.begin(); rhs_it != rightChain.end(); ++rhs_it) {
+            auto rhs_next = std::next(rhs_it);
+            if (*rhs_it < *lhs_it) {
+                if (rhs_next == rightChain.end() || leftEnd < *rhs_next) {
+                    // can place the search at this location and so we check if the cost is decreased
+                    assert(leftChain.size() > 1);
+                    auto prev_lhs = std::prev(lhs_it);
+                    size_t leftCost = prev_lhs->constraintCount();
+                    size_t rightCost = (rhs_next == rightChain.end() ? leftEnd.constraintCount()
+                                                                     : rightEnd.constraintCount());
+                    size_t newCost = leftCost + rightCost;
+
+                    // move left end into right
+                    if (newCost < oldCost) {
+                        rightChain.insert(rhs_next, lhs_it, leftChain.end());
+                        leftChain.erase(lhs_it, leftChain.end());
+                        return true;
                     }
                 }
             }
-            updateSearch(oldSearch, newSearch);
+        }
+    }
+    return false;
+}
+
+void MinIndexSelection::optimisePartialIndex() {
+    bool flag = true;
+    while (flag) {
+        flag = false;
+        // remove duplicates
+        std::unordered_set<SearchSignature, SearchSignature::Hasher> seen;
+        for (auto& chain : chainToOrder) {
+            for (auto it = chain.begin(); it != chain.end(); ++it) {
+                if (seen.count(*it)) {
+                    chain.erase(it);
+                    flag = true;
+                    break;
+                } else {
+                    seen.insert(*it);
+                }
+            }
+            if (flag) {
+                break;
+            }
+        }
+    }
+
+    chainToOrder.remove_if([](Chain c) { return c.empty(); });
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto& leftChain : chainToOrder) {
+            for (auto& rightChain : chainToOrder) {
+                if (leftChain == rightChain) {
+                    continue;
+                }
+
+                if (optimiseChainPair(leftChain, rightChain)) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed) {
+                break;
+            }
         }
     }
 }
@@ -542,28 +629,35 @@ void RamIndexAnalysis::print(std::ostream& os) const {
         const std::string& relName = rel.getName();
 
         /* Print searches */
-        os << "Relation " << relName << "\n";
-        os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
+        // os << "Relation " << relName << "\n";
+        // os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
 
         /* print searches */
-        for (auto& search : indexes.getSearches()) {
-            os << "\t\t";
-            os << search;
-            os << "\n";
-        }
+        // for (auto& search : indexes.getSearches()) {
+        //    os << "\t\t";
+        //    os << search;
+        //    os << "\n";
+        //}
 
         /* print chains */
         for (auto& chain : indexes.getAllChains()) {
             os << join(chain, "-->") << "\n";
         }
-        os << "\n";
 
-        os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
-        for (auto& order : indexes.getAllOrders()) {
-            os << "\t\t";
-            os << join(order, "<") << "\n";
-            os << "\n";
+        size_t bits = 0;
+        size_t total = 0;
+        for (auto& chain : indexes.getAllChains()) {
+            bits += chain.rbegin()->constraintCount();
+            total += chain.rbegin()->arity();
         }
+        os << "Number of Bits: " << bits << ", Current Bits: " << total << "\n\n";
+
+        // os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
+        // for (auto& order : indexes.getAllOrders()) {
+        //    os << "\t\t";
+        //    os << join(order, "<") << "\n";
+        //    os << "\n";
+        //}
     }
 }
 

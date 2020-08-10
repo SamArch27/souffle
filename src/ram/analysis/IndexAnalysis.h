@@ -57,6 +57,7 @@ class SearchSignature {
 public:
     explicit SearchSignature(size_t arity);
     size_t arity() const;
+    size_t constraintCount() const;
 
     // array subscript operator
     AttributeConstraint& operator[](std::size_t pos);
@@ -220,8 +221,6 @@ public:
     using LexOrder = std::vector<AttributeIndex>;
     using OrderCollection = std::vector<LexOrder>;
     using Chain = std::vector<SearchSignature>;
-    // A chain is a vector of SearchSignature to support inserting incomparable elements later
-    // E.g. 1 --> 2 we don't have 1 and 2 as comparable but they form a valid lex-order
     using ChainOrderMap = std::list<Chain>;
 
     class SearchComparator {
@@ -240,6 +239,7 @@ public:
     /** @Brief Add new key to an Index Set */
     inline void addSearch(SearchSignature cols) {
         if (!cols.empty()) {
+	    
             searches.insert(cols);
         }
     }
@@ -362,6 +362,10 @@ protected:
 
     /** @Brief get all chains from the matching */
     const ChainOrderMap getChainsFromMatching(const MaxMatching::Matchings& match, const SearchSet& nodes);
+
+    bool optimiseChainPair(Chain& leftChain, Chain& rightChain);
+
+    void optimisePartialIndex();
 
     /** @param OldSearch to be updated
      *  @param NewSearch to replace the OldSearch
