@@ -118,7 +118,7 @@ class MaxMatching {
 public:
     using Node = uint32_t;
     /* The nodes of the bi-partite graph are index signatures of RAM operation */
-    using Nodes = std::unordered_set<Node>;
+    using Nodes = std::set<Node>;
     /* Distance between nodes */
     using Distance = int;
     /**
@@ -126,7 +126,7 @@ public:
      * graph maps to another node. If no map exist for a node, there is no adjacent edge
      * exists for that node.
      */
-    using Matchings = std::unordered_map<Node, Node>;
+    using Matchings = std::map<Node, Node>;
 
     /* Node constant representing no match */
     const Node NullVertex = 0;
@@ -182,11 +182,11 @@ private:
     /**
      * Edges in the bi-partite graph
      */
-    using Edges = std::unordered_set<Node>;
+    using Edges = std::set<Node>;
     /**
      * Bi-partite graph of instance
      */
-    using Graph = std::unordered_map<Node, Edges>;
+    using Graph = std::map<Node, Edges>;
     /**
      * distance function of nodes
      */
@@ -239,7 +239,6 @@ public:
     /** @Brief Add new key to an Index Set */
     inline void addSearch(SearchSignature cols) {
         if (!cols.empty()) {
-	    
             searches.insert(cols);
         }
     }

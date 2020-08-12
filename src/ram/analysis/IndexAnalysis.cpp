@@ -629,15 +629,15 @@ void RamIndexAnalysis::print(std::ostream& os) const {
         const std::string& relName = rel.getName();
 
         /* Print searches */
-        // os << "Relation " << relName << "\n";
-        // os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
+        os << "Relation " << relName << "\n";
+        os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
 
         /* print searches */
-        // for (auto& search : indexes.getSearches()) {
-        //    os << "\t\t";
-        //    os << search;
-        //    os << "\n";
-        //}
+        for (auto& search : indexes.getSearches()) {
+            os << "\t\t";
+            os << search;
+            os << "\n";
+        }
 
         /* print chains */
         for (auto& chain : indexes.getAllChains()) {
@@ -652,12 +652,12 @@ void RamIndexAnalysis::print(std::ostream& os) const {
         }
         os << "Number of Bits: " << bits << ", Current Bits: " << total << "\n\n";
 
-        // os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
-        // for (auto& order : indexes.getAllOrders()) {
-        //    os << "\t\t";
-        //    os << join(order, "<") << "\n";
-        //    os << "\n";
-        //}
+        os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
+        for (auto& order : indexes.getAllOrders()) {
+            os << "\t\t";
+            os << join(order, "<") << "\n";
+            os << "\n";
+        }
     }
 }
 
