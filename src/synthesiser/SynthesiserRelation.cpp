@@ -1318,16 +1318,28 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     // using declarations for boost geometry
     out << "using point = bg::model::point<RamDomain, " << arity << " , bg::cs::cartesian>;\n";
     out << "using box = bg::model::box<point>;\n";
-    out << "using value = std::pair<point, t_tuple>;\n";
+    out << "using value = point;\n";
     out << "using t_ind = bgi::rtree<value, bgi::linear<16>>;\n";
     out << "using const_query_iterator = t_ind::const_query_iterator;\n";
 
+    // need to transform a boost geometry point back into a tuple
+    out << "struct GetTuple{\n";
+    out << "t_tuple operator()(const point& p) const {\n";
+    out << "return t_tuple{";
+    for (size_t i = 0; i < arity; ++i) {
+        if (i != 0) {
+            out << ",";
+        }
+        out << "p.get<" << i << ">()";
+    }
+    out << "};\n";
+    out << "}\n";
+    out << "};\n";
+
     // needed to iterate tuples not (geometry, tuple) pairs therefore transform_iterator
     // define transform functions for boost::transform_iterator
-    out << "static value::second_type get_second(value entry) { return entry.second; }\n";
     out << "static bool satisfies_any(value entry) { return true; }\n";
-    out << "using get_second_t =  value::second_type (*)(value);\n";
-    out << "using iterator = boost::transform_iterator<get_second_t, const_query_iterator>;\n";
+    out << "using iterator = boost::transform_iterator<GetTuple, const_query_iterator>;\n";
 
     // need an index as member
     out << "t_ind ind;\n";
@@ -1353,7 +1365,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // contains method
     out << "bool contains(const t_tuple& t) const {\n";
-    out << "    return (ind.qbegin(bgi::intersects(get_point(t))) != ind.qend());\n";
+    out << "    return ind.count(get_point(t));\n";
     out << "}\n";
 
     // contains method
@@ -1365,7 +1377,7 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "bool insert(const t_tuple& t) {\n";
     out << "bool res = false;\n";
     out << "if (!contains(t)){\n";
-    out << "	ind.insert(std::make_pair(get_point(t), t));\n";
+    out << "	ind.insert(get_point(t));\n";
     out << "	res = true;\n";
     out << "}\n";
     out << "return res;\n";
@@ -1400,14 +1412,14 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // find methods
     out << "iterator find(const t_tuple& t) const {\n";
-    out << "return iterator(ind.qbegin(bgi::intersects(get_point(t))), get_second);\n";
+    out << "return iterator(ind.qbegin(bgi::intersects(get_point(t))), GetTuple());\n";
     out << "}\n";
 
     // within_range helper method (box query)
     out << "souffle::range<iterator> within_range(const t_tuple &low, const t_tuple &high) const{\n";
     out << "box b(get_point(low), get_point(high));\n";
-    out << "auto lb = iterator(ind.qbegin(bgi::intersects(b)), get_second);\n";
-    out << "auto ub = iterator(ind.qend(), get_second);\n";
+    out << "auto lb = iterator(ind.qbegin(bgi::intersects(b)), GetTuple());\n";
+    out << "auto ub = iterator(ind.qend(), GetTuple());\n";
     out << "return souffle::make_range(lb, ub);\n";
     out << "}\n";
 
@@ -1438,11 +1450,11 @@ void SynthesiserRtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // begin and end iterators
     out << "iterator begin() const {\n";
-    out << "return iterator(ind.qbegin(bgi::satisfies(satisfies_any)), get_second);\n";
+    out << "return iterator(ind.qbegin(bgi::satisfies(satisfies_any)), GetTuple());\n";
     out << "}\n";
 
     out << "iterator end() const {\n";
-    out << "return iterator(ind.qend(), get_second);\n";
+    out << "return iterator(ind.qend(), GetTuple());\n";
     out << "}\n";
 
     // end struct
