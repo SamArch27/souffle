@@ -17,7 +17,11 @@
 #pragma once
 
 #include "ram/Condition.h"
+#include "ram/Conjunction.h"
 #include "ram/Expression.h"
+#include "ram/True.h"
+#include "ram/UndefValue.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <memory>
 #include <queue>
@@ -28,12 +32,12 @@ namespace souffle {
 
 /** @brief Determines if an expression represents an undefined value */
 inline bool isRamUndefValue(const RamExpression* expr) {
-    return nullptr != dynamic_cast<const RamUndefValue*>(expr);
+    return isA<RamUndefValue>(expr);
 }
 
 /** @brief Determines if a condition represents true */
 inline bool isRamTrue(const RamCondition* cond) {
-    return nullptr != dynamic_cast<const RamTrue*>(cond);
+    return isA<RamTrue>(cond);
 }
 
 /**

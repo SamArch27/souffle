@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "Term.h"
-#include "TypeAttribute.h"
+#include "ast/Term.h"
+#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
 #include <cstddef>
 
 namespace souffle {
@@ -38,7 +39,6 @@ public:
     AstFunctor* clone() const override = 0;
 
 protected:
-    /* TODO(b-scholz): check whehter still in use */
     using AstTerm::AstTerm;
 };
 

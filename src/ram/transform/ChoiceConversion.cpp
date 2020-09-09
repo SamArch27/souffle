@@ -21,7 +21,7 @@
 #include "ram/Relation.h"
 #include "ram/Statement.h"
 #include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <functional>
 #include <utility>

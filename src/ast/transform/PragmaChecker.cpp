@@ -14,12 +14,12 @@
  *
  ***********************************************************************/
 
-#include "PragmaChecker.h"
-#include "../Pragma.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../Visitor.h"
+#include "ast/transform/PragmaChecker.h"
 #include "Global.h"
+#include "ast/Pragma.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/utility/Visitor.h"
 #include <utility>
 #include <vector>
 

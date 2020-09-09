@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "ram/LambdaNodeMapper.h"
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -26,68 +27,7 @@
 
 namespace souffle {
 
-class RamNode;
-
-/**
- * @class RamNodeMapper
- * @brief An abstract class for manipulating RAM Nodes by substitution
- */
-class RamNodeMapper {
-public:
-    virtual ~RamNodeMapper() = default;
-
-    /**
-     * @brief Abstract replacement method for a node.
-     *
-     * If the given nodes is to be replaced, the handed in node
-     * will be destroyed by the mapper and the returned node
-     * will become owned by the caller.
-     */
-    virtual std::unique_ptr<RamNode> operator()(std::unique_ptr<RamNode> node) const = 0;
-
-    /**
-     * @brief Wrapper for any subclass of the RAM node hierarchy performing type casts.
-     */
-    template <typename T>
-    std::unique_ptr<T> operator()(std::unique_ptr<T> node) const {
-        std::unique_ptr<RamNode> resPtr =
-                (*this)(std::unique_ptr<RamNode>(static_cast<RamNode*>(node.release())));
-        assert(nullptr != dynamic_cast<T*>(resPtr.get()) && "Invalid target node!");
-        return std::unique_ptr<T>(dynamic_cast<T*>(resPtr.release()));
-    }
-};
-
-/**
- * @class LambdaRamNodeMapper
- * @brief A special RamNodeMapper wrapping a lambda conducting node transformations.
- */
-template <typename Lambda>
-class LambdaRamNodeMapper : public RamNodeMapper {
-    const Lambda& lambda;
-
-public:
-    /**
-     * @brief Constructor for LambdaRamNodeMapper
-     */
-    LambdaRamNodeMapper(const Lambda& lambda) : lambda(lambda) {}
-
-    /**
-     * @brief Applies lambda
-     */
-    std::unique_ptr<RamNode> operator()(std::unique_ptr<RamNode> node) const override {
-        std::unique_ptr<RamNode> result = lambda(std::move(node));
-        assert(result != nullptr && "null-pointer in lambda ram-node mapper");
-        return result;
-    }
-};
-
-/**
- * @brief Creates a node mapper based on a corresponding lambda expression.
- */
-template <typename Lambda>
-LambdaRamNodeMapper<Lambda> makeLambdaRamMapper(const Lambda& lambda) {
-    return LambdaRamNodeMapper<Lambda>(lambda);
-}
+class RamNodeMapper;
 
 /**
  *  @class RamNode

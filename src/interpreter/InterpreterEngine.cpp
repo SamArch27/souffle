@@ -15,46 +15,102 @@
 
 #include "interpreter/InterpreterEngine.h"
 #include "AggregateOp.h"
-#include "BinaryConstraintOps.h"
 #include "FunctorOps.h"
-#include "IOSystem.h"
-#include "Logger.h"
-#include "ProfileEvent.h"
-#include "RamTypes.h"
-#include "ReadStream.h"
-#include "RecordTable.h"
-#include "SignalHandler.h"
-#include "SymbolTable.h"
-#include "WriteStream.h"
+#include "Global.h"
 #include "interpreter/InterpreterContext.h"
 #include "interpreter/InterpreterGenerator.h"
 #include "interpreter/InterpreterIndex.h"
 #include "interpreter/InterpreterNode.h"
 #include "interpreter/InterpreterPreamble.h"
 #include "interpreter/InterpreterRelation.h"
-#include "ram/Condition.h"
-#include "ram/Expression.h"
-#include "ram/Operation.h"
+#include "ram/Aggregate.h"
+#include "ram/AutoIncrement.h"
+#include "ram/Break.h"
+#include "ram/Call.h"
+#include "ram/Choice.h"
+#include "ram/Clear.h"
+#include "ram/Conjunction.h"
+#include "ram/Constant.h"
+#include "ram/Constraint.h"
+#include "ram/DebugInfo.h"
+#include "ram/EmptinessCheck.h"
+#include "ram/ExistenceCheck.h"
+#include "ram/Exit.h"
+#include "ram/Extend.h"
+#include "ram/False.h"
+#include "ram/Filter.h"
+#include "ram/IO.h"
+#include "ram/IndexAggregate.h"
+#include "ram/IndexChoice.h"
+#include "ram/IndexScan.h"
+#include "ram/IntrinsicOperator.h"
+#include "ram/LogRelationTimer.h"
+#include "ram/LogSize.h"
+#include "ram/LogTimer.h"
+#include "ram/Loop.h"
+#include "ram/Negation.h"
+#include "ram/NestedIntrinsicOperator.h"
+#include "ram/PackRecord.h"
+#include "ram/Parallel.h"
+#include "ram/ParallelAggregate.h"
+#include "ram/ParallelChoice.h"
+#include "ram/ParallelIndexAggregate.h"
+#include "ram/ParallelIndexChoice.h"
+#include "ram/ParallelIndexScan.h"
+#include "ram/ParallelScan.h"
 #include "ram/Program.h"
+#include "ram/Project.h"
+#include "ram/ProvenanceExistenceCheck.h"
+#include "ram/Query.h"
 #include "ram/Relation.h"
+#include "ram/RelationSize.h"
+#include "ram/Scan.h"
+#include "ram/Sequence.h"
 #include "ram/Statement.h"
+#include "ram/SubroutineArgument.h"
+#include "ram/SubroutineReturn.h"
+#include "ram/Swap.h"
+#include "ram/TranslationUnit.h"
+#include "ram/True.h"
+#include "ram/TupleElement.h"
+#include "ram/TupleOperation.h"
+#include "ram/UnpackRecord.h"
+#include "ram/UserDefinedOperator.h"
 #include "ram/Visitor.h"
-#include "utility/EvaluatorUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/ParallelUtil.h"
-#include "utility/StringUtil.h"
-#include "utility/tinyformat.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/RamTypes.h"
+#include "souffle/RecordTable.h"
+#include "souffle/SignalHandler.h"
+#include "souffle/SymbolTable.h"
+#include "souffle/io/IOSystem.h"
+#include "souffle/io/ReadStream.h"
+#include "souffle/io/WriteStream.h"
+#include "souffle/profile/Logger.h"
+#include "souffle/profile/ProfileEvent.h"
+#include "souffle/utility/EvaluatorUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/ParallelUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <deque>
 #include <functional>
 #include <iostream>
+#include <iterator>
+#include <map>
+#include <memory>
 #include <regex>
 #include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 #include <dlfcn.h>
 #include <ffi.h>
 
@@ -275,8 +331,8 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
 #define CASE(Kind)     \
     case (I_##Kind): { \
         return [&]() -> RamDomain { \
-            const auto& shadow = *static_cast<const Interpreter##Kind*>(node); \
-            const auto& cur = *static_cast<const Ram##Kind*>(node->getShadow());
+            [[maybe_unused]] const auto& shadow = *static_cast<const Interpreter##Kind*>(node); \
+            [[maybe_unused]] const auto& cur = *static_cast<const Ram##Kind*>(node->getShadow());
 #define ESAC(Kind) \
     }              \
     ();            \
@@ -530,80 +586,118 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(NestedIntrinsicOperator)
 
         CASE(UserDefinedOperator)
-            // get name and type
             const std::string& name = cur.getName();
-            const std::vector<TypeAttribute>& type = cur.getArgsTypes();
 
             auto fn = reinterpret_cast<void (*)()>(getMethodHandle(name));
             if (fn == nullptr) fatal("cannot find user-defined operator `%s`", name);
-
-            // prepare dynamic call environment
             size_t arity = cur.getArguments().size();
-            ffi_cif cif;
-            ffi_type* args[arity];
-            void* values[arity];
-            RamDomain intVal[arity];
-            RamUnsigned uintVal[arity];
-            RamFloat floatVal[arity];
-            const char* strVal[arity];
-            ffi_arg rc;
 
-            /* Initialize arguments for ffi-call */
-            for (size_t i = 0; i < arity; i++) {
-                RamDomain arg = execute(shadow.getChild(i), ctxt);
-                switch (type[i]) {
-                    case TypeAttribute::Symbol:
-                        args[i] = &FFI_Symbol;
-                        strVal[i] = getSymbolTable().resolve(arg).c_str();
-                        values[i] = &strVal[i];
-                        break;
-                    case TypeAttribute::Signed:
-                        args[i] = &FFI_RamSigned;
-                        intVal[i] = arg;
-                        values[i] = &intVal[i];
-                        break;
-                    case TypeAttribute::Unsigned:
-                        args[i] = &FFI_RamUnsigned;
-                        uintVal[i] = ramBitCast<RamUnsigned>(arg);
-                        values[i] = &uintVal[i];
-                        break;
-                    case TypeAttribute::Float:
-                        args[i] = &FFI_RamFloat;
-                        floatVal[i] = ramBitCast<RamFloat>(arg);
-                        values[i] = &floatVal[i];
-                        break;
-                    case TypeAttribute::Record: fatal("Record support is not implemented");
+            if (cur.isStateful()) {
+                // prepare dynamic call environment
+                ffi_cif cif;
+                ffi_type* args[arity + 2];
+                void* values[arity + 2];
+                RamDomain intVal[arity];
+                ffi_arg rc;
+
+                /* Initialize arguments for ffi-call */
+                args[0] = args[1] = &ffi_type_pointer;
+                void* symbolTable = (void*)&getSymbolTable();
+                values[0] = &symbolTable;
+                void* recordTable = (void*)&getRecordTable();
+                values[1] = &recordTable;
+                for (size_t i = 0; i < arity; i++) {
+                    intVal[i] = execute(shadow.getChild(i), ctxt);
+                    args[i + 2] = &FFI_RamSigned;
+                    values[i + 2] = &intVal[i];
                 }
-            }
 
-            // Get codomain.
-            auto codomain = &FFI_RamSigned;
-            switch (cur.getReturnType()) {
-                // initialize for string value.
-                case TypeAttribute::Symbol: codomain = &FFI_Symbol; break;
-                case TypeAttribute::Signed: codomain = &FFI_RamSigned; break;
-                case TypeAttribute::Unsigned: codomain = &FFI_RamUnsigned; break;
-                case TypeAttribute::Float: codomain = &FFI_RamFloat; break;
-                case TypeAttribute::Record: fatal("Not implemented");
-            }
+                // Set codomain.
+                auto codomain = &FFI_RamSigned;
 
-            // Call the external function.
-            const auto prepStatus = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arity, codomain, args);
-            if (prepStatus != FFI_OK) {
-                fatal("Failed to prepare CIF for user-defined operator `%s`; error code = %d", name,
-                        prepStatus);
-            }
-            ffi_call(&cif, fn, &rc, values);
+                // Call the external function.
+                const auto prepStatus = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arity + 2, codomain, args);
+                if (prepStatus != FFI_OK) {
+                    fatal("Failed to prepare CIF for user-defined operator `%s`; error code = %d", name,
+                            prepStatus);
+                }
+                ffi_call(&cif, fn, &rc, values);
+                return static_cast<RamDomain>(rc);
+            } else {
+                // get name and type
+                const std::vector<TypeAttribute>& type = cur.getArgsTypes();
 
-            switch (cur.getReturnType()) {
-                case TypeAttribute::Signed: return static_cast<RamDomain>(rc);
-                case TypeAttribute::Symbol: return getSymbolTable().lookup(reinterpret_cast<const char*>(rc));
+                // prepare dynamic call environment
+                ffi_cif cif;
+                ffi_type* args[arity];
+                void* values[arity];
+                RamDomain intVal[arity];
+                RamUnsigned uintVal[arity];
+                RamFloat floatVal[arity];
+                const char* strVal[arity];
+                ffi_arg rc;
 
-                case TypeAttribute::Unsigned: return ramBitCast(static_cast<RamUnsigned>(rc));
-                case TypeAttribute::Float: return ramBitCast(static_cast<RamFloat>(rc));
-                case TypeAttribute::Record: fatal("Not implemented");
+                /* Initialize arguments for ffi-call */
+                for (size_t i = 0; i < arity; i++) {
+                    RamDomain arg = execute(shadow.getChild(i), ctxt);
+                    switch (type[i]) {
+                        case TypeAttribute::Symbol:
+                            args[i] = &FFI_Symbol;
+                            strVal[i] = getSymbolTable().resolve(arg).c_str();
+                            values[i] = &strVal[i];
+                            break;
+                        case TypeAttribute::Signed:
+                            args[i] = &FFI_RamSigned;
+                            intVal[i] = arg;
+                            values[i] = &intVal[i];
+                            break;
+                        case TypeAttribute::Unsigned:
+                            args[i] = &FFI_RamUnsigned;
+                            uintVal[i] = ramBitCast<RamUnsigned>(arg);
+                            values[i] = &uintVal[i];
+                            break;
+                        case TypeAttribute::Float:
+                            args[i] = &FFI_RamFloat;
+                            floatVal[i] = ramBitCast<RamFloat>(arg);
+                            values[i] = &floatVal[i];
+                            break;
+                        case TypeAttribute::ADT: fatal("ADT support is not implemented");
+                        case TypeAttribute::Record: fatal("Record support is not implemented");
+                    }
+                }
+
+                // Get codomain.
+                auto codomain = &FFI_RamSigned;
+                switch (cur.getReturnType()) {
+                    // initialize for string value.
+                    case TypeAttribute::Symbol: codomain = &FFI_Symbol; break;
+                    case TypeAttribute::Signed: codomain = &FFI_RamSigned; break;
+                    case TypeAttribute::Unsigned: codomain = &FFI_RamUnsigned; break;
+                    case TypeAttribute::Float: codomain = &FFI_RamFloat; break;
+                    case TypeAttribute::ADT: fatal("Not implemented");
+                    case TypeAttribute::Record: fatal("Not implemented");
+                }
+
+                // Call the external function.
+                const auto prepStatus = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, arity, codomain, args);
+                if (prepStatus != FFI_OK) {
+                    fatal("Failed to prepare CIF for user-defined operator `%s`; error code = %d", name,
+                            prepStatus);
+                }
+                ffi_call(&cif, fn, &rc, values);
+
+                switch (cur.getReturnType()) {
+                    case TypeAttribute::Signed: return static_cast<RamDomain>(rc);
+                    case TypeAttribute::Symbol:
+                        return getSymbolTable().lookup(reinterpret_cast<const char*>(rc));
+
+                    case TypeAttribute::Unsigned: return ramBitCast(static_cast<RamUnsigned>(rc));
+                    case TypeAttribute::Float: return ramBitCast(static_cast<RamFloat>(rc));
+                    case TypeAttribute::ADT: fatal("Not implemented");
+                    case TypeAttribute::Record: fatal("Not implemented");
+                }
+                fatal("Unsupported user defined operator");
             }
-            fatal("Unsupported user defined operator");
 
         ESAC(UserDefinedOperator)
 
@@ -640,6 +734,10 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         CASE(EmptinessCheck)
             return node->getRelation()->empty();
         ESAC(EmptinessCheck)
+
+        CASE(RelationSize)
+            return node->getRelation()->size();
+        ESAC(RelationSize)
 
         CASE(ExistenceCheck)
             // construct the pattern tuple

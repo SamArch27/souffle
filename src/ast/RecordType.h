@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "Attribute.h"
-#include "Node.h"
-#include "QualifiedName.h"
-#include "SrcLocation.h"
-#include "Type.h"
-#include "utility/ContainerUtil.h"
-#include "utility/StreamUtil.h"
+#include "ast/Attribute.h"
+#include "ast/Node.h"
+#include "ast/QualifiedName.h"
+#include "ast/Type.h"
+#include "parser/SrcLocation.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -66,7 +66,7 @@ public:
 
 protected:
     void print(std::ostream& os) const override {
-        os << ".type " << getQualifiedName() << "= [" << join(fields, ", ") << "]";
+        os << tfm::format(".type %s = [%s]", getQualifiedName(), join(fields, ", "));
     }
 
     bool equal(const AstNode& node) const override {

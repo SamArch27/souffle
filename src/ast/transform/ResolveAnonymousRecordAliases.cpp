@@ -12,24 +12,24 @@
  *
  ***********************************************************************/
 
-#include "ResolveAnonymousRecordAliases.h"
-#include "../Argument.h"
-#include "../BinaryConstraint.h"
-#include "../BooleanConstraint.h"
-#include "../Clause.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../RecordInit.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Variable.h"
-#include "../analysis/Ground.h"
-#include "../analysis/Type.h"
-#include "../analysis/TypeSystem.h"
-#include "BinaryConstraintOps.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/ResolveAnonymousRecordAliases.h"
+#include "ast/Argument.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/RecordInit.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/analysis/Ground.h"
+#include "ast/analysis/Type.h"
+#include "ast/analysis/TypeSystem.h"
+#include "ast/utility/NodeMapper.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
 #include <map>
 #include <memory>
 #include <utility>
@@ -41,8 +41,8 @@ std::map<std::string, const AstRecordInit*> ResolveAnonymousRecordAliases::findV
         AstTranslationUnit& tu, const AstClause& clause) {
     std::map<std::string, const AstRecordInit*> variableRecordMap;
 
-    auto isVariable = [](AstNode* node) -> bool { return dynamic_cast<AstVariable*>(node) != nullptr; };
-    auto isRecord = [](AstNode* node) -> bool { return dynamic_cast<AstRecordInit*>(node) != nullptr; };
+    auto isVariable = [](AstNode* node) -> bool { return isA<AstVariable>(node); };
+    auto isRecord = [](AstNode* node) -> bool { return isA<AstRecordInit>(node); };
 
     auto& typeAnalysis = *tu.getAnalysis<TypeAnalysis>();
     auto groundedTerms = getGroundedTerms(tu, clause);
@@ -128,12 +128,8 @@ bool ResolveAnonymousRecordAliases::replaceUnnamedVariable(AstClause& clause) {
         ReplaceUnnamed() = default;
 
         std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            auto isUnnamed = [](AstNode* node) -> bool {
-                return dynamic_cast<AstUnnamedVariable*>(node) != nullptr;
-            };
-            auto isRecord = [](AstNode* node) -> bool {
-                return dynamic_cast<AstRecordInit*>(node) != nullptr;
-            };
+            auto isUnnamed = [](AstNode* node) -> bool { return isA<AstUnnamedVariable>(node); };
+            auto isRecord = [](AstNode* node) -> bool { return isA<AstRecordInit>(node); };
 
             if (auto constraint = dynamic_cast<AstBinaryConstraint*>(node.get())) {
                 auto left = constraint->getLHS();

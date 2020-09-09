@@ -16,14 +16,14 @@
  *
  ***********************************************************************/
 
-#include "RelationDetailCache.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../Node.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
+#include "ast/analysis/RelationDetailCache.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
 #include <set>
 #include <utility>
 #include <vector>

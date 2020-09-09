@@ -12,19 +12,19 @@
  *
  ***********************************************************************/
 
-#include "FoldAnonymousRecords.h"
-#include "../Argument.h"
-#include "../BinaryConstraint.h"
-#include "../BooleanConstraint.h"
-#include "../Clause.h"
-#include "../Literal.h"
-#include "../Program.h"
-#include "../RecordInit.h"
-#include "../TranslationUnit.h"
-#include "../Visitor.h"
-#include "BinaryConstraintOps.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/FoldAnonymousRecords.h"
+#include "ast/Argument.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Program.h"
+#include "ast/RecordInit.h"
+#include "ast/TranslationUnit.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

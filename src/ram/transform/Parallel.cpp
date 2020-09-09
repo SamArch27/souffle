@@ -21,7 +21,7 @@
 #include "ram/Relation.h"
 #include "ram/Statement.h"
 #include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <utility>
@@ -39,7 +39,7 @@ bool ParallelTransformer::parallelizeOperations(RamProgram& program) {
                 [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
             if (const RamScan* scan = dynamic_cast<RamScan*>(node.get())) {
                 if (scan->getTupleId() == 0 && scan->getRelation().getArity() > 0) {
-                    if (nullptr == dynamic_cast<RamProject*>(&scan->getOperation())) {
+                    if (!isA<RamProject>(&scan->getOperation())) {
                         changed = true;
                         return std::make_unique<RamParallelScan>(
                                 std::make_unique<RamRelationReference>(&scan->getRelation()),

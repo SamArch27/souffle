@@ -12,16 +12,16 @@
  *
  ***********************************************************************/
 
-#include "UserDefinedFunctors.h"
-#include "../FunctorDeclaration.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../UserDefinedFunctor.h"
-#include "../Utils.h"
-#include "ErrorReport.h"
-#include "RamTypes.h"
+#include "ast/transform/UserDefinedFunctors.h"
+#include "ast/FunctorDeclaration.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UserDefinedFunctor.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "reports/ErrorReport.h"
+#include "souffle/RamTypes.h"
 #include <memory>
 #include <vector>
 
@@ -41,7 +41,9 @@ bool AstUserDefinedFunctorsTransformer::transform(AstTranslationUnit& translatio
 
             if (auto* userFunctor = dynamic_cast<AstUserDefinedFunctor*>(node.get())) {
                 const AstFunctorDeclaration* functorDeclaration =
-                        getFunctorDeclaration(program, userFunctor->getName());
+                        getIf(program.getFunctorDeclarations(), [&](const AstFunctorDeclaration* current) {
+                            return current->getName() == userFunctor->getName();
+                        });
 
                 // Check if the functor has been declared
                 if (functorDeclaration == nullptr) {
@@ -56,8 +58,8 @@ bool AstUserDefinedFunctorsTransformer::transform(AstTranslationUnit& translatio
                 }
 
                 // Set types of functor instance based on its declaration.
-                userFunctor->setTypes(
-                        functorDeclaration->getArgsTypes(), functorDeclaration->getReturnType());
+                userFunctor->setTypes(functorDeclaration->getArgsTypes(), functorDeclaration->getReturnType(),
+                        functorDeclaration->isStateful());
 
                 changed = true;
             }

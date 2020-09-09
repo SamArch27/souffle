@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "Argument.h"
-#include "Node.h"
-#include "NodeMapper.h"
-#include "QualifiedName.h"
-#include "SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "ast/Argument.h"
+#include "ast/Node.h"
+#include "ast/QualifiedName.h"
+#include "ast/utility/NodeMapper.h"
+#include "parser/SrcLocation.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <ostream>
 #include <string>

@@ -23,7 +23,7 @@
 
 #pragma once
 
-#include "RamTypes.h"
+#include "souffle/RamTypes.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -49,6 +49,7 @@ enum InterpreterNodeType {
     I_Conjunction,
     I_Negation,
     I_EmptinessCheck,
+    I_RelationSize,
     I_ExistenceCheck,
     I_ProvenanceExistenceCheck,
     I_Constraint,
@@ -420,6 +421,13 @@ class InterpreterNegation : public InterpreterUnaryNode {
  * @class InterpreterEmptinessCheck
  */
 class InterpreterEmptinessCheck : public InterpreterNode {
+    using InterpreterNode::InterpreterNode;
+};
+
+/**
+ * @class InterpreterRelationSize
+ */
+class InterpreterRelationSize : public InterpreterNode {
     using InterpreterNode::InterpreterNode;
 };
 

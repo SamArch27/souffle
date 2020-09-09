@@ -1,7 +1,7 @@
 
 #include "FunctorOps.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <cctype>
 #include <map>
@@ -268,7 +268,7 @@ FunctorOp getMinOp(const std::string& type) {
     switch (type[0]) {
         case 'f': return FunctorOp::FMIN;
         case 'u': return FunctorOp::UMIN;
-        case 'i': return FunctorOp::MIN; assert("Unsupported Type");
+        case 'i': return FunctorOp::MIN;
         default: return FunctorOp::MIN;
     }
 }
@@ -277,7 +277,7 @@ FunctorOp getMaxOp(const std::string& type) {
     switch (type[0]) {
         case 'f': return FunctorOp::FMAX;
         case 'u': return FunctorOp::UMAX;
-        case 'i': return FunctorOp::MAX; assert("Unsupported Type");
+        case 'i': return FunctorOp::MAX;
         default: return FunctorOp::MAX;
     }
 }

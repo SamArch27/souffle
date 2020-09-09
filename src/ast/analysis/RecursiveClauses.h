@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "Analysis.h"
+#include "ast/analysis/Analysis.h"
 #include <iostream>
 #include <set>
 #include <string>

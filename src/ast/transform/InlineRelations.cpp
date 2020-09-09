@@ -14,37 +14,37 @@
  *
  ***********************************************************************/
 
-#include "InlineRelations.h"
-#include "../Aggregator.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../BinaryConstraint.h"
-#include "../BooleanConstraint.h"
-#include "../Clause.h"
-#include "../Constant.h"
-#include "../Constraint.h"
-#include "../Functor.h"
-#include "../IntrinsicFunctor.h"
-#include "../Literal.h"
-#include "../Negation.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../NumericConstant.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../RecordInit.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../TypeCast.h"
-#include "../UnnamedVariable.h"
-#include "../UserDefinedFunctor.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
+#include "ast/transform/InlineRelations.h"
 #include "AggregateOp.h"
-#include "BinaryConstraintOps.h"
 #include "RelationTag.h"
-#include "utility/MiscUtil.h"
+#include "ast/Aggregator.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Constant.h"
+#include "ast/Constraint.h"
+#include "ast/Functor.h"
+#include "ast/IntrinsicFunctor.h"
+#include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/Node.h"
+#include "ast/NumericConstant.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/RecordInit.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/TypeCast.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/UserDefinedFunctor.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -160,7 +160,7 @@ void nameInlinedUnderscores(AstProgram& program) {
                         return node;
                     }
                 }
-            } else if (dynamic_cast<AstUnnamedVariable*>(node.get()) != nullptr) {
+            } else if (isA<AstUnnamedVariable>(node.get())) {
                 // Give a unique name to the underscored variable
                 // TODO (azreika): need a more consistent way of handling internally generated variables in
                 // general
@@ -208,10 +208,6 @@ bool containsInlinedAtom(const AstProgram& program, const AstClause& clause) {
  * Returns false only if matched argument pairs are found to be incompatible.
  */
 bool reduceSubstitution(std::vector<std::pair<AstArgument*, AstArgument*>>& sub) {
-    // Type-Checking functions
-    auto isConstant = [&](AstArgument* arg) { return dynamic_cast<AstConstant*>(arg) != nullptr; };
-    auto isRecord = [&](AstArgument* arg) { return dynamic_cast<AstRecordInit*>(arg) != nullptr; };
-
     // Keep trying to reduce the substitutions until we reach a fixed point.
     // Note that at this point no underscores ('_') or counters ('$') should appear.
     bool done = false;
@@ -230,11 +226,11 @@ bool reduceSubstitution(std::vector<std::pair<AstArgument*, AstArgument*>>& sub)
                 // Get rid of redundant `x = x`
                 sub.erase(sub.begin() + i);
                 done = false;
-            } else if (isConstant(lhs) && isConstant(rhs)) {
+            } else if (isA<AstConstant>(lhs) && isA<AstConstant>(rhs)) {
                 // Both are constants but not equal (prev case => !=)
                 // Failed to unify!
                 return false;
-            } else if (isRecord(lhs) && isRecord(rhs)) {
+            } else if (isA<AstRecordInit>(lhs) && isA<AstRecordInit>(rhs)) {
                 // Note: we will not deal with the case where only one side is
                 // a record and the other is a variable, as variables can be records
                 // on a deeper level.
@@ -254,7 +250,8 @@ bool reduceSubstitution(std::vector<std::pair<AstArgument*, AstArgument*>>& sub)
                 // Get rid of the record equality
                 sub.erase(sub.begin() + i);
                 done = false;
-            } else if ((isRecord(lhs) && isConstant(rhs)) || (isConstant(lhs) && isRecord(rhs))) {
+            } else if ((isA<AstRecordInit>(lhs) && isA<AstConstant>(rhs)) ||
+                       (isA<AstConstant>(lhs) && isA<AstRecordInit>(rhs))) {
                 // A record =/= a constant
                 return false;
             }

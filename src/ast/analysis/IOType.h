@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "Analysis.h"
+#include "ast/analysis/Analysis.h"
 #include <iosfwd>
+#include <map>
 #include <set>
 #include <string>
 
@@ -48,6 +49,18 @@ public:
         return printSizeRelations.count(relation) != 0;
     }
 
+    bool isLimitSize(const AstRelation* relation) const {
+        return limitSizeRelations.count(relation) != 0;
+    }
+
+    std::size_t getLimitSize(const AstRelation* relation) const {
+        auto iter = limitSize.find(relation);
+        if (iter != limitSize.end()) {
+            return (*iter).second;
+        } else
+            return 0;
+    }
+
     bool isIO(const AstRelation* relation) const {
         return isInput(relation) || isOutput(relation) || isPrintSize(relation);
     }
@@ -56,5 +69,7 @@ private:
     std::set<const AstRelation*> inputRelations;
     std::set<const AstRelation*> outputRelations;
     std::set<const AstRelation*> printSizeRelations;
+    std::set<const AstRelation*> limitSizeRelations;
+    std::map<const AstRelation*, std::size_t> limitSize;
 };
 }  // end of namespace souffle

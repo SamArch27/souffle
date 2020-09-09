@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "Argument.h"
-#include "Node.h"
-#include "SrcLocation.h"
+#include "ast/Argument.h"
+#include "ast/Node.h"
+#include "parser/SrcLocation.h"
 #include <ostream>
 #include <string>
 #include <utility>

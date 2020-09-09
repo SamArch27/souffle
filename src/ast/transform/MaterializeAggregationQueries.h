@@ -17,13 +17,12 @@
 
 #pragma once
 
-#include "Transformer.h"
+#include "ast/transform/Transformer.h"
 #include <string>
 
 namespace souffle {
 
 class AstAggregator;
-class AstProgram;
 class AstTranslationUnit;
 
 /**
@@ -58,7 +57,7 @@ private:
      * A test determining whether the body of a given aggregation needs to be
      * 'outlined' into an independent relation or can be kept inline.
      */
-    static bool needsMaterializedRelation(AstAggregator& agg, AstProgram& program);
+    static bool needsMaterializedRelation(const AstAggregator& agg);
 };
 
 }  // end of namespace souffle

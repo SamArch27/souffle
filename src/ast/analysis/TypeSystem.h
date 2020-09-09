@@ -16,12 +16,13 @@
 
 #pragma once
 
-#include "../QualifiedName.h"
-#include "TypeAttribute.h"
-#include "utility/ContainerUtil.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "ast/QualifiedName.h"
+#include "ast/Type.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <iostream>
 #include <map>
@@ -206,6 +207,57 @@ protected:
 };
 
 /**
+ * @class AlgebraicDataType
+ * @brief Aggregates types using sums and products.
+ *
+ *
+ * Invariant: branches are in stored in lexicographical order.
+ */
+class AlgebraicDataType : public Type {
+public:
+    struct Branch {
+        std::string name;                // < the name of the branch
+        std::vector<const Type*> types;  // < Product type associated with this branch.
+
+        void print(std::ostream& out) const {
+            out << tfm::format("%s {%s}", this->name,
+                    join(types, ", ", [](std::ostream& out, const Type* t) { out << t->getName(); }));
+        }
+    };
+
+    void print(std::ostream& out) const override {
+        out << tfm::format("%s = %s", name,
+                join(branches, " | ", [](std::ostream& out, const Branch& branch) { branch.print(out); }));
+    }
+
+    void setBranches(std::vector<Branch> bs) {
+        branches = std::move(bs);
+        std::sort(branches.begin(), branches.end(),
+                [](const Branch& left, const Branch& right) { return left.name < right.name; });
+    }
+
+    const std::vector<const Type*>& getBranchTypes(const std::string& constructor) const {
+        for (auto& branch : branches) {
+            if (branch.name == constructor) return branch.types;
+        }
+        // Branch doesn't exist.
+        throw std::out_of_range("Trying to access non-existing branch.");
+    }
+
+    /** Return the branches as a sorted vector */
+    const std::vector<Branch>& getBranches() const {
+        return branches;
+    }
+
+private:
+    AlgebraicDataType(const TypeEnvironment& env, AstQualifiedName name) : Type(env, std::move(name)) {}
+
+    friend class TypeEnvironment;
+
+    std::vector<Branch> branches;
+};
+
+/**
  * A collection to represent sets of types. In addition to ordinary set capabilities
  * it may also represent the set of all types -- without being capable of iterating over those.
  *
@@ -384,6 +436,7 @@ public:
     bool isType(const Type& type) const;
 
     const Type& getType(const AstQualifiedName&) const;
+    const Type& getType(const AstType&) const;
 
     const Type& getConstantType(TypeAttribute type) const {
         switch (type) {
@@ -392,6 +445,7 @@ public:
             case TypeAttribute::Float: return getType("__floatConstant");
             case TypeAttribute::Symbol: return getType("__symbolConstant");
             case TypeAttribute::Record: break;
+            case TypeAttribute::ADT: break;
         }
 
         fatal("There is no constant record type");

@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2013, 2014, Oracle and/or its affiliates. All rights reserved
+ * Copyright (c) 2020 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "Node.h"
-#include "QualifiedName.h"
-#include "SrcLocation.h"
-#include "Type.h"
+#include "ast/Node.h"
+#include "ast/QualifiedName.h"
+#include "ast/Type.h"
+#include "parser/SrcLocation.h"
 #include <iostream>
 #include <string>
 #include <utility>

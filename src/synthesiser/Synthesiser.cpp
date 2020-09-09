@@ -16,30 +16,31 @@
 
 #include "synthesiser/Synthesiser.h"
 #include "AggregateOp.h"
-#include "BinaryConstraintOps.h"
 #include "FunctorOps.h"
 #include "Global.h"
-#include "RamTypes.h"
 #include "RelationTag.h"
-#include "SymbolTable.h"
-#include "json11.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
 #include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Relation.h"
+#include "ram/RelationSize.h"
 #include "ram/Statement.h"
 #include "ram/TranslationUnit.h"
 #include "ram/Utils.h"
 #include "ram/Visitor.h"
-#include "ram/analysis/IndexAnalysis.h"
+#include "ram/analysis/Index.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/RamTypes.h"
+#include "souffle/SymbolTable.h"
+#include "souffle/utility/FileUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/json11.h"
+#include "souffle/utility/tinyformat.h"
 #include "synthesiser/SynthesiserRelation.h"
-#include "utility/FileUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
-#include "utility/tinyformat.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -203,7 +204,8 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             std::stringstream low;
             std::stringstream high;
 
-            size_t realArity = rel.getArity();  // making this distinction for provenance
+            // making this distinction for provenance
+            size_t realArity = rel.getArity();
             size_t arity = rangePatternLower.size();
 
             low << "Tuple<RamDomain," << realArity << ">{{";
@@ -214,23 +216,17 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 std::string infimum;
 
                 switch (rel.getAttributeTypes()[column][0]) {
-                    /*
-            case 'i':
-                        supremum = "ramBitCast<RamDomain, RamSigned>(MIN_RAM_SIGNED)";
-                        infimum = "ramBitCast<RamDomain, RamSigned>(MAX_RAM_SIGNED)";
+                    case 'f':
+                        supremum = "ramBitCast<RamDomain>(MIN_RAM_FLOAT)";
+                        infimum = "ramBitCast<RamDomain>(MAX_RAM_FLOAT)";
                         break;
                     case 'u':
-                        supremum = "ramBitCast<RamDomain, RamUnsigned>(MIN_RAM_UNSIGNED)";
-                        infimum = "ramBitCast<RamDomain, RamUnsigned>(MAX_RAM_UNSIGNED)";
+                        supremum = "ramBitCast<RamDomain>(MIN_RAM_UNSIGNED)";
+                        infimum = "ramBitCast<RamDomain>(MAX_RAM_UNSIGNED)";
                         break;
-                    case 'f':
-                        supremum = "ramBitCast<RamDomain, RamFloat>(MIN_RAM_FLOAT)";
-                        infimum = "ramBitCast<RamDomain, RamFloat>(MAX_RAM_FLOAT)";
-                        break;
-            */
                     default:
-                        supremum = "ramBitCast<RamDomain, RamSigned>(MIN_RAM_SIGNED)";
-                        infimum = "ramBitCast<RamDomain, RamSigned>(MAX_RAM_SIGNED)";
+                        supremum = "ramBitCast<RamDomain>(MIN_RAM_SIGNED)";
+                        infimum = "ramBitCast<RamDomain>(MAX_RAM_SIGNED)";
                 }
 
                 // if we have an inequality where either side is not set
@@ -963,6 +959,7 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 case TypeAttribute::Float: type = "RamFloat"; break;
 
                 case TypeAttribute::Symbol:
+                case TypeAttribute::ADT:
                 case TypeAttribute::Record: type = "RamDomain"; break;
             }
             out << type << " res0 = " << init << ";\n";
@@ -1128,6 +1125,7 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 case TypeAttribute::Float: type = "RamFloat"; break;
 
                 case TypeAttribute::Symbol:
+                case TypeAttribute::ADT:
                 case TypeAttribute::Record: type = "RamDomain"; break;
             }
             out << type << " res0 = " << init << ";\n";
@@ -1307,6 +1305,7 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 case TypeAttribute::Float: type = "RamFloat"; break;
 
                 case TypeAttribute::Symbol:
+                case TypeAttribute::ADT:
                 case TypeAttribute::Record: type = "RamDomain"; break;
             }
             out << type << " res0 = " << init << ";\n";
@@ -1447,6 +1446,7 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
                 case TypeAttribute::Float: type = "RamFloat"; break;
 
                 case TypeAttribute::Symbol:
+                case TypeAttribute::ADT:
                 case TypeAttribute::Record: type = "RamDomain"; break;
             }
             out << type << " res0 = " << init << ";\n";
@@ -1677,6 +1677,13 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
             PRINT_BEGIN_COMMENT(out);
             out << synthesiser.getRelationName(emptiness.getRelation()) << "->"
                 << "empty()";
+            PRINT_END_COMMENT(out);
+        }
+
+        void visitRelationSize(const RamRelationSize& size, std::ostream& out) override {
+            PRINT_BEGIN_COMMENT(out);
+            out << "(RamDomain)" << synthesiser.getRelationName(size.getRelation()) << "->"
+                << "size()";
             PRINT_END_COMMENT(out);
         }
 
@@ -2052,45 +2059,55 @@ void Synthesiser::emitCode(std::ostream& out, const RamStatement& stmt) {
         void visitUserDefinedOperator(const RamUserDefinedOperator& op, std::ostream& out) override {
             const std::string& name = op.getName();
 
-            const std::vector<TypeAttribute>& argTypes = op.getArgsTypes();
             auto args = op.getArguments();
-
-            if (op.getReturnType() == TypeAttribute::Symbol) {
-                out << "symTable.lookup(";
-            }
-            out << name << "(";
-
-            for (size_t i = 0; i < args.size(); i++) {
-                if (i > 0) {
+            if (op.isStateful()) {
+                out << name << "(&symTable, &recordTable";
+                for (size_t i = 0; i < args.size(); i++) {
                     out << ",";
+                    visit(args[i], out);
                 }
-                switch (argTypes[i]) {
-                    case TypeAttribute::Signed:
-                        out << "((RamSigned)";
-                        visit(args[i], out);
-                        out << ")";
-                        break;
-                    case TypeAttribute::Unsigned:
-                        out << "((RamUnsigned)";
-                        visit(args[i], out);
-                        out << ")";
-                        break;
-                    case TypeAttribute::Float:
-                        out << "((RamFloat)";
-                        visit(args[i], out);
-                        out << ")";
-                        break;
-                    case TypeAttribute::Symbol:
-                        out << "symTable.resolve(";
-                        visit(args[i], out);
-                        out << ").c_str()";
-                        break;
-                    case TypeAttribute::Record: fatal("unhandled type");
-                }
-            }
-            out << ")";
-            if (op.getReturnType() == TypeAttribute::Symbol) {
                 out << ")";
+            } else {
+                const std::vector<TypeAttribute>& argTypes = op.getArgsTypes();
+
+                if (op.getReturnType() == TypeAttribute::Symbol) {
+                    out << "symTable.lookup(";
+                }
+                out << name << "(";
+
+                for (size_t i = 0; i < args.size(); i++) {
+                    if (i > 0) {
+                        out << ",";
+                    }
+                    switch (argTypes[i]) {
+                        case TypeAttribute::Signed:
+                            out << "((RamSigned)";
+                            visit(args[i], out);
+                            out << ")";
+                            break;
+                        case TypeAttribute::Unsigned:
+                            out << "((RamUnsigned)";
+                            visit(args[i], out);
+                            out << ")";
+                            break;
+                        case TypeAttribute::Float:
+                            out << "((RamFloat)";
+                            visit(args[i], out);
+                            out << ")";
+                            break;
+                        case TypeAttribute::Symbol:
+                            out << "symTable.resolve(";
+                            visit(args[i], out);
+                            out << ").c_str()";
+                            break;
+                        case TypeAttribute::ADT:
+                        case TypeAttribute::Record: fatal("unhandled type");
+                    }
+                }
+                out << ")";
+                if (op.getReturnType() == TypeAttribute::Symbol) {
+                    out << ")";
+                }
             }
         }
 
@@ -2171,7 +2188,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     os << "\n#include \"souffle/CompiledSouffle.h\"\n";
     if (Global::config().has("provenance")) {
         os << "#include <mutex>\n";
-        os << "#include \"souffle/Explain.h\"\n";
+        os << "#include \"souffle/provenance/Explain.h\"\n";
     }
 
     if (Global::config().has("live-profile")) {
@@ -2180,10 +2197,10 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     }
     os << "\n";
     // produce external definitions for user-defined functors
-    std::map<std::string, std::pair<TypeAttribute, std::vector<TypeAttribute>>> functors;
+    std::map<std::string, std::tuple<TypeAttribute, std::vector<TypeAttribute>, bool>> functors;
     visitDepthFirst(prog, [&](const RamUserDefinedOperator& op) {
         if (functors.find(op.getName()) == functors.end()) {
-            functors[op.getName()] = std::make_pair(op.getReturnType(), op.getArgsTypes());
+            functors[op.getName()] = std::make_tuple(op.getReturnType(), op.getArgsTypes(), op.isStateful());
         }
         withSharedLibrary = true;
     });
@@ -2193,8 +2210,9 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         const std::string& name = f.first;
 
         const auto& functorTypes = f.second;
-        const auto& returnType = functorTypes.first;
-        const auto& argsTypes = functorTypes.second;
+        const auto& returnType = std::get<0>(functorTypes);
+        const auto& argsTypes = std::get<1>(functorTypes);
+        const auto& stateful = std::get<2>(functorTypes);
 
         auto cppTypeDecl = [](TypeAttribute ty) -> char const* {
             switch (ty) {
@@ -2202,14 +2220,23 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
                 case TypeAttribute::Unsigned: return "souffle::RamUnsigned";
                 case TypeAttribute::Float: return "souffle::RamFloat";
                 case TypeAttribute::Symbol: return "const char *";
+                case TypeAttribute::ADT: fatal("adts cannot be used by user-defined functors");
                 case TypeAttribute::Record: fatal("records cannot be used by user-defined functors");
             }
 
             UNREACHABLE_BAD_CASE_ANALYSIS
         };
 
-        tfm::format(
-                os, "%s %s(%s);\n", cppTypeDecl(returnType), name, join(map(argsTypes, cppTypeDecl), ","));
+        if (stateful) {
+            os << "souffle::RamDomain " << name << "(souffle::SymbolTable *, souffle::RecordTable *";
+            for (size_t i = 0; i < argsTypes.size(); i++) {
+                os << ",souffle::RamDomain";
+            }
+            os << ");\n";
+        } else {
+            tfm::format(os, "%s %s(%s);\n", cppTypeDecl(returnType), name,
+                    join(map(argsTypes, cppTypeDecl), ","));
+        }
     }
     os << "\n";
     os << "namespace souffle {\n";

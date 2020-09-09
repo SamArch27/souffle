@@ -14,26 +14,26 @@
  *
  ***********************************************************************/
 
-#include "ComponentInstantiation.h"
-#include "../Atom.h"
-#include "../Attribute.h"
-#include "../Clause.h"
-#include "../Component.h"
-#include "../ComponentInit.h"
-#include "../ComponentType.h"
-#include "../IO.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../RecordType.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../Type.h"
-#include "../TypeCast.h"
-#include "../UnionType.h"
-#include "../Visitor.h"
-#include "../analysis/ComponentLookup.h"
-#include "ErrorReport.h"
-#include "utility/StringUtil.h"
+#include "ast/transform/ComponentInstantiation.h"
+#include "ast/Atom.h"
+#include "ast/Attribute.h"
+#include "ast/Clause.h"
+#include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
+#include "ast/Directive.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/RecordType.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Type.h"
+#include "ast/TypeCast.h"
+#include "ast/UnionType.h"
+#include "ast/analysis/ComponentLookup.h"
+#include "ast/utility/Visitor.h"
+#include "reports/ErrorReport.h"
+#include "souffle/utility/StringUtil.h"
 #include <algorithm>
 #include <cstddef>
 #include <map>
@@ -56,7 +56,7 @@ static const unsigned int MAX_INSTANTIATION_DEPTH = 1000;
 struct ComponentContent {
     std::vector<std::unique_ptr<AstType>> types;
     std::vector<std::unique_ptr<AstRelation>> relations;
-    std::vector<std::unique_ptr<AstIO>> ios;
+    std::vector<std::unique_ptr<AstDirective>> directives;
     std::vector<std::unique_ptr<AstClause>> clauses;
 
     void add(std::unique_ptr<AstType>& type, ErrorReport& report) {
@@ -95,24 +95,26 @@ struct ComponentContent {
         clauses.push_back(std::move(clause));
     }
 
-    void add(std::unique_ptr<AstIO>& newIO, ErrorReport& report) {
-        // Check if i/o directive already exists
-        auto foundItem = std::find_if(ios.begin(), ios.end(), [&](const std::unique_ptr<AstIO>& io) {
-            return io->getQualifiedName() == newIO->getQualifiedName();
-        });
+    void add(std::unique_ptr<AstDirective>& newDirective, ErrorReport& report) {
+        // Check if directive already exists
+        auto foundItem = std::find_if(
+                directives.begin(), directives.end(), [&](const std::unique_ptr<AstDirective>& directive) {
+                    return directive->getQualifiedName() == newDirective->getQualifiedName();
+                });
         // if yes, add error
-        if (foundItem != ios.end()) {
+        if (foundItem != directives.end()) {
             auto type = (*foundItem)->getType();
-            if (type == newIO->getType() && newIO->getType() != AstIoType::output) {
+            if (type == newDirective->getType() && newDirective->getType() != AstDirectiveType::output) {
                 Diagnostic err(Diagnostic::Type::ERROR,
-                        DiagnosticMessage("Redefinition I/O operation " + toString(newIO->getQualifiedName()),
-                                newIO->getSrcLoc()),
+                        DiagnosticMessage(
+                                "Redefinition I/O operation " + toString(newDirective->getQualifiedName()),
+                                newDirective->getSrcLoc()),
                         {DiagnosticMessage("Previous definition", (*foundItem)->getSrcLoc())});
                 report.addDiagnostic(err);
             }
         }
         // if not, add it
-        ios.push_back(std::move(newIO));
+        directives.push_back(std::move(newDirective));
     }
 };
 
@@ -163,9 +165,9 @@ void collectContent(AstProgram& program, const AstComponent& component, const Ty
                     res.add(clause, report);
                 }
 
-                // process io directives
-                for (auto& io : content.ios) {
-                    res.add(io, report);
+                // process directive directives
+                for (auto& directive : content.directives) {
+                    res.add(directive, report);
                 }
             }
 
@@ -224,10 +226,10 @@ void collectContent(AstProgram& program, const AstComponent& component, const Ty
         res.add(rel, report);
     }
 
-    // and the local io directives
-    for (const auto& io : component.getIOs()) {
+    // and the local directive directives
+    for (const auto& directive : component.getDirectives()) {
         // create a clone
-        std::unique_ptr<AstIO> instantiatedIO(io->clone());
+        std::unique_ptr<AstDirective> instantiatedIO(directive->clone());
 
         res.add(instantiatedIO, report);
     }
@@ -313,9 +315,9 @@ ComponentContent getInstantiatedContent(AstProgram& program, const AstComponentI
             res.add(clause, report);
         }
 
-        // add IO directives
-        for (auto& io : nestedContent.ios) {
-            res.add(io, report);
+        // add directives
+        for (auto& directive : nestedContent.directives) {
+            res.add(directive, report);
         }
     }
 
@@ -358,11 +360,11 @@ ComponentContent getInstantiatedContent(AstProgram& program, const AstComponentI
             }
         });
 
-        // rename IO directives
-        visitDepthFirst(node, [&](const AstIO& io) {
-            auto pos = relationNameMapping.find(io.getQualifiedName());
+        // rename directives
+        visitDepthFirst(node, [&](const AstDirective& directive) {
+            auto pos = relationNameMapping.find(directive.getQualifiedName());
             if (pos != relationNameMapping.end()) {
-                const_cast<AstIO&>(io).setQualifiedName(pos->second);
+                const_cast<AstDirective&>(directive).setQualifiedName(pos->second);
             }
         });
 
@@ -413,8 +415,8 @@ ComponentContent getInstantiatedContent(AstProgram& program, const AstComponentI
         fixNames(*cur);
     }
 
-    // rename io directives
-    for (const auto& cur : res.ios) {
+    // rename directive directives
+    for (const auto& cur : res.directives) {
         fixNames(*cur);
     }
 
@@ -452,8 +454,8 @@ bool ComponentInstantiationTransformer::transform(AstTranslationUnit& translatio
         for (auto& orphan : orphans) {
             program.clauses.push_back(std::move(orphan));
         }
-        for (auto& io : content.ios) {
-            program.ios.push_back(std::move(io));
+        for (auto& directive : content.directives) {
+            program.directives.push_back(std::move(directive));
         }
     }
 

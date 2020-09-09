@@ -12,22 +12,22 @@
  *
  ***********************************************************************/
 
-#include "NormaliseConstraints.h"
-#include "../Argument.h"
-#include "../BinaryConstraint.h"
-#include "../Clause.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../NumericConstant.h"
-#include "../Program.h"
-#include "../StringConstant.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "BinaryConstraintOps.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/NormaliseConstraints.h"
+#include "ast/Argument.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/NumericConstant.h"
+#include "ast/Program.h"
+#include "ast/StringConstant.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <memory>
 #include <optional>
@@ -105,7 +105,7 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
 
                 // update constant to be the variable created
                 return newVariable;
-            } else if (dynamic_cast<AstUnnamedVariable*>(node.get()) != nullptr) {
+            } else if (isA<AstUnnamedVariable>(node.get())) {
                 // underscore found
                 changeCount++;
 

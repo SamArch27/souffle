@@ -14,20 +14,20 @@
  *
  ***********************************************************************/
 
-#include "ComponentChecker.h"
-#include "../Component.h"
-#include "../ComponentInit.h"
-#include "../ComponentType.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../Type.h"
-#include "../analysis/ComponentLookup.h"
-#include "ErrorReport.h"
+#include "ast/transform/ComponentChecker.h"
 #include "RelationTag.h"
-#include "SrcLocation.h"
-#include "utility/StringUtil.h"
+#include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Type.h"
+#include "ast/analysis/ComponentLookup.h"
+#include "parser/SrcLocation.h"
+#include "reports/ErrorReport.h"
+#include "souffle/utility/StringUtil.h"
 #include <functional>
 #include <map>
 #include <set>

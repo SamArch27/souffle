@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2018 The Souffle Developers. All Rights reserved
+ * Copyright (c) 2018 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -16,13 +16,14 @@
 
 #pragma once
 
-#include "Node.h"
-#include "SrcLocation.h"
-#include "TypeAttribute.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/tinyformat.h"
+#include "ast/Node.h"
+#include "parser/SrcLocation.h"
+#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <cassert>
 #include <cstdlib>
 #include <ostream>
@@ -43,9 +44,9 @@ namespace souffle {
 class AstFunctorDeclaration : public AstNode {
 public:
     AstFunctorDeclaration(std::string name, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
-            SrcLocation loc = {})
+            bool stateful, SrcLocation loc = {})
             : AstNode(std::move(loc)), name(std::move(name)), argsTypes(std::move(argsTypes)),
-              returnType(returnType) {
+              returnType(returnType), stateful(stateful) {
         assert(this->name.length() > 0 && "functor name is empty");
     }
 
@@ -69,8 +70,13 @@ public:
         return argsTypes.size();
     }
 
+    /** Check whether functor is stateful */
+    bool isStateful() const {
+        return stateful;
+    }
+
     AstFunctorDeclaration* clone() const override {
-        return new AstFunctorDeclaration(name, argsTypes, returnType, getSrcLoc());
+        return new AstFunctorDeclaration(name, argsTypes, returnType, stateful, getSrcLoc());
     }
 
 protected:
@@ -81,19 +87,24 @@ protected:
                 case TypeAttribute::Symbol: return "symbol";
                 case TypeAttribute::Float: return "float";
                 case TypeAttribute::Unsigned: return "unsigned";
-                case TypeAttribute::Record: fatal("unhandled `TypeAttribute`");
+                case TypeAttribute::Record: break;
+                case TypeAttribute::ADT: break;
             }
-
-            UNREACHABLE_BAD_CASE_ANALYSIS
+            fatal("unhandled `TypeAttribute`");
         };
 
         tfm::format(
-                out, ".declfun %s(%s): %s\n", name, join(map(argsTypes, convert), ","), convert(returnType));
+                out, ".declfun %s(%s): %s", name, join(map(argsTypes, convert), ","), convert(returnType));
+        if (stateful) {
+            out << " stateful";
+        }
+        out << std::endl;
     }
 
     bool equal(const AstNode& node) const override {
         const auto& other = static_cast<const AstFunctorDeclaration&>(node);
-        return name == other.name && argsTypes == other.argsTypes && returnType == other.returnType;
+        return name == other.name && argsTypes == other.argsTypes && returnType == other.returnType &&
+               stateful == other.stateful;
     }
 
     /** Name of functor */
@@ -104,6 +115,9 @@ protected:
 
     /** Type of the return value */
     const TypeAttribute returnType;
+
+    /** Stateful flag */
+    const bool stateful;
 };
 
 }  // end of namespace souffle

@@ -15,7 +15,7 @@
 #pragma once
 
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <memory>
 #include <string>

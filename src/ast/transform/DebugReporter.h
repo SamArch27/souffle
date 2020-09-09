@@ -15,10 +15,10 @@
  ***********************************************************************/
 #pragma once
 
-#include "Meta.h"
-#include "Null.h"
-#include "Transformer.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/Meta.h"
+#include "ast/transform/Null.h"
+#include "ast/transform/Transformer.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <set>
 #include <string>

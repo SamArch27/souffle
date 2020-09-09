@@ -17,7 +17,7 @@
 
 #include "RelationTag.h"
 #include "ram/Node.h"
-#include "utility/ContainerUtil.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -117,7 +117,7 @@ protected:
     }
 
     bool equal(const RamNode& node) const override {
-        assert(nullptr != dynamic_cast<const RamRelation*>(&node));
+        assert(isA<RamRelation>(&node));
         const auto& other = static_cast<const RamRelation&>(node);
         return representation == other.representation && name == other.name && arity == other.arity &&
                auxiliaryArity == other.auxiliaryArity && attributeNames == other.attributeNames &&

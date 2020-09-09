@@ -14,7 +14,8 @@
  *
  ***********************************************************************/
 
-#include "Meta.h"
+#include "ast/transform/Meta.h"
+#include "souffle/utility/MiscUtil.h"
 #include <chrono>
 #include <iostream>
 
@@ -25,7 +26,7 @@ bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, A
     bool changed = transformer->apply(translationUnit);
     auto end = std::chrono::high_resolution_clock::now();
 
-    if (verbose && (dynamic_cast<MetaTransformer*>(transformer) == nullptr)) {
+    if (verbose && (!isA<MetaTransformer>(transformer))) {
         std::string changedString = changed ? "changed" : "unchanged";
         std::cout << transformer->getName() << " time: " << std::chrono::duration<double>(end - start).count()
                   << "sec [" << changedString << "]" << std::endl;

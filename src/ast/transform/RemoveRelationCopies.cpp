@@ -12,20 +12,20 @@
  *
  ***********************************************************************/
 
-#include "RemoveRelationCopies.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../RecordInit.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
-#include "../analysis/IOType.h"
-#include "utility/ContainerUtil.h"
+#include "ast/transform/RemoveRelationCopies.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/RecordInit.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Variable.h"
+#include "ast/analysis/IOType.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <map>
@@ -141,7 +141,7 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& t
     // remove unused relations
     for (const auto& cur : isAliasOf) {
         if (cycle_reps.count(cur.first) == 0u) {
-            program.removeRelation(getRelation(program, cur.first)->getQualifiedName());
+            removeRelation(translationUnit, getRelation(program, cur.first)->getQualifiedName());
         }
     }
 

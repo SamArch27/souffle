@@ -17,12 +17,16 @@
 #pragma once
 
 #include "Global.h"
-#include "RamTypes.h"
-#include "RecordTable.h"
+#include "interpreter/InterpreterContext.h"
 #include "interpreter/InterpreterGenerator.h"
 #include "interpreter/InterpreterIndex.h"
+#include "interpreter/InterpreterNode.h"
+#include "interpreter/InterpreterRelation.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/IndexAnalysis.h"
+#include "ram/analysis/Index.h"
+#include "souffle/RamTypes.h"
+#include "souffle/RecordTable.h"
+#include "souffle/SymbolTable.h"
 #include <atomic>
 #include <cstddef>
 #include <deque>
@@ -37,10 +41,6 @@
 namespace souffle {
 
 class InterpreterProgInterface;
-class InterpreterContext;
-class InterpreterNode;
-class InterpreterRelation;
-class SymbolTable;
 
 /**
  * @class InterpreterEngine

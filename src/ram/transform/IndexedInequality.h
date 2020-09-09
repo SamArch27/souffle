@@ -15,7 +15,7 @@
 #pragma once
 
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/IndexAnalysis.h"
+#include "ram/analysis/Index.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 

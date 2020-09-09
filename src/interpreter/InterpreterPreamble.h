@@ -11,8 +11,8 @@
  * @file InterpreterPreamble.h
  *
  * Declares the InterpreterPreamble class.
- * Each Query operation has an InterpreterPreamble assoicated with it.
- * The preamble contains information about views creation.
+ * Each query operation has an InterpreterPreamble associated with it.
+ * The preamble contains information about view creation.
  ***********************************************************************/
 
 #pragma once

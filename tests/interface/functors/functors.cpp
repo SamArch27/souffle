@@ -13,6 +13,8 @@
  * Testing the user-defined functor interface
  *
  ***********************************************************************/
+#include "souffle/RecordTable.h"
+#include "souffle/SymbolTable.h"
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -35,6 +37,16 @@ FF_int foo(FF_int n, const char* s) {
 
 FF_int goo(const char* s, FF_int n) {
     return strlen(s) + n;
+}
+
+souffle::RamDomain mycat(souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable,
+        souffle::RamDomain arg1, souffle::RamDomain arg2) {
+    assert(symbolTable && "NULL symbol table");
+    assert(recordTable && "NULL record table");
+    const std::string& sarg1 = symbolTable->resolve(arg1);
+    const std::string& sarg2 = symbolTable->resolve(arg2);
+    std::string result = sarg1 + sarg2;
+    return symbolTable->lookup(result);
 }
 
 const char* hoo() {

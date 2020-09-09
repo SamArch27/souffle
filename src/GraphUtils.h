@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "utility/FileUtil.h"
+#include "souffle/utility/FileUtil.h"
 #include <functional>
 #include <map>
 #include <ostream>

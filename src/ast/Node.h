@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "SrcLocation.h"
+#include "parser/SrcLocation.h"
 #include <iosfwd>
 #include <string>
 #include <typeinfo>

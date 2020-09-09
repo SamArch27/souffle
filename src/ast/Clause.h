@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "Atom.h"
-#include "ExecutionPlan.h"
-#include "Literal.h"
-#include "Node.h"
-#include "NodeMapper.h"
-#include "SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "ast/Atom.h"
+#include "ast/ExecutionPlan.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/utility/NodeMapper.h"
+#include "parser/SrcLocation.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <memory>
 #include <ostream>

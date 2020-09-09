@@ -14,16 +14,16 @@
  *
  ***********************************************************************/
 
-#include "ExecutionPlanChecker.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../ExecutionOrder.h"
-#include "../ExecutionPlan.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../analysis/RecursiveClauses.h"
-#include "../analysis/RelationSchedule.h"
-#include "ErrorReport.h"
+#include "ast/transform/ExecutionPlanChecker.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/ExecutionOrder.h"
+#include "ast/ExecutionPlan.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/RecursiveClauses.h"
+#include "ast/analysis/RelationSchedule.h"
+#include "ast/utility/Utils.h"
+#include "reports/ErrorReport.h"
 #include <algorithm>
 #include <map>
 #include <set>

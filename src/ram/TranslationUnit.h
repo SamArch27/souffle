@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "DebugReport.h"
 #include "Global.h"
-#include "SymbolTable.h"
 #include "ram/Program.h"
 #include "ram/analysis/Analysis.h"
+#include "reports/DebugReport.h"
+#include "souffle/SymbolTable.h"
 #include <cassert>
 #include <iosfwd>
 #include <map>

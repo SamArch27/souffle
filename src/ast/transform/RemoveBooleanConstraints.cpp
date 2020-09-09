@@ -12,21 +12,21 @@
  *
  ***********************************************************************/
 
-#include "RemoveBooleanConstraints.h"
-#include "../Aggregator.h"
-#include "../BinaryConstraint.h"
-#include "../BooleanConstraint.h"
-#include "../Clause.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../NumericConstant.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Visitor.h"
-#include "BinaryConstraintOps.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/RemoveBooleanConstraints.h"
+#include "ast/Aggregator.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/BooleanConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/NumericConstant.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -74,7 +74,7 @@ bool RemoveBooleanConstraintsTransformer::transform(AstTranslationUnit& translat
                     if (!containsFalse) {
                         for (AstLiteral* lit : aggr->getBodyLiterals()) {
                             // Don't add in boolean constraints
-                            if (dynamic_cast<AstBooleanConstraint*>(lit) == nullptr) {
+                            if (!isA<AstBooleanConstraint>(lit)) {
                                 isEmpty = false;
                                 newBody.push_back(souffle::clone(lit));
                             }
@@ -132,7 +132,7 @@ bool RemoveBooleanConstraintsTransformer::transform(AstTranslationUnit& translat
 
                 // Only keep non-'true' literals
                 for (AstLiteral* lit : clause->getBodyLiterals()) {
-                    if (dynamic_cast<AstBooleanConstraint*>(lit) == nullptr) {
+                    if (!isA<AstBooleanConstraint>(lit)) {
                         replacementClause->addToBody(souffle::clone(lit));
                     }
                 }

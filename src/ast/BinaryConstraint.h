@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "Argument.h"
-#include "BinaryConstraintOps.h"
-#include "Constraint.h"
-#include "Node.h"
-#include "NodeMapper.h"
-#include "SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "ast/Argument.h"
+#include "ast/Constraint.h"
+#include "ast/Node.h"
+#include "ast/utility/NodeMapper.h"
+#include "parser/SrcLocation.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -88,7 +88,7 @@ protected:
     }
 
     bool equal(const AstNode& node) const override {
-        assert(nullptr != dynamic_cast<const AstBinaryConstraint*>(&node));
+        assert(isA<AstBinaryConstraint>(&node));
         const auto& other = static_cast<const AstBinaryConstraint&>(node);
         return operation == other.operation && equal_ptr(lhs, other.lhs) && equal_ptr(rhs, other.rhs);
     }

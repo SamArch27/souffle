@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "../Clause.h"
-#include "Analysis.h"
-#include "TypeSystem.h"
+#include "ast/Clause.h"
+#include "ast/analysis/Analysis.h"
+#include "ast/analysis/TypeSystem.h"
 #include <map>
 #include <memory>
 #include <sstream>
@@ -28,7 +28,6 @@
 namespace souffle {
 
 class AstArgument;
-class AstProgram;
 class AstTranslationUnit;
 
 class TypeAnalysis : public AstAnalysis {
@@ -59,7 +58,7 @@ public:
      * @return a map mapping each contained argument to a a set of types
      */
     static std::map<const AstArgument*, TypeSet> analyseTypes(
-            const TypeEnvironment&, const AstClause&, const AstProgram&, std::ostream* /*logs*/ = nullptr);
+            const AstTranslationUnit&, const AstClause&, std::ostream* /*logs*/ = nullptr);
 
 private:
     std::map<const AstArgument*, TypeSet> argumentTypes;

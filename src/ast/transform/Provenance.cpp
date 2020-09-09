@@ -14,37 +14,37 @@
  *
  ***********************************************************************/
 
-#include "Provenance.h"
-#include "../Aggregator.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../Attribute.h"
-#include "../BinaryConstraint.h"
-#include "../Clause.h"
-#include "../Constant.h"
-#include "../Functor.h"
-#include "../IntrinsicFunctor.h"
-#include "../Literal.h"
-#include "../Negation.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../NumericConstant.h"
-#include "../Program.h"
-#include "../ProvenanceNegation.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../StringConstant.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "BinaryConstraintOps.h"
+#include "ast/transform/Provenance.h"
 #include "RelationTag.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
-#include "utility/tinyformat.h"
+#include "ast/Aggregator.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/Attribute.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Constant.h"
+#include "ast/Functor.h"
+#include "ast/IntrinsicFunctor.h"
+#include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/Node.h"
+#include "ast/NumericConstant.h"
+#include "ast/Program.h"
+#include "ast/ProvenanceNegation.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/StringConstant.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -104,13 +104,13 @@ std::unique_ptr<AstRelation> makeInfoRelation(
         } else if (auto* constant = dynamic_cast<AstConstant*>(arg)) {
             return toString(*constant);
         }
-        if (nullptr != dynamic_cast<AstUnnamedVariable*>(arg)) {
+        if (isA<AstUnnamedVariable>(arg)) {
             return "_";
         }
-        if (nullptr != dynamic_cast<AstFunctor*>(arg)) {
+        if (isA<AstFunctor>(arg)) {
             return tfm::format("functor_%d", functorNumber++);
         }
-        if (nullptr != dynamic_cast<AstAggregator*>(arg)) {
+        if (isA<AstAggregator>(arg)) {
             return tfm::format("agg_%d", aggregateNumber++);
         }
 
@@ -136,16 +136,16 @@ std::unique_ptr<AstRelation> makeInfoRelation(
         auto lit = originalClause.getBodyLiterals()[i];
 
         const AstAtom* atom = nullptr;
-        if (dynamic_cast<AstAtom*>(lit) != nullptr) {
+        if (isA<AstAtom>(lit)) {
             atom = static_cast<AstAtom*>(lit);
-        } else if (dynamic_cast<AstNegation*>(lit) != nullptr) {
+        } else if (isA<AstNegation>(lit)) {
             atom = static_cast<AstNegation*>(lit)->getAtom();
-        } else if (dynamic_cast<AstProvenanceNegation*>(lit) != nullptr) {
+        } else if (isA<AstProvenanceNegation>(lit)) {
             atom = static_cast<AstProvenanceNegation*>(lit)->getAtom();
         }
 
         // add an attribute for atoms and binary constraints
-        if (atom != nullptr || dynamic_cast<AstBinaryConstraint*>(lit) != nullptr) {
+        if (atom != nullptr || isA<AstBinaryConstraint>(lit)) {
             infoRelation->addAttribute(std::make_unique<AstAttribute>(
                     std::string("rel_") + std::to_string(i), AstQualifiedName("symbol")));
         }
@@ -154,7 +154,7 @@ std::unique_ptr<AstRelation> makeInfoRelation(
             std::string relName = toString(atom->getQualifiedName());
 
             // for an atom, add its name and variables (converting aggregates to variables)
-            if (dynamic_cast<AstAtom*>(lit) != nullptr) {
+            if (isA<AstAtom>(lit)) {
                 std::string atomDescription = relName;
 
                 for (auto& arg : atom->getArguments()) {
@@ -163,7 +163,7 @@ std::unique_ptr<AstRelation> makeInfoRelation(
 
                 infoClauseHead->addArgument(std::make_unique<AstStringConstant>(atomDescription));
                 // for a negation, add a marker with the relation name
-            } else if (dynamic_cast<AstNegation*>(lit) != nullptr) {
+            } else if (isA<AstNegation>(lit)) {
                 infoClauseHead->addArgument(std::make_unique<AstStringConstant>("!" + relName));
             }
         }

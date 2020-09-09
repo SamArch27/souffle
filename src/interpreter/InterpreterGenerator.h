@@ -18,7 +18,6 @@
 #pragma once
 
 #include "Global.h"
-#include "RamTypes.h"
 #include "RelationTag.h"
 #include "interpreter/InterpreterIndex.h"
 #include "interpreter/InterpreterNode.h"
@@ -32,8 +31,9 @@
 #include "ram/Statement.h"
 #include "ram/Utils.h"
 #include "ram/Visitor.h"
-#include "ram/analysis/IndexAnalysis.h"
-#include "utility/MiscUtil.h"
+#include "ram/analysis/Index.h"
+#include "souffle/RamTypes.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cstddef>
 #include <memory>
@@ -69,7 +69,7 @@ public:
         this->program = const_cast<RamProgram*>(&program);
         // Encode all relation, indexPos and viewId.
         visitDepthFirst(root, [&](const RamNode& node) {
-            if (dynamic_cast<const RamQuery*>(&node) != nullptr) {
+            if (isA<RamQuery>(&node)) {
                 newQueryBlock();
             }
             if (const auto* indexSearch = dynamic_cast<const RamIndexOperation*>(&node)) {
@@ -160,6 +160,12 @@ public:
         size_t relId = encodeRelation(emptiness.getRelation());
         auto rel = relations[relId].get();
         return std::make_unique<InterpreterEmptinessCheck>(I_EmptinessCheck, &emptiness, rel);
+    }
+
+    NodePtr visitRelationSize(const RamRelationSize& size) override {
+        size_t relId = encodeRelation(size.getRelation());
+        auto rel = relations[relId].get();
+        return std::make_unique<InterpreterRelationSize>(I_RelationSize, &size, rel);
     }
 
     NodePtr visitExistenceCheck(const RamExistenceCheck& exists) override {
@@ -586,9 +592,9 @@ private:
      * Return true if the given operation requires a view.
      */
     bool requireView(const RamNode* node) {
-        if (dynamic_cast<const RamAbstractExistenceCheck*>(node) != nullptr) {
+        if (isA<RamAbstractExistenceCheck>(node)) {
             return true;
-        } else if (dynamic_cast<const RamIndexOperation*>(node) != nullptr) {
+        } else if (isA<RamIndexOperation>(node)) {
             return true;
         }
         return false;
@@ -672,13 +678,13 @@ private:
             }
 
             // Constant
-            if (dynamic_cast<RamConstant*>(low) != nullptr) {
+            if (isA<RamConstant>(low)) {
                 indexOperation.first[i] = dynamic_cast<RamConstant*>(low)->getConstant();
                 continue;
             }
 
             // TupleElement
-            if (dynamic_cast<RamTupleElement*>(low) != nullptr) {
+            if (isA<RamTupleElement>(low)) {
                 auto lowTuple = dynamic_cast<RamTupleElement*>(low);
                 indexOperation.tupleFirst.push_back(
                         {i, (size_t)lowTuple->getTupleId(), lowTuple->getElement()});
@@ -699,13 +705,13 @@ private:
             }
 
             // Constant
-            if (dynamic_cast<RamConstant*>(hig) != nullptr) {
+            if (isA<RamConstant>(hig)) {
                 indexOperation.second[i] = dynamic_cast<RamConstant*>(hig)->getConstant();
                 continue;
             }
 
             // TupleElement
-            if (dynamic_cast<RamTupleElement*>(hig) != nullptr) {
+            if (isA<RamTupleElement>(hig)) {
                 auto highTuple = dynamic_cast<RamTupleElement*>(hig);
                 indexOperation.tupleSecond.push_back(
                         {i, (size_t)highTuple->getTupleId(), highTuple->getElement()});
@@ -736,14 +742,14 @@ private:
             }
 
             // Constant
-            if (dynamic_cast<RamConstant*>(child) != nullptr) {
+            if (isA<RamConstant>(child)) {
                 superOp.first[i] = dynamic_cast<RamConstant*>(child)->getConstant();
                 superOp.second[i] = superOp.first[i];
                 continue;
             }
 
             // TupleElement
-            if (dynamic_cast<RamTupleElement*>(child) != nullptr) {
+            if (isA<RamTupleElement>(child)) {
                 auto tuple = dynamic_cast<RamTupleElement*>(child);
                 superOp.tupleFirst.push_back({i, (size_t)tuple->getTupleId(), tuple->getElement()});
                 continue;
@@ -765,13 +771,13 @@ private:
         for (size_t i = 0; i < arity; ++i) {
             auto& child = children[i];
             // Constant
-            if (dynamic_cast<RamConstant*>(child) != nullptr) {
+            if (isA<RamConstant>(child)) {
                 superOp.first[i] = dynamic_cast<RamConstant*>(child)->getConstant();
                 continue;
             }
 
             // TupleElement
-            if (dynamic_cast<RamTupleElement*>(child) != nullptr) {
+            if (isA<RamTupleElement>(child)) {
                 auto tuple = dynamic_cast<RamTupleElement*>(child);
                 superOp.tupleFirst.push_back({i, (size_t)tuple->getTupleId(), tuple->getElement()});
                 continue;

@@ -15,26 +15,26 @@
  *
  ***********************************************************************/
 
-#include "ResolveAliases.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../BinaryConstraint.h"
-#include "../Clause.h"
-#include "../Functor.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../RecordInit.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
-#include "BinaryConstraintOps.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
+#include "ast/transform/ResolveAliases.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/BinaryConstraint.h"
+#include "ast/Clause.h"
+#include "ast/Functor.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/RecordInit.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -117,7 +117,7 @@ public:
     template <typename T>
     std::unique_ptr<T> operator()(std::unique_ptr<T> node) const {
         std::unique_ptr<AstNode> resPtr = (*this)(std::unique_ptr<AstNode>(node.release()));
-        assert(nullptr != dynamic_cast<T*>(resPtr.get()) && "Invalid node type mapping.");
+        assert(isA<T>(resPtr.get()) && "Invalid node type mapping.");
         return std::unique_ptr<T>(dynamic_cast<T*>(resPtr.release()));
     }
 
@@ -209,10 +209,10 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
     // -- utilities --
 
     // tests whether something is a variable
-    auto isVar = [&](const AstArgument& arg) { return dynamic_cast<const AstVariable*>(&arg) != nullptr; };
+    auto isVar = [&](const AstArgument& arg) { return isA<AstVariable>(&arg); };
 
     // tests whether something is a record
-    auto isRec = [&](const AstArgument& arg) { return dynamic_cast<const AstRecordInit*>(&arg) != nullptr; };
+    auto isRec = [&](const AstArgument& arg) { return isA<AstRecordInit>(&arg); };
 
     // tests whether a value `a` occurs in a term `b`
     auto occurs = [](const AstArgument& a, const AstArgument& b) {
@@ -379,7 +379,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::removeComplexTermsInAtoms(
     for (const AstAtom* atom : atoms) {
         for (const AstArgument* arg : atom->getArguments()) {
             // ignore if not a functor
-            if (dynamic_cast<const AstFunctor*>(arg) == nullptr) {
+            if (!isA<AstFunctor>(arg)) {
                 continue;
             }
 
@@ -394,7 +394,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::removeComplexTermsInAtoms(
     visitDepthFirst(atoms, [&](const AstRecordInit& rec) {
         for (const AstArgument* arg : rec.getArguments()) {
             // ignore if not a functor
-            if (dynamic_cast<const AstFunctor*>(arg) == nullptr) {
+            if (!isA<AstFunctor>(arg)) {
                 continue;
             }
 

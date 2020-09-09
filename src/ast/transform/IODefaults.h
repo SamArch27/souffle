@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include "../IO.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../transform/Transformer.h"
 #include "Global.h"
-#include "utility/StringUtil.h"
+#include "ast/Directive.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/transform/Transformer.h"
+#include "souffle/utility/StringUtil.h"
 #include <string>
 
 namespace souffle {
@@ -65,7 +65,11 @@ private:
     bool setDefaults(AstTranslationUnit& translationUnit) {
         bool changed = false;
         AstProgram* program = translationUnit.getProgram();
-        for (AstIO* io : program->getIOs()) {
+        for (AstDirective* io : program->getDirectives()) {
+            // Don't do anything for a directive which
+            // is not an I/O directive
+            if (io->getType() == AstDirectiveType::limitsize) continue;
+
             // Set a default IO of file
             if (!io->hasDirective("IO")) {
                 io->addDirective("IO", "file");
@@ -80,14 +84,14 @@ private:
 
             // Set the operation type (input/output/printsize)
             if (!io->hasDirective("operation")) {
-                if (io->getType() == AstIoType::input) {
+                if (io->getType() == AstDirectiveType::input) {
                     io->addDirective("operation", "input");
                     changed = true;
                     // Configure input directory
                     if (Global::config().has("fact-dir")) {
                         io->addDirective("fact-dir", Global::config().get("fact-dir"));
                     }
-                } else if (io->getType() == AstIoType::output) {
+                } else if (io->getType() == AstDirectiveType::output) {
                     io->addDirective("operation", "output");
                     changed = true;
                     // Configure output directory
@@ -99,7 +103,7 @@ private:
                             io->addDirective("output-dir", Global::config().get("output-dir"));
                         }
                     }
-                } else if (io->getType() == AstIoType::printsize) {
+                } else if (io->getType() == AstDirectiveType::printsize) {
                     io->addDirective("operation", "printsize");
                     io->addDirective("IO", "stdoutprintsize");
                     changed = true;
@@ -115,7 +119,7 @@ private:
      *
      * @return Valid relation name from the concatenated qualified name.
      */
-    std::string getRelationName(const AstIO* node) {
+    std::string getRelationName(const AstDirective* node) {
         return toString(join(node->getQualifiedName().getQualifiers(), "."));
     }
 };

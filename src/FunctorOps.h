@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "RamTypes.h"
-#include "TypeAttribute.h"
+#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
 #include <cstdlib>
 #include <functional>
 #include <iosfwd>

@@ -12,14 +12,14 @@
  *
  ***********************************************************************/
 
-#include "UniqueAggregationVariables.h"
-#include "../Aggregator.h"
-#include "../Argument.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../Variable.h"
-#include "../Visitor.h"
-#include "utility/StringUtil.h"
+#include "ast/transform/UniqueAggregationVariables.h"
+#include "ast/Aggregator.h"
+#include "ast/Argument.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Variable.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/StringUtil.h"
 #include <set>
 #include <vector>
 

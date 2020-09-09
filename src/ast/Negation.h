@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "Atom.h"
-#include "Literal.h"
-#include "Node.h"
-#include "NodeMapper.h"
-#include "SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "ast/Atom.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/utility/NodeMapper.h"
+#include "parser/SrcLocation.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iostream>
 #include <memory>
@@ -69,7 +69,7 @@ protected:
     }
 
     bool equal(const AstNode& node) const override {
-        assert(nullptr != dynamic_cast<const AstNegation*>(&node));
+        assert(isA<AstNegation>(&node));
         const auto& other = static_cast<const AstNegation&>(node);
         return equal_ptr(atom, other.atom);
     }

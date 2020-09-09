@@ -46,7 +46,3 @@ stamp-h1
 
 utilities/bash-completion
 debian/changelog
-/man/souffle-compile.1
-/man/souffle-config.1
-/man/souffle-profile.1
-/man/souffle.1

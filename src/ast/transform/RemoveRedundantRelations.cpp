@@ -12,11 +12,12 @@
  *
  ***********************************************************************/
 
-#include "RemoveRedundantRelations.h"
-#include "../Program.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../analysis/RedundantRelations.h"
+#include "ast/transform/RemoveRedundantRelations.h"
+#include "ast/Program.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/RedundantRelations.h"
+#include "ast/utility/Utils.h"
 #include <set>
 
 namespace souffle {
@@ -28,7 +29,7 @@ bool RemoveRedundantRelationsTransformer::transform(AstTranslationUnit& translat
             redundantRelationsAnalysis->getRedundantRelations();
     if (!redundantRelations.empty()) {
         for (auto rel : redundantRelations) {
-            translationUnit.getProgram()->removeRelation(rel->getQualifiedName());
+            removeRelation(translationUnit, rel->getQualifiedName());
             changed = true;
         }
     }

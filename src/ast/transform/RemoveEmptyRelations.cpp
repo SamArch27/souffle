@@ -12,19 +12,19 @@
  *
  ***********************************************************************/
 
-#include "RemoveEmptyRelations.h"
-#include "../Aggregator.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../Literal.h"
-#include "../Negation.h"
-#include "../Program.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Visitor.h"
-#include "../analysis/IOType.h"
-#include "utility/MiscUtil.h"
+#include "ast/transform/RemoveEmptyRelations.h"
+#include "ast/Aggregator.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Negation.h"
+#include "ast/Program.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/IOType.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -35,12 +35,13 @@ namespace souffle {
 bool RemoveEmptyRelationsTransformer::removeEmptyRelations(AstTranslationUnit& translationUnit) {
     AstProgram& program = *translationUnit.getProgram();
     auto* ioTypes = translationUnit.getAnalysis<IOType>();
+    std::set<AstQualifiedName> emptyRelations;
     bool changed = false;
     for (auto rel : program.getRelations()) {
         if (!getClauses(program, *rel).empty() || ioTypes->isInput(rel)) {
             continue;
         }
-        changed |= removeEmptyRelationUses(translationUnit, rel);
+        emptyRelations.insert(rel->getQualifiedName());
 
         bool usedInAggregate = false;
         visitDepthFirst(program, [&](const AstAggregator& agg) {
@@ -54,15 +55,20 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelations(AstTranslationUnit& t
         });
 
         if (!usedInAggregate && !ioTypes->isOutput(rel)) {
-            program.removeRelation(rel->getQualifiedName());
+            removeRelation(translationUnit, rel->getQualifiedName());
             changed = true;
         }
     }
+
+    for (const auto& relName : emptyRelations) {
+        changed |= removeEmptyRelationUses(translationUnit, relName);
+    }
+
     return changed;
 }
 
 bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
-        AstTranslationUnit& translationUnit, AstRelation* emptyRelation) {
+        AstTranslationUnit& translationUnit, const AstQualifiedName& emptyRelationName) {
     AstProgram& program = *translationUnit.getProgram();
     bool changed = false;
 
@@ -81,7 +87,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
         bool removed = false;
         for (AstLiteral* lit : cl->getBodyLiterals()) {
             if (auto* arg = dynamic_cast<AstAtom*>(lit)) {
-                if (getAtomRelation(arg, &program) == emptyRelation) {
+                if (arg->getQualifiedName() == emptyRelationName) {
                     program.removeClause(cl);
                     removed = true;
                     changed = true;
@@ -96,7 +102,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
             bool rewrite = false;
             for (AstLiteral* lit : cl->getBodyLiterals()) {
                 if (auto* neg = dynamic_cast<AstNegation*>(lit)) {
-                    if (getAtomRelation(neg->getAtom(), &program) == emptyRelation) {
+                    if (neg->getAtom()->getQualifiedName() == emptyRelationName) {
                         rewrite = true;
                         break;
                     }
@@ -110,7 +116,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
 
                 for (AstLiteral* lit : cl->getBodyLiterals()) {
                     if (auto* neg = dynamic_cast<AstNegation*>(lit)) {
-                        if (getAtomRelation(neg->getAtom(), &program) != emptyRelation) {
+                        if (neg->getAtom()->getQualifiedName() != emptyRelationName) {
                             res->addToBody(souffle::clone(lit));
                         }
                     } else {

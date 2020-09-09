@@ -14,9 +14,14 @@
 
 #pragma once
 
+#include "ram/Aggregate.h"
+#include "ram/Constraint.h"
+#include "ram/IndexOperation.h"
+#include "ram/IndexScan.h"
 #include "ram/Operation.h"
+#include "ram/Scan.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <cstddef>
 #include <memory>
@@ -81,8 +86,7 @@ public:
     ExpressionPair getLowerUpperExpression(RamCondition* c, size_t& element, int level);
 
     /**
-     * @brief Construct query patterns for an indexable operation
-     * @param Attribute types to indicate type of each attribute in the relation
+     * @param AttributeTypes to indicate type of each attribute in the relation
      * @param Query pattern that is to be constructed
      * @param Flag to indicate whether operation is indexable
      * @param A list of conditions that will be transformed to query patterns

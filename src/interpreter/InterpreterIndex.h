@@ -15,9 +15,11 @@
  ***********************************************************************/
 #pragma once
 
-#include "CompiledTuple.h"
-#include "RamTypes.h"
+#include "souffle/CompiledTuple.h"
+#include "souffle/RamTypes.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -470,6 +472,384 @@ public:
      * explicitly inserted this relation.
      */
     virtual void extend(InterpreterIndex*) {}
+};
+
+/**
+ * A namespace enclosing utilities required by indices.
+ */
+namespace index_utils {
+
+// -------- generic tuple comparator ----------
+
+template <unsigned... Columns>
+struct comparator;
+
+template <unsigned First, unsigned... Rest>
+struct comparator<First, Rest...> {
+    template <typename T>
+    int operator()(const T& a, const T& b) const {
+        return (a[First] < b[First]) ? -1 : ((a[First] > b[First]) ? 1 : comparator<Rest...>()(a, b));
+    }
+    template <typename T>
+    bool less(const T& a, const T& b) const {
+        return a[First] < b[First] || (a[First] == b[First] && comparator<Rest...>().less(a, b));
+    }
+    template <typename T>
+    bool equal(const T& a, const T& b) const {
+        return a[First] == b[First] && comparator<Rest...>().equal(a, b);
+    }
+};
+
+template <>
+struct comparator<> {
+    template <typename T>
+    int operator()(const T&, const T&) const {
+        return 0;
+    }
+    template <typename T>
+    bool less(const T&, const T&) const {
+        return false;
+    }
+    template <typename T>
+    bool equal(const T&, const T&) const {
+        return true;
+    }
+};
+
+}  // namespace index_utils
+
+/**
+ * The index class is utilized as a template-meta-programming structure
+ * to specify and realize indices.
+ *
+ * @tparam Columns ... the order in which elements of the relation to be indexed
+ * 				shell be considered by this index.
+ */
+template <unsigned... Columns>
+struct index {
+    // the comparator associated to this index
+    using comparator = index_utils::comparator<Columns...>;
+};
+
+/**
+ * A namespace enclosing utilities required relations to handle indices.
+ */
+namespace index_utils {
+
+// -- a utility extending a given index by another column --
+//   e.g. index<1,0>   =>    index<1,0,2>
+
+template <typename Index, unsigned column>
+struct extend;
+
+template <unsigned... Columns, unsigned Col>
+struct extend<index<Columns...>, Col> {
+    using type = index<Columns..., Col>;
+};
+
+// -- obtains a full index for a given arity --
+
+template <unsigned arity>
+struct get_full_index {
+    using type = typename extend<typename get_full_index<arity - 1>::type, arity - 1>::type;
+};
+
+template <>
+struct get_full_index<0> {
+    using type = index<>;
+};
+
+}  // namespace index_utils
+
+/**
+ * An index wrapper for nullary indexes. For those, no complex
+ * nested data structure is required.
+ */
+class NullaryIndex : public InterpreterIndex {
+    // indicates whether the one single element is present or not.
+    std::atomic<bool> present = false;
+
+    // a source adaptation, iterating through the optionally present
+    // entry in this relation.
+    class Source : public Stream::Source {
+        bool present;
+
+    public:
+        Source(bool present) : present(present) {}
+        int load(TupleRef* buffer, int /* max */) override {
+            if (!present) {
+                return 0;
+            }
+            buffer[0] = TupleRef(nullptr, 0);
+            present = false;
+            return 1;
+        }
+
+        int reload(TupleRef* buffer, int /* max */) override {
+            if (!present) {
+            }
+            buffer[0] = TupleRef(nullptr, 0);
+            return 1;
+        }
+
+        std::unique_ptr<Stream::Source> clone() override {
+            return std::make_unique<Source>(present);
+        }
+    };
+
+    // The nullary index view -- does not require any hints.
+    struct NullaryIndexView : public IndexView {
+        const NullaryIndex& index;
+
+        NullaryIndexView(const NullaryIndex& index) : index(index) {}
+
+        bool contains(const TupleRef& entry) const override {
+            return index.contains(entry);
+        }
+
+        bool contains(const TupleRef& low, const TupleRef& high) const override {
+            return index.contains(low, high);
+        }
+
+        Stream range(const TupleRef& low, const TupleRef& high) const override {
+            return index.range(low, high);
+        }
+
+        size_t getArity() const override {
+            return 0;
+        }
+    };
+
+public:
+    size_t getArity() const override {
+        return 0;
+    }
+
+    bool empty() const override {
+        return !present;
+    }
+
+    std::size_t size() const override {
+        return present ? 1 : 0;
+    }
+
+    IndexViewPtr createView() const override {
+        return std::make_unique<NullaryIndexView>(*this);
+    }
+
+    bool insert(const TupleRef& tuple) override {
+        assert(tuple.size() == 0);
+        bool res = present;
+        present = true;
+        return res;
+    }
+
+    void insert(const InterpreterIndex& src) override {
+        assert(src.getArity() == 0);
+        present = present | !src.empty();
+    }
+
+    bool contains(const TupleRef& tuple) const override {
+        assert(tuple.size() == 0);
+        return present;
+    }
+
+    bool contains(const TupleRef&, const TupleRef&) const override {
+        return present;
+    }
+
+    Stream scan() const override {
+        return std::make_unique<Source>(present);
+    }
+
+    PartitionedStream partitionScan(int) const override {
+        std::vector<Stream> res;
+        res.push_back(scan());
+        return res;
+    }
+
+    Stream range(const TupleRef& /* low */, const TupleRef& /* high */) const override {
+        return scan();
+    }
+
+    PartitionedStream partitionRange(const TupleRef& low, const TupleRef& high, int) const override {
+        std::vector<Stream> res;
+        res.push_back(range(low, high));
+        return res;
+    }
+
+    void clear() override {
+        present = false;
+    }
+};
+
+/**
+ * A generic data structure index adapter handling the boundary
+ * level order conversion as well as iteration through nested
+ * data structures.
+ *
+ * @tparam Structure the structure to be utilized
+ */
+template <typename Structure>
+class GenericIndex : public InterpreterIndex {
+protected:
+    using Entry = typename Structure::element_type;
+    using Hints = typename Structure::operation_hints;
+    static constexpr int Arity = Entry::arity;
+
+    // the order to be simulated
+    Order order;
+
+    // the internal data structure
+    Structure data;
+
+    using iter = typename Structure::iterator;
+
+    // a source adapter for streaming through data
+    class Source : public Stream::Source {
+        const Order& order;
+
+        // the begin and end of the stream
+        iter cur;
+        iter end;
+
+        // an internal buffer for re-ordered elements
+        std::array<Entry, Stream::BUFFER_SIZE> buffer;
+
+    public:
+        Source(const Order& order, iter begin, iter end)
+                : order(order), cur(std::move(begin)), end(std::move(end)) {}
+
+        int load(TupleRef* out, int max) override {
+            int c = 0;
+            while (cur != end && c < max) {
+                buffer[c] = order.decode(*cur);
+                out[c] = buffer[c];
+                ++cur;
+                ++c;
+            }
+            return c;
+        }
+
+        int reload(TupleRef* out, int max) override {
+            int c = 0;
+            max = std::min(max, Stream::BUFFER_SIZE);
+            while (c < max) {
+                out[c] = buffer[c];
+                ++c;
+            }
+            return c;
+        }
+
+        std::unique_ptr<Stream::Source> clone() override {
+            auto source = std::make_unique<Source>(order, cur, end);
+            source->buffer = this->buffer;
+            return source;
+        }
+    };
+
+    virtual souffle::range<iter> bounds(const TupleRef& low, const TupleRef& high, Hints& hints) const {
+        Entry a = order.encode(low.asTuple<Arity>());
+        Entry b = order.encode(high.asTuple<Arity>());
+        return {data.lower_bound(a, hints), data.upper_bound(b, hints)};
+    }
+
+    // The index view associated to this view type.
+    struct GenericIndexView : public IndexView {
+        const GenericIndex& index;
+        mutable Hints hints;
+
+        GenericIndexView(const GenericIndex& index) : index(index) {}
+
+        bool contains(const TupleRef& tuple) const override {
+            return index.data.contains(index.order.encode(tuple.asTuple<Arity>()), hints);
+        }
+
+        bool contains(const TupleRef& low, const TupleRef& high) const override {
+            return !index.bounds(low, high, hints).empty();
+        }
+
+        Stream range(const TupleRef& low, const TupleRef& high) const override {
+            auto range = index.bounds(low, high, hints);
+            return std::make_unique<Source>(index.order, range.begin(), range.end());
+        }
+
+        size_t getArity() const override {
+            return Arity;
+        }
+    };
+
+public:
+    GenericIndex(Order order) : order(std::move(order)) {}
+
+    IndexViewPtr createView() const override {
+        return std::make_unique<GenericIndexView>(*this);
+    }
+
+    size_t getArity() const override {
+        return Arity;
+    }
+
+    bool empty() const override {
+        return data.empty();
+    }
+
+    std::size_t size() const override {
+        return data.size();
+    }
+
+    bool insert(const TupleRef& tuple) override {
+        return data.insert(order.encode(tuple.asTuple<Arity>()));
+    }
+
+    void insert(const InterpreterIndex& src) override {
+        // TODO: make smarter
+        for (const auto& cur : src.scan()) {
+            insert(cur);
+        }
+    }
+
+    bool contains(const TupleRef& tuple) const override {
+        return GenericIndexView(*this).contains(tuple);
+    }
+
+    bool contains(const TupleRef& low, const TupleRef& high) const override {
+        return GenericIndexView(*this).contains(low, high);
+    }
+
+    Stream scan() const override {
+        return std::make_unique<Source>(order, data.begin(), data.end());
+    }
+
+    PartitionedStream partitionScan(int partitionCount) const override {
+        auto chunks = data.partition(partitionCount);
+        std::vector<Stream> res;
+        res.reserve(chunks.size());
+        for (const auto& cur : chunks) {
+            res.push_back(std::make_unique<Source>(order, cur.begin(), cur.end()));
+        }
+        return res;
+    }
+
+    Stream range(const TupleRef& low, const TupleRef& high) const override {
+        return GenericIndexView(*this).range(low, high);
+    }
+
+    PartitionedStream partitionRange(
+            const TupleRef& low, const TupleRef& high, int partitionCount) const override {
+        Hints hints;
+        auto range = bounds(low, high, hints);
+        std::vector<Stream> res;
+        res.reserve(partitionCount);
+        for (const auto& cur : range.partition(partitionCount)) {
+            res.push_back(std::make_unique<Source>(order, cur.begin(), cur.end()));
+        }
+        return res;
+    }
+
+    void clear() override {
+        data.clear();
+    }
 };
 
 // The type of index factory functions.

@@ -1,4 +1,13 @@
 souffle (@VERSION@-1) UNRELEASED; urgency=low
+
+  * UNSTABLE WORK IN PROGRESS
+  * Enhanced MST (azreika)
+  * Restructuring for reability and maintainability (b-scholz, mmcgr)
+  * Various bugfixes
+
+ -- Martin McGrane <mmcgrane@it.usyd.edu.au>  @DEBDATE@
+
+souffle (2.0.1); urgency=low
   * Stop overmaterialising aggregate bodies (rdowavic)
   * Parallelise aggregate computation (rdowavic)
   * Add JSON IO (GaloisNeko)

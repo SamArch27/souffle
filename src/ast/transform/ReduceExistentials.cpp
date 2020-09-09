@@ -12,26 +12,26 @@
  *
  ***********************************************************************/
 
-#include "ReduceExistentials.h"
-#include "../Aggregator.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../ExecutionPlan.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Visitor.h"
-#include "../analysis/IOType.h"
+#include "ast/transform/ReduceExistentials.h"
 #include "GraphUtils.h"
 #include "RelationTag.h"
-#include "utility/MiscUtil.h"
+#include "ast/Aggregator.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/ExecutionPlan.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/analysis/IOType.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -47,7 +47,7 @@ bool ReduceExistentialsTransformer::transform(AstTranslationUnit& translationUni
     // Checks whether an atom is of the form a(_,_,...,_)
     auto isExistentialAtom = [&](const AstAtom& atom) {
         for (AstArgument* arg : atom.getArguments()) {
-            if (dynamic_cast<AstUnnamedVariable*>(arg) == nullptr) {
+            if (!isA<AstUnnamedVariable>(arg)) {
                 return false;
             }
         }

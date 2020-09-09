@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include "RamTypes.h"
-#include "SouffleInterface.h"
-#include "SymbolTable.h"
 #include "interpreter/InterpreterEngine.h"
 #include "interpreter/InterpreterIndex.h"
 #include "interpreter/InterpreterRelation.h"
@@ -28,6 +25,9 @@
 #include "ram/Statement.h"
 #include "ram/TranslationUnit.h"
 #include "ram/Visitor.h"
+#include "souffle/RamTypes.h"
+#include "souffle/SouffleInterface.h"
+#include "souffle/SymbolTable.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

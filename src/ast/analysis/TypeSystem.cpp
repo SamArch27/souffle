@@ -14,11 +14,12 @@
  *
  ***********************************************************************/
 
-#include "TypeSystem.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
-#include "utility/tinyformat.h"
+#include "ast/analysis/TypeSystem.h"
+#include "ast/Type.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <cassert>
 
 namespace souffle {
@@ -74,6 +75,10 @@ const Type& TypeEnvironment::getType(const AstQualifiedName& ident) const {
     return *types.at(ident);
 }
 
+const Type& TypeEnvironment::getType(const AstType& astTypeDeclaration) const {
+    return getType(astTypeDeclaration.getQualifiedName());
+}
+
 /**
  * A visitor for Types.
  */
@@ -93,6 +98,7 @@ struct TypeVisitor {
         FORWARD(Subset);
         FORWARD(Union);
         FORWARD(Record);
+        FORWARD(AlgebraicData);
 
         fatal("Unsupported type encountered!");
     }
@@ -107,6 +113,7 @@ struct TypeVisitor {
     VISIT(Subset)
     VISIT(Union)
     VISIT(Record)
+    VISIT(AlgebraicData)
 
     virtual R visitType(const Type& /*type*/) const {
         return R();
@@ -150,6 +157,11 @@ bool isOfRootType(const Type& type, const Type& root) {
         bool visitSubsetType(const SubsetType& type) const override {
             return type == root || isOfRootType(type.getBaseType(), root);
         }
+
+        bool visitAlgebraicDataType(const AlgebraicDataType& type) const override {
+            return type == root;
+        }
+
         bool visitUnionType(const UnionType& type) const override {
             return type == root ||
                    all_of(type.getElementTypes(), [&](const Type* cur) { return this->visit(*cur); });
@@ -170,7 +182,10 @@ bool isOfRootType(const Type& type, const Type& root) {
 bool isOfKind(const Type& type, TypeAttribute kind) {
     if (kind == TypeAttribute::Record) {
         return isA<RecordType>(type);
+    } else if (kind == TypeAttribute::ADT) {
+        return isA<AlgebraicDataType>(type);
     }
+
     return isOfRootType(type, type.getTypeEnvironment().getConstantType(kind));
 }
 
@@ -206,6 +221,8 @@ std::string getTypeQualifier(const Type& type) {
                 str.append("s");
             } else if (isOfKind(type, TypeAttribute::Record)) {
                 str.append("r");
+            } else if (isOfKind(type, TypeAttribute::ADT)) {
+                str.append("+");
             } else {
                 fatal("Unsupported kind");
             }

@@ -12,18 +12,18 @@
  *
  ***********************************************************************/
 
-#include "ReplaceSingletonVariables.h"
-#include "../Clause.h"
-#include "../Constraint.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../RecordInit.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
+#include "ast/transform/ReplaceSingletonVariables.h"
+#include "ast/Clause.h"
+#include "ast/Constraint.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/RecordInit.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
 #include <memory>
 #include <set>
 #include <vector>

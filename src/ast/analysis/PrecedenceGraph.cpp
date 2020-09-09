@@ -16,13 +16,15 @@
  *
  ***********************************************************************/
 
-#include "PrecedenceGraph.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
+#include "ast/analysis/PrecedenceGraph.h"
 #include "GraphUtils.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/RelationDetailCache.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
 #include <set>
 #include <string>
 #include <vector>
@@ -31,17 +33,18 @@ namespace souffle {
 
 void PrecedenceGraphAnalysis::run(const AstTranslationUnit& translationUnit) {
     /* Get relations */
-    const AstProgram& program = *translationUnit.getProgram();
-    std::vector<AstRelation*> relations = program.getRelations();
+    const auto& program = *translationUnit.getProgram();
+    const auto& relationDetail = *translationUnit.getAnalysis<RelationDetailCacheAnalysis>();
 
-    for (AstRelation* r : relations) {
+    for (const auto* r : program.getRelations()) {
         backingGraph.insert(r);
-        for (const auto& c : getClauses(program, *r)) {
-            const std::set<const AstRelation*>& dependencies =
-                    getBodyRelations(c, translationUnit.getProgram());
-            for (auto source : dependencies) {
-                backingGraph.insert(source, r);
-            }
+        for (const auto& c : relationDetail.getClauses(r)) {
+            visitDepthFirst(c->getBodyLiterals(), [&](const AstAtom& atom) {
+                backingGraph.insert(relationDetail.getRelation(atom.getQualifiedName()), r);
+            });
+            visitDepthFirst(c->getHead()->getArguments(), [&](const AstAtom& atom) {
+                backingGraph.insert(relationDetail.getRelation(atom.getQualifiedName()), r);
+            });
         }
     }
 }

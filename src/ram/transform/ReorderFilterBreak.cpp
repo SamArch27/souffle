@@ -19,7 +19,7 @@
 #include "ram/Program.h"
 #include "ram/Statement.h"
 #include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <vector>

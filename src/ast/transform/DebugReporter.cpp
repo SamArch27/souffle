@@ -14,11 +14,11 @@
  *
  ***********************************************************************/
 
-#include "DebugReporter.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "DebugReport.h"
+#include "ast/transform/DebugReporter.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/utility/Utils.h"
+#include "reports/DebugReport.h"
 #include <chrono>
 
 namespace souffle {

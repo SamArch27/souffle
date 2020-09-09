@@ -14,16 +14,16 @@
  *
  ***********************************************************************/
 
-#include "GroundedTermsChecker.h"
-#include "../Clause.h"
-#include "../Program.h"
-#include "../RecordInit.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
-#include "../analysis/Ground.h"
-#include "ErrorReport.h"
+#include "ast/transform/GroundedTermsChecker.h"
+#include "ast/Clause.h"
+#include "ast/Program.h"
+#include "ast/RecordInit.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Variable.h"
+#include "ast/analysis/Ground.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "reports/ErrorReport.h"
 #include <map>
 #include <set>
 #include <utility>
@@ -50,11 +50,18 @@ void GroundedTermsChecker::verify(AstTranslationUnit& translationUnit) {
         }
 
         // all records need to be grounded
-        for (auto&& cur : getRecords(clause)) {
-            if (!isGrounded[cur]) {
-                report.addError("Ungrounded record", cur->getSrcLoc());
+        visitDepthFirst(clause, [&](const AstRecordInit& record) {
+            if (!isGrounded[&record]) {
+                report.addError("Ungrounded record", record.getSrcLoc());
             }
-        }
+        });
+
+        // All sums need to be grounded
+        visitDepthFirst(clause, [&](const AstBranchInit& adt) {
+            if (!isGrounded[&adt]) {
+                report.addError("Ungrounded ADT branch", adt.getSrcLoc());
+            }
+        });
     });
 }
 

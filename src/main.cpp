@@ -14,19 +14,15 @@
  *
  ***********************************************************************/
 
-#include "AstToRamTranslator.h"
-#include "DebugReport.h"
-#include "ErrorReport.h"
-#include "Explain.h"
 #include "Global.h"
-#include "ParserDriver.h"
-#include "RamTypes.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/Type.h"
+#include "ast/transform/ADTtoRecords.h"
+#include "ast/transform/AddNullariesToAtomlessAggregates.h"
 #include "ast/transform/ComponentChecker.h"
 #include "ast/transform/ComponentInstantiation.h"
 #include "ast/transform/Conditional.h"
@@ -62,33 +58,41 @@
 #include "ast/transform/SemanticChecker.h"
 #include "ast/transform/UniqueAggregationVariables.h"
 #include "ast/transform/UserDefinedFunctors.h"
+#include "ast2ram/AstToRamTranslator.h"
 #include "config.h"
 #include "interpreter/InterpreterEngine.h"
 #include "interpreter/InterpreterProgInterface.h"
-#include "profile/Tui.h"
+#include "parser/ParserDriver.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/transform/ChoiceConversion.h"
 #include "ram/transform/CollapseFilters.h"
+#include "ram/transform/Conditional.h"
 #include "ram/transform/EliminateDuplicates.h"
 #include "ram/transform/ExpandFilter.h"
 #include "ram/transform/HoistAggregate.h"
 #include "ram/transform/HoistConditions.h"
 #include "ram/transform/IfConversion.h"
 #include "ram/transform/IndexedInequality.h"
+#include "ram/transform/Loop.h"
 #include "ram/transform/MakeIndex.h"
 #include "ram/transform/Parallel.h"
 #include "ram/transform/ReorderConditions.h"
 #include "ram/transform/ReorderFilterBreak.h"
 #include "ram/transform/ReportIndex.h"
-#include "ram/transform/Transformer.h"
+#include "ram/transform/Sequence.h"
 #include "ram/transform/TupleId.h"
+#include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
+#include "souffle/RamTypes.h"
+#include "souffle/profile/Tui.h"
+#include "souffle/provenance/Explain.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/FileUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include "synthesiser/Synthesiser.h"
-#include "utility/ContainerUtil.h"
-#include "utility/FileUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -117,18 +121,24 @@ void executeBinary(const std::string& binaryFilename) {
         throw std::invalid_argument("Generated executable <" + binaryFilename + "> could not be found");
     }
 
+    std::string ldPath;
     // run the executable
     if (Global::config().has("library-dir")) {
-        std::string ldPath;
         for (const std::string& library : splitString(Global::config().get("library-dir"), ' ')) {
             ldPath += library + ':';
         }
         ldPath.pop_back();
         setenv("LD_LIBRARY_PATH", ldPath.c_str(), 1);
-        setenv("DYLD_LIBRARY_PATH", ldPath.c_str(), 1);
     }
 
-    int exitCode = system(binaryFilename.c_str());
+    std::string exePath;
+#ifdef __APPLE__
+    // OSX does not pass on the environment from setenv so add it to the command line
+    exePath = "DYLD_LIBRARY_PATH=\"" + ldPath + "\" ";
+#endif
+    exePath += binaryFilename;
+
+    int exitCode = system(exePath.c_str());
 
     if (Global::config().get("dl-program").empty()) {
         remove(binaryFilename.c_str());
@@ -472,8 +482,11 @@ int main(int argc, char** argv) {
                     std::make_unique<PipelineTransformer>(std::make_unique<ResolveAnonymousRecordAliases>(),
                             std::make_unique<FoldAnonymousRecords>())),
             std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<AstSemanticChecker>(),
+            std::make_unique<ADTtoRecordsTransformer>(),
             std::make_unique<MaterializeSingletonAggregationTransformer>(),
-            std::make_unique<RemoveTypecastsTransformer>(),
+            std::make_unique<FixpointTransformer>(
+                    std::make_unique<MaterializeAggregationQueriesTransformer>()),
+            std::make_unique<ResolveAliasesTransformer>(), std::make_unique<RemoveTypecastsTransformer>(),
             std::make_unique<RemoveBooleanConstraintsTransformer>(),
             std::make_unique<ResolveAliasesTransformer>(), std::make_unique<MinimiseProgramTransformer>(),
             std::make_unique<InlineRelationsTransformer>(), std::make_unique<PolymorphicObjectsTransformer>(),
@@ -486,12 +499,11 @@ int main(int argc, char** argv) {
                     std::make_unique<PipelineTransformer>(std::make_unique<ReduceExistentialsTransformer>(),
                             std::make_unique<RemoveRedundantRelationsTransformer>())),
             std::make_unique<RemoveRelationCopiesTransformer>(), std::move(partitionPipeline),
-            std::make_unique<PipelineTransformer>(std::make_unique<ResolveAliasesTransformer>(),
-                    std::make_unique<MaterializeAggregationQueriesTransformer>()),
             std::move(equivalencePipeline), std::make_unique<RemoveRelationCopiesTransformer>(),
             std::move(magicPipeline), std::make_unique<ReorderLiteralsTransformer>(),
             std::make_unique<RemoveRedundantSumsTransformer>(),
             std::make_unique<RemoveEmptyRelationsTransformer>(),
+            std::make_unique<AddNullariesToAtomlessAggregatesTransformer>(),
             std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<ReorderLiteralsTransformer>(),
             std::make_unique<AstExecutionPlanChecker>(), std::move(provenancePipeline),
             std::make_unique<IOAttributesTransformer>());

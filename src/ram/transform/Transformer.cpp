@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2015, Oracle and/or its affiliates. All rights reserved
+ * Copyright (c) 2018, The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -15,13 +15,14 @@
  ***********************************************************************/
 
 #include "ram/transform/Transformer.h"
-#include "DebugReport.h"
-#include "ErrorReport.h"
 #include "Global.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
 #include "ram/TranslationUnit.h"
-#include "utility/StringUtil.h"
+#include "ram/transform/Meta.h"
+#include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
+#include "souffle/utility/StringUtil.h"
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
@@ -45,7 +46,7 @@ bool RamTransformer::apply(RamTranslationUnit& translationUnit) {
     }
 
     // print runtime & change info for transformer in verbose mode
-    if (verbose && (nullptr == dynamic_cast<RamMetaTransformer*>(this))) {
+    if (verbose && (!isA<RamMetaTransformer>(this))) {
         std::string changedString = changed ? "changed" : "unchanged";
         std::cout << getName() << " time: " << std::chrono::duration<double>(end - start).count() << "sec ["
                   << changedString << "]" << std::endl;

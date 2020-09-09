@@ -17,15 +17,77 @@
 
 #pragma once
 
+#include "ram/AbstractConditional.h"
+#include "ram/AbstractExistenceCheck.h"
+#include "ram/AbstractOperator.h"
+#include "ram/Aggregate.h"
+#include "ram/AutoIncrement.h"
+#include "ram/BinRelationStatement.h"
+#include "ram/Break.h"
+#include "ram/Call.h"
+#include "ram/Choice.h"
+#include "ram/Clear.h"
 #include "ram/Condition.h"
+#include "ram/Conjunction.h"
+#include "ram/Constant.h"
+#include "ram/Constraint.h"
+#include "ram/DebugInfo.h"
+#include "ram/EmptinessCheck.h"
+#include "ram/ExistenceCheck.h"
+#include "ram/Exit.h"
 #include "ram/Expression.h"
+#include "ram/Extend.h"
+#include "ram/False.h"
+#include "ram/Filter.h"
+#include "ram/FloatConstant.h"
+#include "ram/IO.h"
+#include "ram/IndexAggregate.h"
+#include "ram/IndexChoice.h"
+#include "ram/IndexOperation.h"
+#include "ram/IndexScan.h"
+#include "ram/IntrinsicOperator.h"
+#include "ram/ListStatement.h"
+#include "ram/LogRelationTimer.h"
+#include "ram/LogSize.h"
+#include "ram/LogTimer.h"
+#include "ram/Loop.h"
+#include "ram/Negation.h"
+#include "ram/NestedIntrinsicOperator.h"
+#include "ram/NestedOperation.h"
 #include "ram/Node.h"
 #include "ram/Operation.h"
+#include "ram/PackRecord.h"
+#include "ram/Parallel.h"
+#include "ram/ParallelAggregate.h"
+#include "ram/ParallelChoice.h"
+#include "ram/ParallelIndexAggregate.h"
+#include "ram/ParallelIndexChoice.h"
+#include "ram/ParallelIndexScan.h"
+#include "ram/ParallelScan.h"
 #include "ram/Program.h"
+#include "ram/Project.h"
+#include "ram/ProvenanceExistenceCheck.h"
+#include "ram/Query.h"
 #include "ram/Relation.h"
+#include "ram/RelationOperation.h"
+#include "ram/RelationSize.h"
+#include "ram/RelationStatement.h"
+#include "ram/Scan.h"
+#include "ram/Sequence.h"
+#include "ram/SignedConstant.h"
 #include "ram/Statement.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
+#include "ram/SubroutineArgument.h"
+#include "ram/SubroutineReturn.h"
+#include "ram/Swap.h"
+#include "ram/True.h"
+#include "ram/TupleElement.h"
+#include "ram/TupleOperation.h"
+#include "ram/UndefValue.h"
+#include "ram/UnpackRecord.h"
+#include "ram/UnsignedConstant.h"
+#include "ram/UserDefinedOperator.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cstddef>
 #include <functional>
 #include <type_traits>
@@ -94,6 +156,7 @@ struct RamVisitor : public ram_visitor_tag {
         FORWARD(PackRecord);
         FORWARD(SubroutineArgument);
         FORWARD(UndefValue);
+        FORWARD(RelationSize);
 
         // Conditions
         FORWARD(True);
@@ -238,6 +301,7 @@ protected:
     LINK(AutoIncrement, Expression);
     LINK(PackRecord, Expression);
     LINK(SubroutineArgument, Expression);
+    LINK(RelationSize, Expression);
 
     LINK(Expression, Node);
 

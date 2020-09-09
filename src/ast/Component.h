@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include "Clause.h"
-#include "ComponentInit.h"
-#include "ComponentType.h"
-#include "IO.h"
-#include "Node.h"
-#include "NodeMapper.h"
-#include "Relation.h"
-#include "Type.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "ast/Clause.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
+#include "ast/Directive.h"
+#include "ast/Node.h"
+#include "ast/Relation.h"
+#include "ast/Type.h"
+#include "ast/utility/NodeMapper.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <memory>
 #include <ostream>
@@ -106,14 +106,14 @@ public:
         return toPtrVector(clauses);
     }
 
-    /** Add IO */
-    void addIO(Own<AstIO> directive) {
-        ios.push_back(std::move(directive));
+    /** Add directive */
+    void addDirective(Own<AstDirective> directive) {
+        directives.push_back(std::move(directive));
     }
 
-    /** Get IO statements */
-    std::vector<AstIO*> getIOs() const {
-        return toPtrVector(ios);
+    /** Get directive statements */
+    std::vector<AstDirective*> getDirectives() const {
+        return toPtrVector(directives);
     }
 
     /** Add components */
@@ -155,7 +155,7 @@ public:
         res->types = souffle::clone(types);
         res->relations = souffle::clone(relations);
         res->clauses = souffle::clone(clauses);
-        res->ios = souffle::clone(ios);
+        res->directives = souffle::clone(directives);
         res->overrideRules = overrideRules;
         return res;
     }
@@ -180,7 +180,7 @@ public:
         for (auto& cur : clauses) {
             cur = mapper(std::move(cur));
         }
-        for (auto& cur : ios) {
+        for (auto& cur : directives) {
             cur = mapper(std::move(cur));
         }
     }
@@ -207,7 +207,7 @@ public:
         for (const auto& cur : clauses) {
             res.push_back(cur.get());
         }
-        for (const auto& cur : ios) {
+        for (const auto& cur : directives) {
             res.push_back(cur.get());
         }
         return res;
@@ -229,7 +229,7 @@ protected:
         show(relations);
         show(overrideRules, ",", ".override ");
         show(clauses, "\n\n");
-        show(ios, "\n\n");
+        show(directives, "\n\n");
         os << "}\n";
     }
 
@@ -257,7 +257,7 @@ protected:
         if (!equal_targets(clauses, other.clauses)) {
             return false;
         }
-        if (!equal_targets(ios, other.ios)) {
+        if (!equal_targets(directives, other.directives)) {
             return false;
         }
         if (overrideRules != other.overrideRules) {
@@ -282,7 +282,7 @@ protected:
     VecOwn<AstClause> clauses;
 
     /** I/O directives */
-    VecOwn<AstIO> ios;
+    VecOwn<AstDirective> directives;
 
     /** Nested components */
     VecOwn<AstComponent> components;

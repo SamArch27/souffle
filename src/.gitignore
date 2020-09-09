@@ -1,6 +1,6 @@
 .deps
 
-souffle
+/souffle
 souffle-compile
 souffle-config
 souffle-profile

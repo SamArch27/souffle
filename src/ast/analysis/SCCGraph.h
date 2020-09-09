@@ -18,11 +18,11 @@
 
 #pragma once
 
-#include "../Relation.h"
-#include "Analysis.h"
 #include "GraphUtils.h"
-#include "IOType.h"
-#include "PrecedenceGraph.h"
+#include "ast/Relation.h"
+#include "ast/analysis/Analysis.h"
+#include "ast/analysis/IOType.h"
+#include "ast/analysis/PrecedenceGraph.h"
 #include <cstddef>
 #include <iostream>
 #include <map>

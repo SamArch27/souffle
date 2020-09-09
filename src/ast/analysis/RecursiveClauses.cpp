@@ -16,16 +16,16 @@
  *
  ***********************************************************************/
 
-#include "RecursiveClauses.h"
-#include "../Atom.h"
-#include "../Clause.h"
-#include "../Node.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../Utils.h"
-#include "../Visitor.h"
-#include "RelationDetailCache.h"
-#include "utility/StreamUtil.h"
+#include "ast/analysis/RecursiveClauses.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/RelationDetailCache.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <set>
 #include <utility>

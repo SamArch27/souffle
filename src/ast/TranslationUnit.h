@@ -16,12 +16,14 @@
 
 #pragma once
 
-#include "DebugReport.h"
 #include "Global.h"
-#include "Program.h"
-#include "analysis/Analysis.h"
-#include "analysis/PrecedenceGraph.h"
-#include "analysis/SCCGraph.h"
+#include "ast/Program.h"
+#include "ast/analysis/Analysis.h"
+#include "ast/analysis/PrecedenceGraph.h"
+#include "ast/analysis/SCCGraph.h"
+#include "ast/analysis/SumTypeBranches.h"
+#include "ast/analysis/Type.h"
+#include "reports/DebugReport.h"
 #include <map>
 #include <memory>
 #include <sstream>
@@ -60,8 +62,8 @@ public:
             if (debug) {
                 std::stringstream ss;
                 analyses[name]->print(ss);
-                if (nullptr == dynamic_cast<PrecedenceGraphAnalysis*>(analyses[name].get()) &&
-                        nullptr == dynamic_cast<SCCGraphAnalysis*>(analyses[name].get())) {
+                if (!isA<PrecedenceGraphAnalysis>(analyses[name].get()) &&
+                        !isA<SCCGraphAnalysis>(analyses[name].get())) {
                     debugReport.addSection(name, "Ast Analysis [" + name + "]", ss.str());
                 } else {
                     debugReport.addSection(

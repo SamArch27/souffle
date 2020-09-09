@@ -12,31 +12,31 @@
  *
  ***********************************************************************/
 
-#include "MaterializeAggregationQueries.h"
-#include "../Aggregator.h"
-#include "../Argument.h"
-#include "../Atom.h"
-#include "../Attribute.h"
-#include "../Clause.h"
-#include "../LambdaNodeMapper.h"
-#include "../Literal.h"
-#include "../Node.h"
-#include "../Program.h"
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Variable.h"
-#include "../Visitor.h"
-#include "../analysis/Ground.h"
-#include "../analysis/Type.h"
-#include "../analysis/TypeEnvironment.h"
-#include "../analysis/TypeSystem.h"
+#include "ast/transform/MaterializeAggregationQueries.h"
 #include "AggregateOp.h"
-#include "RamTypes.h"
-#include "utility/MiscUtil.h"
-#include "utility/StringUtil.h"
+#include "ast/Aggregator.h"
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/Attribute.h"
+#include "ast/Clause.h"
+#include "ast/Literal.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/analysis/Ground.h"
+#include "ast/analysis/Type.h"
+#include "ast/analysis/TypeEnvironment.h"
+#include "ast/analysis/TypeSystem.h"
+#include "ast/utility/LambdaNodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/RamTypes.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -51,14 +51,13 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
     bool changed = false;
 
     AstProgram& program = *translationUnit.getProgram();
-    const TypeEnvironment& env = translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
     // if an aggregator has a body consisting of more than an atom => create new relation
     int counter = 0;
     visitDepthFirst(program, [&](const AstClause& clause) {
         visitDepthFirst(clause, [&](const AstAggregator& agg) {
             // check whether a materialization is required
-            if (!needsMaterializedRelation(const_cast<AstAggregator&>(agg), program)) {
+            if (!needsMaterializedRelation(agg)) {
                 return;
             }
             changed = true;
@@ -90,29 +89,94 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
                     if (atom == nullptr) {
                         continue;  // it's not an atom so it can't help ground anything
                     }
-                    for (const auto& arg : atom->getArguments()) {
-                        const auto* atomVariable = dynamic_cast<const AstVariable*>(arg);
-                        // if this atom contains the variable I need to ground, add it
-                        if ((atomVariable != nullptr) && variable->getName() == atomVariable->getName()) {
-                            // expand the body with this one so that it will ground this variable
-                            aggClause->addToBody(souffle::clone(atom));
-                            break;
+                    // Pull in everything that will restrict OR ground the variable
+                    bool added = false;
+                    visitDepthFirst(*atom, [&](const AstVariable& var) {
+                        if (added) {
+                            return;
                         }
-                    }
+                        if (var.getName() == variable->getName()) {
+                            aggClause->addToBody(souffle::clone(atom));
+                            added = true;
+                        }
+                    });
                 }
             }
+            // -- update aggregate --
 
+            // Keep track of variables that occur in the outer scope (i.e. NOT inside any aggregate)
+            std::map<std::string, int> varCtr;
+
+            // Start by counting occurrences of all variables in the clause
+            visitDepthFirst(clause, [&](const AstVariable& var) { varCtr[var.getName()]++; });
+
+            // Then count variables occurring in each aggregate
+            // so that we can deduce which variable occur only on the outer scope
+            std::map<const AstAggregator*, std::map<std::string, int>> aggVarMap;
+            visitDepthFirst(clause, [&](const AstAggregator& agg) {
+                visitDepthFirst(agg, [&](const AstVariable& var) { aggVarMap[&agg][var.getName()]++; });
+            });
+
+            std::map<const AstAggregator*, const AstAggregator*> parent;
+            // Figure out parent/child relationships between the aggregates
+            // so that we know which variables are occurring on each level
+            visitDepthFirstPostOrder(clause, [&](const AstAggregator& agg) {
+                visitDepthFirst(agg, [&](const AstAggregator& descendantAgg) {
+                    if (agg == descendantAgg) {
+                        return;
+                    }
+                    if (parent[&descendantAgg] == nullptr) {
+                        parent[&descendantAgg] = &agg;
+                    }
+                });
+            });
+
+            // Figure out which variables occur on the outer scope by looking at
+            // the aggregates without agggregate parents, and minusing those from
+            // the outer scope varCtr map
+            visitDepthFirst(clause, [&](const AstAggregator& agg) {
+                if (parent[&agg] == nullptr) {
+                    for (auto const& pair : aggVarMap[&agg]) {
+                        std::string varName = pair.first;
+                        int numOccurrences = pair.second;
+                        varCtr[varName] -= numOccurrences;
+                    }
+                }
+            });
+            // But the current aggregate we're dealing with's target expression
+            // "counts" as the outer scope, so restore this
+            if (agg.getTargetExpression() != nullptr) {
+                visitDepthFirst(
+                        *agg.getTargetExpression(), [&](const AstVariable& var) { varCtr[var.getName()]++; });
+            }
+
+            // correct aggVarMap so that it counts which variables occurr in the aggregate,
+            // and not the variables that occur in an inner aggregate
+            // This way, we know which arguments are necessary for the head of the aggregate body relation
+            visitDepthFirst(clause, [&](const AstAggregator& agg) {
+                if (parent[&agg] != nullptr) {
+                    // iterate through child map and minus it from the parent map
+                    for (auto const& pair : aggVarMap[&agg]) {
+                        std::string varName = pair.first;
+                        int numOccurrences = pair.second;
+                        aggVarMap[parent[&agg]][varName] -= numOccurrences;
+                    }
+                }
+            });
+
+            // build new relation and atom
             auto* head = new AstAtom();
             head->setQualifiedName(relName);
             std::vector<bool> symbolArguments;
 
-            // Ensure each variable is only added once
-            std::set<std::string> variables;
-            visitDepthFirst(*aggClause, [&](const AstVariable& var) { variables.insert(var.getName()); });
-
             // Insert all variables occurring in the body of the aggregate into the head
-            for (const auto& var : variables) {
-                head->addArgument(std::make_unique<AstVariable>(var));
+            for (const auto& pair : aggVarMap[&agg]) {
+                std::string var = pair.first;
+                int n = pair.second;
+                // if it doesn't occur in this level, don't add it
+                if (n > 0) {
+                    head->addArgument(std::make_unique<AstVariable>(var));
+                }
             }
 
             aggClause->setHead(std::unique_ptr<AstAtom>(head));
@@ -148,7 +212,7 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             rel->setQualifiedName(relName);
             // add attributes
             std::map<const AstArgument*, TypeSet> argTypes =
-                    TypeAnalysis::analyseTypes(env, *aggClause, program);
+                    TypeAnalysis::analyseTypes(translationUnit, *aggClause);
             for (const auto& cur : head->getArguments()) {
                 rel->addAttribute(std::make_unique<AstAttribute>(toString(*cur),
                         (isOfKind(argTypes[cur], TypeAttribute::Signed)) ? "number" : "symbol"));
@@ -157,27 +221,7 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             program.addClause(std::unique_ptr<AstClause>(aggClause));
             program.addRelation(std::unique_ptr<AstRelation>(rel));
 
-            // -- update aggregate --
-
-            // count the usage of variables in the clause
-            // outside of aggregates. Note that the visitor
-            // is exhaustive hence double counting occurs
-            // which needs to be deducted for variables inside
-            // the aggregators and variables in the expression
-            // of aggregate need to be added. Counter is zero
-            // if the variable is local to the aggregate
-            std::map<std::string, int> varCtr;
-            visitDepthFirst(clause, [&](const AstArgument& arg) {
-                if (const auto* a = dynamic_cast<const AstAggregator*>(&arg)) {
-                    visitDepthFirst(arg, [&](const AstVariable& var) { varCtr[var.getName()]--; });
-                    if (a->getTargetExpression() != nullptr) {
-                        visitDepthFirst(*a->getTargetExpression(),
-                                [&](const AstVariable& var) { varCtr[var.getName()]++; });
-                    }
-                } else {
-                    visitDepthFirst(arg, [&](const AstVariable& var) { varCtr[var.getName()]++; });
-                }
-            });
+            // add arguments to head of aggregate body atom (__agg_body_rel_n)
             std::vector<std::unique_ptr<AstArgument>> args;
             for (auto arg : head->getArguments()) {
                 if (auto* var = dynamic_cast<AstVariable*>(arg)) {
@@ -200,9 +244,8 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
     return changed;
 }
 
-bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(
-        AstAggregator& agg, AstProgram& program) {
-    // everything with more than 1 body literal => materialize
+bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(const AstAggregator& agg) {
+    // everything with more than 1 atom  => materialize
     int countAtoms = 0;
     const AstAtom* atom = nullptr;
     for (const auto& literal : agg.getBodyLiterals()) {
@@ -217,34 +260,26 @@ bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(
         return true;
     }
 
-    auto newAtom = std::make_unique<AstAtom>();
-    // Create a dummy true atom so that an aggregate without any atom
-    // can be evaluated without materialising
-    if (atom == nullptr) {
-        std::string relName = "+Tautology";
-        newAtom->setQualifiedName(relName);
-        auto clause = std::make_unique<AstClause>();
-        clause->setHead(souffle::clone(newAtom));
-        program.addClause(std::move(clause));
-        if (getRelation(program, relName) == nullptr) {
-            auto tautologyRel = std::make_unique<AstRelation>();
-            tautologyRel->setQualifiedName(relName);
-            program.addRelation(std::move(tautologyRel));
+    bool seenInnerAggregate = false;
+    // If we have an aggregate within this aggregate => materialize
+    visitDepthFirst(agg, [&](const AstAggregator& innerAgg) {
+        if (agg != innerAgg) {
+            seenInnerAggregate = true;
         }
-        VecOwn<AstLiteral> newBody;
-        for (const auto& lit : agg.getBodyLiterals()) {
-            newBody.push_back(souffle::clone(lit));
-        }
-        newBody.push_back(souffle::clone(newAtom));
-        agg.setBody(std::move(newBody));
-        atom = newAtom.get();
+    });
+
+    if (seenInnerAggregate) {
+        return true;
     }
 
     // If the same variable occurs several times => materialize
     bool duplicates = false;
     std::set<std::string> vars;
-    visitDepthFirst(*atom,
-            [&](const AstVariable& var) { duplicates = duplicates || !vars.insert(var.getName()).second; });
+    if (atom != nullptr) {
+        visitDepthFirst(*atom, [&](const AstVariable& var) {
+            duplicates = duplicates || !vars.insert(var.getName()).second;
+        });
+    }
 
     // If there are duplicates a materialization is required
     // for all others the materialization can be skipped

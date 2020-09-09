@@ -14,18 +14,19 @@
  *
  ***********************************************************************/
 
-#include "TypeEnvironment.h"
-#include "../Attribute.h"
-#include "../Program.h"
-#include "../RecordType.h"
-#include "../SubsetType.h"
-#include "../TranslationUnit.h"
-#include "../Type.h"
-#include "../UnionType.h"
+#include "ast/analysis/TypeEnvironment.h"
 #include "GraphUtils.h"
-#include "TypeSystem.h"
-#include "utility/MiscUtil.h"
-#include "utility/tinyformat.h"
+#include "ast/AlgebraicDataType.h"
+#include "ast/Attribute.h"
+#include "ast/Program.h"
+#include "ast/RecordType.h"
+#include "ast/SubsetType.h"
+#include "ast/TranslationUnit.h"
+#include "ast/Type.h"
+#include "ast/UnionType.h"
+#include "ast/analysis/TypeSystem.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <algorithm>
 #include <functional>
 #include <ostream>
@@ -48,6 +49,8 @@ Graph<AstQualifiedName> createTypeDependencyGraph(const std::vector<AstType*>& p
             for (const auto& subtype : type->getTypes()) {
                 typeDependencyGraph.insert(type->getQualifiedName(), subtype);
             }
+        } else if (isA<AstAlgebraicDataType>(astType)) {
+            // do nothing
         } else {
             fatal("unsupported type construct: %s", typeid(astType).name());
         }
@@ -133,6 +136,7 @@ void TypeEnvironmentAnalysis::run(const AstTranslationUnit& translationUnit) {
     }
 }
 
+// TODO (darth_tytus): This procedure does too much.
 const Type* TypeEnvironmentAnalysis::createType(
         const AstQualifiedName& typeName, const std::map<AstQualifiedName, const AstType*>& nameToAstType) {
     // base case
@@ -202,6 +206,27 @@ const Type* TypeEnvironmentAnalysis::createType(
 
         return &recordType;
 
+    } else if (isA<AstAlgebraicDataType>(astType)) {
+        // ADT can be recursive so its need to be forward initialized
+        auto& adt = env.createType<AlgebraicDataType>(typeName);
+
+        std::vector<AlgebraicDataType::Branch> elements;
+
+        // Create and collect branches types.
+        for (auto* branch : as<AstAlgebraicDataType>(astType)->getBranches()) {
+            std::vector<const Type*> branchTypes;
+
+            for (auto* attr : branch->getFields()) {
+                auto* type = createType(attr->getTypeName(), nameToAstType);
+                if (type == nullptr) return nullptr;
+                branchTypes.push_back(type);
+            }
+            elements.push_back({branch->getConstructor(), std::move(branchTypes)});
+        }
+
+        adt.setBranches(std::move(elements));
+
+        return &adt;
     } else {
         fatal("unsupported type construct: %s", typeid(*astType).name());
     }

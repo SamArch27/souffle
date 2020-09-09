@@ -18,7 +18,7 @@
 #include "ram/Program.h"
 #include "ram/Statement.h"
 #include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -42,7 +42,7 @@ bool HoistAggregateTransformer::hoistAggregate(RamProgram& program) {
         bool priorTupleOp = false;
         std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> aggRewriter =
                 [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            if (nullptr != dynamic_cast<RamAggregate*>(node.get())) {
+            if (isA<RamAggregate>(node.get())) {
                 auto* tupleOp = dynamic_cast<RamTupleOperation*>(node.get());
                 assert(tupleOp != nullptr && "aggregate conversion to tuple operation failed");
                 if (rla->getLevel(tupleOp) == -1 && !priorTupleOp) {
@@ -51,7 +51,7 @@ bool HoistAggregateTransformer::hoistAggregate(RamProgram& program) {
                     assert(newAgg != nullptr && "failed to make a clone");
                     return souffle::clone(&tupleOp->getOperation());
                 }
-            } else if (nullptr != dynamic_cast<RamTupleOperation*>(node.get())) {
+            } else if (isA<RamTupleOperation>(node.get())) {
                 // tuple operation that is a non-aggregate
                 priorTupleOp = true;
             }
@@ -73,7 +73,7 @@ bool HoistAggregateTransformer::hoistAggregate(RamProgram& program) {
 
         std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> aggRewriter =
                 [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            if (nullptr != dynamic_cast<RamAbstractAggregate*>(node.get())) {
+            if (isA<RamAbstractAggregate>(node.get())) {
                 auto* tupleOp = dynamic_cast<RamTupleOperation*>(node.get());
                 assert(tupleOp != nullptr && "aggregate conversion to nested operation failed");
                 int dataDepLevel = rla->getLevel(tupleOp);

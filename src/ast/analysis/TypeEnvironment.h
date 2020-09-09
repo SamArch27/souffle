@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "../QualifiedName.h"
-#include "Analysis.h"
-#include "TypeSystem.h"
-#include "utility/ContainerUtil.h"
+#include "ast/QualifiedName.h"
+#include "ast/analysis/Analysis.h"
+#include "ast/analysis/TypeSystem.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <set>
 #include <string>
 

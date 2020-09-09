@@ -21,6 +21,7 @@ package.m4: $(top_srcdir)/configure.ac
 TESTSUITE = $(srcdir)/testsuite
 
 check-local: atconfig atlocal $(TESTSUITE)
+	test -e $(abs_top_builddir)/include || ln -s $(abs_top_srcdir)/src/include $(abs_top_builddir)/include
 	$(SHELL) '$(TESTSUITE)' $(TESTSUITEFLAGS)
 
 installcheck-local: atconfig atlocal $(TESTSUITE)
@@ -29,6 +30,7 @@ installcheck-local: atconfig atlocal $(TESTSUITE)
 
 clean-local:
 	test ! -f '$(TESTSUITE)' ||  $(SHELL) '$(TESTSUITE)' --clean
+	rm -rf $(abs_top_builddir)/include
 	rm -f testsuite
 	rm -f package.m4
 

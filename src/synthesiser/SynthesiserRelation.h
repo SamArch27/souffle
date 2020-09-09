@@ -9,7 +9,7 @@
 #pragma once
 
 #include "ram/Relation.h"
-#include "ram/analysis/IndexAnalysis.h"
+#include "ram/analysis/Index.h"
 #include <cstddef>
 #include <memory>
 #include <ostream>
@@ -62,6 +62,10 @@ public:
 
     /** Print type name */
     virtual std::string getTypeName() = 0;
+
+    /** Helper function to convert attribute types to a single string */
+    std::string getTypeAttributeString(const std::vector<std::string>& attributeTypes,
+            const std::unordered_set<uint32_t>& attributesUsed) const;
 
     /** Generate relation type struct */
     virtual void generateTypeStruct(std::ostream& out) = 0;

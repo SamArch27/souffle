@@ -16,9 +16,9 @@
 
 #include "ram/Operation.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/ComplexityAnalysis.h"
-#include "ram/analysis/IndexAnalysis.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Complexity.h"
+#include "ram/analysis/Index.h"
+#include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <cstddef>
 #include <memory>

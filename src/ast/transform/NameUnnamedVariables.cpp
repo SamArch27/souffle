@@ -12,15 +12,15 @@
  *
  ***********************************************************************/
 
-#include "NameUnnamedVariables.h"
-#include "../Clause.h"
-#include "../Node.h"
-#include "../NodeMapper.h"
-#include "../Program.h"
-#include "../TranslationUnit.h"
-#include "../UnnamedVariable.h"
-#include "../Utils.h"
-#include "../Variable.h"
+#include "ast/transform/NameUnnamedVariables.h"
+#include "ast/Clause.h"
+#include "ast/Node.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
+#include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
 #include <cstddef>
 #include <memory>
 #include <ostream>
@@ -39,7 +39,7 @@ bool NameUnnamedVariablesTransformer::transform(AstTranslationUnit& translationU
         nameVariables() = default;
 
         std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            if (dynamic_cast<AstUnnamedVariable*>(node.get()) != nullptr) {
+            if (isA<AstUnnamedVariable>(node.get())) {
                 changed = true;
                 std::stringstream name;
                 name << boundPrefix << "_" << underscoreCount++;

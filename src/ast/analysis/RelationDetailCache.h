@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include "../QualifiedName.h"
-#include "../Relation.h"
-#include "Analysis.h"
+#include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/analysis/Analysis.h"
 #include <cassert>
 #include <iostream>
 #include <map>
