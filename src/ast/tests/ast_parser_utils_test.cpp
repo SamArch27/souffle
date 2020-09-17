@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 namespace test {
 
@@ -35,13 +35,13 @@ TEST(RuleBody, Basic) {
     RuleBody body;
 
     // start with an A
-    auto a = RuleBody::atom(mk<AstAtom>("A"));
+    auto a = RuleBody::atom(mk<Atom>("A"));
     EXPECT_EQ("A()", toString(a));
 
-    a.conjunct(RuleBody::atom(mk<AstAtom>("B")));
+    a.conjunct(RuleBody::atom(mk<Atom>("B")));
     EXPECT_EQ("A(),B()", toString(a));
 
-    a.disjunct(RuleBody::atom(mk<AstAtom>("C")));
+    a.disjunct(RuleBody::atom(mk<Atom>("C")));
     EXPECT_EQ("A(),B();C()", toString(a));
 }
 
@@ -49,18 +49,18 @@ TEST(RuleBody, Negation) {
     RuleBody body = RuleBody::getTrue();
 
     RuleBody AB = RuleBody::getTrue();
-    AB.conjunct(RuleBody::atom(mk<AstAtom>("A")));
-    AB.conjunct(RuleBody::atom(mk<AstAtom>("B")));
+    AB.conjunct(RuleBody::atom(mk<Atom>("A")));
+    AB.conjunct(RuleBody::atom(mk<Atom>("B")));
     EXPECT_EQ("A(),B()", toString(AB));
 
     RuleBody CD = RuleBody::getTrue();
-    CD.conjunct(RuleBody::atom(mk<AstAtom>("C")));
-    CD.conjunct(RuleBody::atom(mk<AstAtom>("D")));
+    CD.conjunct(RuleBody::atom(mk<Atom>("C")));
+    CD.conjunct(RuleBody::atom(mk<Atom>("D")));
     EXPECT_EQ("C(),D()", toString(CD));
 
     RuleBody EF = RuleBody::getTrue();
-    EF.conjunct(RuleBody::atom(mk<AstAtom>("E")));
-    EF.conjunct(RuleBody::atom(mk<AstAtom>("F")));
+    EF.conjunct(RuleBody::atom(mk<Atom>("E")));
+    EF.conjunct(RuleBody::atom(mk<Atom>("F")));
     EXPECT_EQ("E(),F()", toString(EF));
 
     RuleBody full = RuleBody::getFalse();
@@ -83,18 +83,18 @@ TEST(RuleBody, ClauseBodyExtraction) {
     RuleBody body = RuleBody::getTrue();
 
     RuleBody AB = RuleBody::getTrue();
-    AB.conjunct(RuleBody::atom(mk<AstAtom>("A")));
-    AB.conjunct(RuleBody::atom(mk<AstAtom>("B")));
+    AB.conjunct(RuleBody::atom(mk<Atom>("A")));
+    AB.conjunct(RuleBody::atom(mk<Atom>("B")));
     EXPECT_EQ("A(),B()", toString(AB));
 
     RuleBody CD = RuleBody::getTrue();
-    CD.conjunct(RuleBody::atom(mk<AstAtom>("C")));
-    CD.conjunct(RuleBody::atom(mk<AstAtom>("D")));
+    CD.conjunct(RuleBody::atom(mk<Atom>("C")));
+    CD.conjunct(RuleBody::atom(mk<Atom>("D")));
     EXPECT_EQ("C(),D()", toString(CD));
 
     RuleBody EF = RuleBody::getTrue();
-    EF.conjunct(RuleBody::atom(mk<AstAtom>("E")));
-    EF.conjunct(RuleBody::atom(mk<AstAtom>("F")));
+    EF.conjunct(RuleBody::atom(mk<Atom>("E")));
+    EF.conjunct(RuleBody::atom(mk<Atom>("F")));
     EXPECT_EQ("E(),F()", toString(EF));
 
     RuleBody full = RuleBody::getFalse();
@@ -113,4 +113,4 @@ TEST(RuleBody, ClauseBodyExtraction) {
 }
 
 }  // end namespace test
-}  // end namespace souffle
+}  // namespace souffle::ast

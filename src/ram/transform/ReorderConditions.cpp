@@ -27,41 +27,36 @@
 #include <memory>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram::transform {
 
-bool ReorderConditionsTransformer::reorderConditions(RamProgram& program) {
+bool ReorderConditionsTransformer::reorderConditions(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> filterRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            if (const RamFilter* filter = dynamic_cast<RamFilter*>(node.get())) {
-                const RamCondition* condition = &filter->getCondition();
-                std::vector<std::unique_ptr<RamCondition>> sortedConds;
-                std::vector<std::unique_ptr<RamCondition>> condList = toConjunctionList(condition);
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
+            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+                const Condition* condition = &filter->getCondition();
+                VecOwn<Condition> sortedConds;
+                VecOwn<Condition> condList = toConjunctionList(condition);
                 for (auto& cond : condList) {
                     sortedConds.emplace_back(cond->clone());
                 }
-                std::sort(sortedConds.begin(), sortedConds.end(),
-                        [&](std::unique_ptr<RamCondition>& a, std::unique_ptr<RamCondition>& b) {
-                            return rca->getComplexity(a.get()) < rca->getComplexity(b.get());
-                        });
+                std::sort(sortedConds.begin(), sortedConds.end(), [&](Own<Condition>& a, Own<Condition>& b) {
+                    return rca->getComplexity(a.get()) < rca->getComplexity(b.get());
+                });
 
                 if (!std::equal(sortedConds.begin(), sortedConds.end(), condList.begin(),
-                            [](std::unique_ptr<RamCondition>& a, std::unique_ptr<RamCondition>& b) {
-                                return *a == *b;
-                            })) {
+                            [](Own<Condition>& a, Own<Condition>& b) { return *a == *b; })) {
                     changed = true;
-                    node = std::make_unique<RamFilter>(
-                            std::unique_ptr<RamCondition>(toCondition(sortedConds)),
+                    node = mk<Filter>(Own<Condition>(toCondition(sortedConds)),
                             souffle::clone(&filter->getOperation()));
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
     });
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

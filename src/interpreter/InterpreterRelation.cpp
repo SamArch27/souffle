@@ -23,6 +23,8 @@
 
 namespace souffle {
 
+using ram::analysis::MinIndexSelection;
+
 InterpreterRelation::InterpreterRelation(std::size_t arity, std::size_t auxiliaryArity, std::string name,
         std::vector<std::string> attributeTypes, const MinIndexSelection& orderSet, IndexFactory factory)
         : relName(std::move(name)), arity(arity), auxiliaryArity(auxiliaryArity),

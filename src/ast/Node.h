@@ -23,25 +23,25 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
-class AstNodeMapper;
+class NodeMapper;
 
 /**
- *  @class AstNode
+ *  @class Node
  *  @brief Abstract class for syntactic elements in an input program.
  */
-class AstNode {
+class Node {
 public:
-    AstNode(SrcLocation loc = {}) : location(std::move(loc)){};
-    virtual ~AstNode() = default;
+    Node(SrcLocation loc = {}) : location(std::move(loc)){};
+    virtual ~Node() = default;
 
-    /** Return source location of the AstNode */
+    /** Return source location of the Node */
     const SrcLocation& getSrcLoc() const {
         return location;
     }
 
-    /** Set source location for the AstNode */
+    /** Set source location for the Node */
     void setSrcLoc(SrcLocation l) {
         location = std::move(l);
     }
@@ -52,7 +52,7 @@ public:
     }
 
     /** Equivalence check for two AST nodes */
-    bool operator==(const AstNode& other) const {
+    bool operator==(const Node& other) const {
         if (this == &other) {
             return true;
         } else if (typeid(*this) == typeid(*&other)) {
@@ -62,23 +62,23 @@ public:
     }
 
     /** Inequality check for two AST nodes */
-    bool operator!=(const AstNode& other) const {
+    bool operator!=(const Node& other) const {
         return !(*this == other);
     }
 
     /** Create a clone (i.e. deep copy) of this node */
-    virtual AstNode* clone() const = 0;
+    virtual Node* clone() const = 0;
 
     /** Apply the mapper to all child nodes */
-    virtual void apply(const AstNodeMapper& /* mapper */) {}
+    virtual void apply(const NodeMapper& /* mapper */) {}
 
     /** Obtain a list of all embedded AST child nodes */
-    virtual std::vector<const AstNode*> getChildNodes() const {
+    virtual std::vector<const Node*> getChildNodes() const {
         return {};
     }
 
     /** Print node onto an output stream */
-    friend std::ostream& operator<<(std::ostream& out, const AstNode& node) {
+    friend std::ostream& operator<<(std::ostream& out, const Node& node) {
         node.print(out);
         return out;
     }
@@ -88,7 +88,7 @@ protected:
     virtual void print(std::ostream& os) const = 0;
 
     /** Abstract equality check for two AST nodes */
-    virtual bool equal(const AstNode& /* other */) const {
+    virtual bool equal(const Node& /* other */) const {
         return true;
     }
 
@@ -97,4 +97,4 @@ private:
     SrcLocation location;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

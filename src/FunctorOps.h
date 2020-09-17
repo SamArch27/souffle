@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "souffle/RamTypes.h"
 #include "souffle/TypeAttribute.h"
 #include <cstdlib>
 #include <functional>
@@ -112,7 +111,7 @@ enum class FunctorOp {
 
 std::ostream& operator<<(std::ostream& os, FunctorOp op);
 
-struct IntrinsicFunctor {
+struct IntrinsicFunctorInfo {
     std::string symbol;
     std::vector<TypeAttribute> params;
     TypeAttribute result;
@@ -121,7 +120,7 @@ struct IntrinsicFunctor {
     bool multipleResults = false;
 };
 
-using IntrinsicFunctors = std::vector<std::reference_wrapper<const IntrinsicFunctor>>;
+using IntrinsicFunctors = std::vector<std::reference_wrapper<const IntrinsicFunctorInfo>>;
 IntrinsicFunctors functorBuiltIn(FunctorOp);
 IntrinsicFunctors functorBuiltIn(std::string_view symbol);
 IntrinsicFunctors functorBuiltIn(std::string_view symbol, const std::vector<TypeAttribute>& params);

@@ -27,10 +27,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamSubroutineReturn
+ * @class SubroutineReturn
  * @brief A statement for returning from a ram subroutine
  *
  * For example:
@@ -39,36 +39,36 @@ namespace souffle {
  *     RETURN (t0.0, t0.1)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamSubroutineReturn : public RamOperation {
+class SubroutineReturn : public Operation {
 public:
-    RamSubroutineReturn(std::vector<std::unique_ptr<RamExpression>> vals) : expressions(std::move(vals)) {
+    SubroutineReturn(VecOwn<Expression> vals) : expressions(std::move(vals)) {
         for (const auto& expr : expressions) {
             assert(expr != nullptr && "Expression is a null-pointer");
         }
     }
 
     /** @brief Getter for expressions */
-    std::vector<RamExpression*> getValues() const {
+    std::vector<Expression*> getValues() const {
         return toPtrVector(expressions);
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        std::vector<const RamNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
         for (const auto& expr : expressions) {
             res.push_back(expr.get());
         }
         return res;
     }
 
-    RamSubroutineReturn* clone() const override {
-        std::vector<std::unique_ptr<RamExpression>> newValues;
+    SubroutineReturn* clone() const override {
+        VecOwn<Expression> newValues;
         for (auto& expr : expressions) {
             newValues.emplace_back(expr->clone());
         }
-        return new RamSubroutineReturn(std::move(newValues));
+        return new SubroutineReturn(std::move(newValues));
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& expr : expressions) {
             expr = map(std::move(expr));
         }
@@ -87,13 +87,13 @@ protected:
         os << ")" << std::endl;
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamSubroutineReturn&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const SubroutineReturn&>(node);
         return equal_targets(expressions, other.expressions);
     }
 
     /** Return expressions */
-    std::vector<std::unique_ptr<RamExpression>> expressions;
+    VecOwn<Expression> expressions;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

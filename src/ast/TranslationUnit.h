@@ -24,17 +24,17 @@
 #include "ast/analysis/SumTypeBranches.h"
 #include "ast/analysis/Type.h"
 #include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
 
-namespace souffle {
-class ErrorReport;
+namespace souffle::ast {
 
 /**
- * @class AstTranslationUnit
+ * @class TranslationUnit
  * @brief Translation unit class for the translation pipeline
  *
  * The translation unit class consisting of
@@ -42,12 +42,12 @@ class ErrorReport;
  * cached analysis results.
  */
 
-class AstTranslationUnit {
+class TranslationUnit {
 public:
-    AstTranslationUnit(std::unique_ptr<AstProgram> program, ErrorReport& e, DebugReport& d)
+    TranslationUnit(Own<Program> program, ErrorReport& e, DebugReport& d)
             : program(std::move(program)), errorReport(e), debugReport(d) {}
 
-    virtual ~AstTranslationUnit() = default;
+    virtual ~TranslationUnit() = default;
 
     /** get analysis: analysis is generated on the fly if not present */
     template <class Analysis>
@@ -57,13 +57,13 @@ public:
         auto it = analyses.find(name);
         if (it == analyses.end()) {
             // analysis does not exist yet, create instance and run it.
-            analyses[name] = std::make_unique<Analysis>();
+            analyses[name] = mk<Analysis>();
             analyses[name]->run(*this);
             if (debug) {
                 std::stringstream ss;
                 analyses[name]->print(ss);
-                if (!isA<PrecedenceGraphAnalysis>(analyses[name].get()) &&
-                        !isA<SCCGraphAnalysis>(analyses[name].get())) {
+                if (!isA<analysis::PrecedenceGraphAnalysis>(analyses[name].get()) &&
+                        !isA<analysis::SCCGraphAnalysis>(analyses[name].get())) {
                     debugReport.addSection(name, "Ast Analysis [" + name + "]", ss.str());
                 } else {
                     debugReport.addSection(
@@ -75,22 +75,17 @@ public:
     }
 
     /** Return the program */
-    AstProgram* getProgram() {
+    Program* getProgram() {
         return program.get();
     }
 
     /** Return the program */
-    const AstProgram* getProgram() const {
+    const Program* getProgram() const {
         return program.get();
     }
 
     /** Return error report */
     ErrorReport& getErrorReport() {
-        return errorReport;
-    }
-
-    /** Return error report */
-    const ErrorReport& getErrorReport() const {
         return errorReport;
     }
 
@@ -104,17 +99,12 @@ public:
         return debugReport;
     }
 
-    /** Return debug report */
-    const DebugReport& getDebugReport() const {
-        return debugReport;
-    }
-
 private:
     /** Cached analyses */
-    mutable std::map<std::string, std::unique_ptr<AstAnalysis>> analyses;
+    mutable std::map<std::string, Own<analysis::Analysis>> analyses;
 
     /** AST program */
-    std::unique_ptr<AstProgram> program;
+    Own<Program> program;
 
     /** Error report capturing errors while compiling */
     ErrorReport& errorReport;
@@ -123,4 +113,4 @@ private:
     DebugReport& debugReport;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

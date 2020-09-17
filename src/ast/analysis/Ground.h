@@ -16,13 +16,12 @@
 
 #pragma once
 
+#include "ast/Argument.h"
+#include "ast/Clause.h"
+#include "ast/TranslationUnit.h"
 #include <map>
 
-namespace souffle {
-
-class AstArgument;
-class AstClause;
-class AstTranslationUnit;
+namespace souffle::ast::analysis {
 
 /**
  * Analyse the given clause and computes for each contained argument
@@ -33,6 +32,6 @@ class AstTranslationUnit;
  * @return a map mapping each contained argument to a boolean indicating
  *      whether the argument represents a grounded value or not
  */
-std::map<const AstArgument*, bool> getGroundedTerms(const AstTranslationUnit& tu, const AstClause& clause);
+std::map<const Argument*, bool> getGroundedTerms(const TranslationUnit& tu, const Clause& clause);
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

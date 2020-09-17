@@ -19,6 +19,7 @@
 #include "ast/Clause.h"
 #include "ast/ExecutionOrder.h"
 #include "ast/ExecutionPlan.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/RecursiveClauses.h"
 #include "ast/analysis/RelationSchedule.h"
@@ -30,18 +31,17 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-class AstRelation;
+namespace souffle::ast::transform {
 
-bool AstExecutionPlanChecker::transform(AstTranslationUnit& translationUnit) {
-    auto* relationSchedule = translationUnit.getAnalysis<RelationScheduleAnalysis>();
-    auto* recursiveClauses = translationUnit.getAnalysis<RecursiveClausesAnalysis>();
+bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
+    auto* relationSchedule = translationUnit.getAnalysis<analysis::RelationScheduleAnalysis>();
+    auto* recursiveClauses = translationUnit.getAnalysis<analysis::RecursiveClausesAnalysis>();
     auto&& report = translationUnit.getErrorReport();
 
-    for (const RelationScheduleAnalysisStep& step : relationSchedule->schedule()) {
-        const std::set<const AstRelation*>& scc = step.computed();
-        for (const AstRelation* rel : scc) {
-            for (const AstClause* clause : getClauses(*translationUnit.getProgram(), *rel)) {
+    for (const analysis::RelationScheduleAnalysisStep& step : relationSchedule->schedule()) {
+        const std::set<const Relation*>& scc = step.computed();
+        for (const Relation* rel : scc) {
+            for (const Clause* clause : getClauses(*translationUnit.getProgram(), *rel)) {
                 if (!recursiveClauses->recursive(clause)) {
                     continue;
                 }
@@ -49,7 +49,7 @@ bool AstExecutionPlanChecker::transform(AstTranslationUnit& translationUnit) {
                     continue;
                 }
                 int version = 0;
-                for (const auto* atom : getBodyLiterals<AstAtom>(*clause)) {
+                for (const auto* atom : getBodyLiterals<Atom>(*clause)) {
                     if (scc.count(getAtomRelation(atom, translationUnit.getProgram())) != 0u) {
                         version++;
                     }
@@ -77,4 +77,4 @@ bool AstExecutionPlanChecker::transform(AstTranslationUnit& translationUnit) {
     return false;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

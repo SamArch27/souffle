@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class HoistConditionsTransformer
@@ -62,7 +61,7 @@ class RamProgram;
  * TODO: break-up conditions while transforming so that this requirement
  * is removed.
  */
-class HoistConditionsTransformer : public RamTransformer {
+class HoistConditionsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "HoistConditionsTransformer";
@@ -75,19 +74,19 @@ public:
      *
      * There are two types of conditions in
      * filter operations. The first type depends on tuples of
-     * RamTupleOperation operations. The second type are independent of
+     * TupleOperation operations. The second type are independent of
      * tuple access. Both types of conditions will be hoisted to
      * the most out-scope such that the program is still valid.
      */
-    bool hoistConditions(RamProgram& program);
+    bool hoistConditions(Program& program);
 
 protected:
-    RamLevelAnalysis* rla{nullptr};
+    analysis::LevelAnalysis* rla{nullptr};
 
-    bool transform(RamTranslationUnit& translationUnit) override {
-        rla = translationUnit.getAnalysis<RamLevelAnalysis>();
+    bool transform(TranslationUnit& translationUnit) override {
+        rla = translationUnit.getAnalysis<analysis::LevelAnalysis>();
         return hoistConditions(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

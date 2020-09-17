@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "souffle/RamTypes.h"
 #include "souffle/TypeAttribute.h"
 #include "souffle/utility/MiscUtil.h"
 #include <cstdint>

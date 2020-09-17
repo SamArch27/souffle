@@ -14,13 +14,13 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
-class ComponentInstantiationTransformer : public AstTransformer {
+class ComponentInstantiationTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ComponentInstantiationTransformer";
@@ -31,7 +31,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

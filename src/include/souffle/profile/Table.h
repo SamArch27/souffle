@@ -11,6 +11,7 @@
 #include "souffle/profile/DataComparator.h"
 #include "souffle/profile/Row.h"
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 namespace souffle {

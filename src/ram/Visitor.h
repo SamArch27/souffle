@@ -94,7 +94,7 @@
 #include <typeinfo>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /** A tag type required for the is_ram_visitor type trait to identify RamVisitors */
 struct ram_visitor_tag {};
@@ -102,30 +102,30 @@ struct ram_visitor_tag {};
 /**
  * The generic base type of all RamVisitors realizing the dispatching of
  * visitor calls. Each visitor may define a return type R and a list of
- * extra parameters to be passed along with the visited RamNodes to the
+ * extra parameters to be passed along with the visited Nodes to the
  * corresponding visitor function.
  *
  * @tparam R the result type produced by a visit call
  * @tparam Params extra parameters to be passed to the visit call
  */
 template <typename R = void, typename... Params>
-struct RamVisitor : public ram_visitor_tag {
+struct Visitor : public ram_visitor_tag {
     /** A virtual destructor */
-    virtual ~RamVisitor() = default;
+    virtual ~Visitor() = default;
 
     /** The main entry for the user allowing visitors to be utilized as functions */
-    R operator()(const RamNode& node, Params... args) {
+    R operator()(const Node& node, Params... args) {
         return visit(node, args...);
     }
 
     /** The main entry for the user allowing visitors to be utilized as functions */
-    R operator()(const RamNode* node, Params... args) {
+    R operator()(const Node* node, Params... args) {
         return visit(*node, args...);
     }
 
     /**
      * The main entry for a visit process conducting the dispatching of
-     * a visit to the various sub-types of RamNodes. Sub-classes may override
+     * a visit to the various sub-types of Nodes. Sub-classes may override
      * this implementation to conduct pre-visit operations.
      *
      * Note that the order of this list is important. Sub-classes must be listed
@@ -134,11 +134,11 @@ struct RamVisitor : public ram_visitor_tag {
      * @param node the node to be visited
      * @param args a list of extra parameters to be forwarded
      */
-    virtual R visit(const RamNode& node, Params... args) {
+    virtual R visit(const Node& node, Params... args) {
         // dispatch node processing based on dynamic type
 
 #define FORWARD(Kind) \
-    if (const auto* n = dynamic_cast<const Ram##Kind*>(&node)) return visit##Kind(*n, args...);
+    if (const auto* n = dynamic_cast<const Kind*>(&node)) return visit##Kind(*n, args...);
 
         // Relation
         FORWARD(Relation);
@@ -214,14 +214,14 @@ struct RamVisitor : public ram_visitor_tag {
         fatal("unsupported type: %s", typeid(node).name());
     }
 
-    virtual R visit(const RamNode* node, Params... args) {
+    virtual R visit(const Node* node, Params... args) {
         return visit(*node, args...);
     }
 
 protected:
-#define LINK(Node, Parent)                                      \
-    virtual R visit##Node(const Ram##Node& n, Params... args) { \
-        return visit##Parent(n, args...);                       \
+#define LINK(Node, Parent)                                 \
+    virtual R visit##Node(const Node& n, Params... args) { \
+        return visit##Parent(n, args...);                  \
     }
 
     // -- statements --
@@ -315,7 +315,7 @@ protected:
 #undef LINK
 
     /** The base case for all visitors -- if no more specific overload was defined */
-    virtual R visitNode(const RamNode& /*node*/, Params... /*args*/) {
+    virtual R visitNode(const Node& /*node*/, Params... /*args*/) {
         return R();
     }
 };
@@ -330,9 +330,9 @@ protected:
  * @param args a list of extra parameters to be forwarded to the visitor
  */
 template <typename R, typename... Ps, typename... Args>
-void visitDepthFirstPreOrder(const RamNode& root, RamVisitor<R, Ps...>& visitor, Args&... args) {
+void visitDepthFirstPreOrder(const Node& root, Visitor<R, Ps...>& visitor, Args&... args) {
     visitor(root, args...);
-    for (const RamNode* cur : root.getChildNodes()) {
+    for (const Node* cur : root.getChildNodes()) {
         if (cur != nullptr) {
             visitDepthFirstPreOrder(*cur, visitor, args...);
         }
@@ -349,7 +349,7 @@ void visitDepthFirstPreOrder(const RamNode& root, RamVisitor<R, Ps...>& visitor,
  * @param args a list of extra parameters to be forwarded to the visitor
  */
 template <typename R, typename... Ps, typename... Args>
-void visitDepthFirst(const RamNode& root, RamVisitor<R, Ps...>& visitor, Args&... args) {
+void visitDepthFirst(const Node& root, Visitor<R, Ps...>& visitor, Args&... args) {
     visitDepthFirstPreOrder(root, visitor, args...);
 }
 
@@ -360,10 +360,10 @@ namespace detail {
  * for visitor convenience functions.
  */
 template <typename R, typename N>
-struct LambdaRamVisitor : public RamVisitor<void> {
+struct LambdaVisitor : public Visitor<void> {
     std::function<R(const N&)> lambda;
-    LambdaRamVisitor(std::function<R(const N&)> lambda) : lambda(std::move(lambda)) {}
-    void visit(const RamNode& node) override {
+    LambdaVisitor(std::function<R(const N&)> lambda) : lambda(std::move(lambda)) {}
+    void visit(const Node& node) override {
         if (const auto* n = dynamic_cast<const N*>(&node)) {
             lambda(*n);
         }
@@ -371,11 +371,11 @@ struct LambdaRamVisitor : public RamVisitor<void> {
 };
 
 /**
- * A factory function for creating LambdaRamVisitor instances.
+ * A factory function for creating LambdaVisitor instances.
  */
 template <typename R, typename N>
-LambdaRamVisitor<R, N> makeLambdaRamVisitor(const std::function<R(const N&)>& fun) {
-    return LambdaRamVisitor<R, N>(fun);
+LambdaVisitor<R, N> makeLambdaVisitor(const std::function<R(const N&)>& fun) {
+    return LambdaVisitor<R, N>(fun);
 }
 
 /**
@@ -403,8 +403,8 @@ struct is_ram_visitor<T&> : public is_ram_visitor<T> {};
  * @param args a list of extra parameters to be forwarded to the visitor
  */
 template <typename R, typename N>
-void visitDepthFirst(const RamNode& root, const std::function<R(const N&)>& fun) {
-    auto visitor = detail::makeLambdaRamVisitor(fun);
+void visitDepthFirst(const Node& root, const std::function<R(const N&)>& fun) {
+    auto visitor = detail::makeLambdaVisitor(fun);
     visitDepthFirst<void>(root, visitor);
 }
 
@@ -420,8 +420,8 @@ void visitDepthFirst(const RamNode& root, const std::function<R(const N&)>& fun)
 template <typename Lambda, typename R = typename lambda_traits<Lambda>::result_type,
         typename N = typename lambda_traits<Lambda>::arg0_type>
 typename std::enable_if<!detail::is_ram_visitor<Lambda>::value, void>::type visitDepthFirst(
-        const RamNode& root, const Lambda& fun) {
+        const Node& root, const Lambda& fun) {
     visitDepthFirst(root, std::function<R(const N&)>(fun));
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

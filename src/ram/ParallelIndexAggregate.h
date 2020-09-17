@@ -34,10 +34,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamParallelIndexAggregate
+ * @class ParallelIndexAggregate
  * @brief Aggregate over values of a relation using an index in parallel
  *
  * For example:
@@ -45,15 +45,14 @@ namespace souffle {
  * t0.0=sum t0.1 SEARCH t0 ∈ S ON INDEX t0.0 = number(1)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamParallelIndexAggregate : public RamIndexAggregate, public RamAbstractParallel {
+class ParallelIndexAggregate : public IndexAggregate, public AbstractParallel {
 public:
-    RamParallelIndexAggregate(std::unique_ptr<RamOperation> nested, AggregateOp fun,
-            std::unique_ptr<RamRelationReference> relRef, std::unique_ptr<RamExpression> expression,
-            std::unique_ptr<RamCondition> condition, RamPattern queryPattern, int ident)
-            : RamIndexAggregate(std::move(nested), fun, std::move(relRef), std::move(expression),
+    ParallelIndexAggregate(Own<Operation> nested, AggregateOp fun, Own<RelationReference> relRef,
+            Own<Expression> expression, Own<Condition> condition, RamPattern queryPattern, int ident)
+            : IndexAggregate(std::move(nested), fun, std::move(relRef), std::move(expression),
                       std::move(condition), std::move(queryPattern), ident) {}
 
-    RamParallelIndexAggregate* clone() const override {
+    ParallelIndexAggregate* clone() const override {
         RamPattern pattern;
         for (const auto& i : queryPattern.first) {
             pattern.first.emplace_back(i->clone());
@@ -61,7 +60,7 @@ public:
         for (const auto& i : queryPattern.second) {
             pattern.second.emplace_back(i->clone());
         }
-        return new RamParallelIndexAggregate(souffle::clone(&getOperation()), function,
+        return new ParallelIndexAggregate(souffle::clone(&getOperation()), function,
                 souffle::clone(relationRef), souffle::clone(expression), souffle::clone(condition),
                 std::move(pattern), getTupleId());
     }
@@ -70,15 +69,15 @@ protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "PARALLEL t" << getTupleId() << ".0=";
-        RamAbstractAggregate::print(os, tabpos);
+        AbstractAggregate::print(os, tabpos);
         os << "SEARCH t" << getTupleId() << " ∈ " << getRelation().getName();
         printIndex(os);
-        if (!isRamTrue(condition.get())) {
+        if (!isTrue(condition.get())) {
             os << " WHERE " << getCondition();
         }
         os << std::endl;
-        RamIndexOperation::print(os, tabpos + 1);
+        IndexOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

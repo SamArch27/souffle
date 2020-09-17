@@ -29,10 +29,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamLogRelationTimer
+ * @class LogRelationTimer
  * @brief Execution time logger for a statement
  *
  * Logs the execution time of a statement. Before and after
@@ -48,34 +48,33 @@ namespace souffle {
  * END_TIMER
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamLogRelationTimer : public RamRelationStatement, public RamAbstractLog {
+class LogRelationTimer : public RelationStatement, public AbstractLog {
 public:
-    RamLogRelationTimer(
-            std::unique_ptr<RamStatement> stmt, std::string msg, std::unique_ptr<RamRelationReference> relRef)
-            : RamRelationStatement(std::move(relRef)), RamAbstractLog(std::move(stmt), std::move(msg)) {}
+    LogRelationTimer(Own<Statement> stmt, std::string msg, Own<RelationReference> relRef)
+            : RelationStatement(std::move(relRef)), AbstractLog(std::move(stmt), std::move(msg)) {}
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        std::vector<const RamNode*> res = RamRelationStatement::getChildNodes();
-        res.push_back(RamAbstractLog::getChildNodes().at(0));
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res = RelationStatement::getChildNodes();
+        res.push_back(AbstractLog::getChildNodes().at(0));
         return res;
     }
 
-    RamLogRelationTimer* clone() const override {
-        return new RamLogRelationTimer(souffle::clone(statement), message, souffle::clone(relationRef));
+    LogRelationTimer* clone() const override {
+        return new LogRelationTimer(souffle::clone(statement), message, souffle::clone(relationRef));
     }
 
-    void apply(const RamNodeMapper& map) override {
-        RamRelationStatement::apply(map);
-        RamAbstractLog::apply(map);
+    void apply(const NodeMapper& map) override {
+        RelationStatement::apply(map);
+        AbstractLog::apply(map);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos) << "START_TIMER ON " << getRelation().getName() << " \""
            << stringify(message) << "\"" << std::endl;
-        RamStatement::print(statement.get(), os, tabpos + 1);
+        Statement::print(statement.get(), os, tabpos + 1);
         os << times(" ", tabpos) << "END_TIMER" << std::endl;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

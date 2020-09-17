@@ -15,11 +15,14 @@
 #include "souffle/profile/Relation.h"
 #include "souffle/profile/Row.h"
 #include "souffle/profile/Rule.h"
-#include "souffle/profile/StringUtils.h"
 #include "souffle/profile/Table.h"
+#include <chrono>
 #include <memory>
+#include <ratio>
+#include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace souffle {

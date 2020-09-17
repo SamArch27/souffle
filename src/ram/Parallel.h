@@ -23,10 +23,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamParallel
+ * @class Parallel
  * @brief Parallel block of statements
  *
  * Execute statements in parallel and wait until all statements have
@@ -42,17 +42,16 @@ namespace souffle {
  * END PARALLEL
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamParallel : public RamListStatement {
+class Parallel : public ListStatement {
 public:
-    RamParallel(std::vector<std::unique_ptr<RamStatement>> statements)
-            : RamListStatement(std::move(statements)) {}
-    RamParallel() : RamListStatement() {}
+    Parallel(VecOwn<Statement> statements) : ListStatement(std::move(statements)) {}
+    Parallel() : ListStatement() {}
     template <typename... Stmts>
-    RamParallel(std::unique_ptr<RamStatement> first, std::unique_ptr<Stmts>... rest)
-            : RamListStatement(std::move(first), std::move(rest)...) {}
+    Parallel(Own<Statement> first, Own<Stmts>... rest)
+            : ListStatement(std::move(first), std::move(rest)...) {}
 
-    RamParallel* clone() const override {
-        auto* res = new RamParallel();
+    Parallel* clone() const override {
+        auto* res = new Parallel();
         for (auto& cur : statements) {
             res->statements.push_back(souffle::clone(cur));
         }
@@ -63,10 +62,10 @@ protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos) << "PARALLEL" << std::endl;
         for (auto const& stmt : statements) {
-            RamStatement::print(stmt.get(), os, tabpos + 1);
+            Statement::print(stmt.get(), os, tabpos + 1);
         }
         os << times(" ", tabpos) << "END PARALLEL" << std::endl;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

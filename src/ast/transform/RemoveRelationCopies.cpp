@@ -33,27 +33,27 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& translationUnit) {
-    using alias_map = std::map<AstQualifiedName, AstQualifiedName>;
+bool RemoveRelationCopiesTransformer::removeRelationCopies(TranslationUnit& translationUnit) {
+    using alias_map = std::map<QualifiedName, QualifiedName>;
 
     // collect aliases
     alias_map isDirectAliasOf;
 
-    auto* ioType = translationUnit.getAnalysis<IOType>();
+    auto* ioType = translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
 
-    AstProgram& program = *translationUnit.getProgram();
+    Program& program = *translationUnit.getProgram();
 
     // search for relations only defined by a single rule ..
-    for (AstRelation* rel : program.getRelations()) {
+    for (Relation* rel : program.getRelations()) {
         const auto& clauses = getClauses(program, *rel);
         if (!ioType->isIO(rel) && clauses.size() == 1u) {
             // .. of shape r(x,y,..) :- s(x,y,..)
-            AstClause* cl = clauses[0];
-            std::vector<AstAtom*> bodyAtoms = getBodyLiterals<AstAtom>(*cl);
+            Clause* cl = clauses[0];
+            std::vector<Atom*> bodyAtoms = getBodyLiterals<Atom>(*cl);
             if (!isFact(*cl) && cl->getBodyLiterals().size() == 1u && bodyAtoms.size() == 1u) {
-                AstAtom* atom = bodyAtoms[0];
+                Atom* atom = bodyAtoms[0];
                 if (equal_targets(cl->getHead()->getArguments(), atom->getArguments())) {
                     // Requirements:
                     // 1) (checked) It is a rule with exactly one body.
@@ -71,9 +71,9 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& t
                         const auto cur = args.back();
                         args.pop_back();
 
-                        if (auto var = dynamic_cast<const AstVariable*>(cur)) {
+                        if (auto var = dynamic_cast<const ast::Variable*>(cur)) {
                             onlyDistinctHeadVars &= headVars.insert(var->getName()).second;
-                        } else if (auto init = dynamic_cast<const AstRecordInit*>(cur)) {
+                        } else if (auto init = dynamic_cast<const RecordInit*>(cur)) {
                             // records are decomposed and their arguments are checked
                             for (auto rec_arg : init->getArguments()) {
                                 args.push_back(rec_arg);
@@ -97,12 +97,12 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& t
     alias_map isAliasOf;
 
     // track any copy cycles; cyclic rules are effectively empty
-    std::set<AstQualifiedName> cycle_reps;
+    std::set<QualifiedName> cycle_reps;
 
-    for (std::pair<AstQualifiedName, AstQualifiedName> cur : isDirectAliasOf) {
+    for (std::pair<QualifiedName, QualifiedName> cur : isDirectAliasOf) {
         // compute replacement
 
-        std::set<AstQualifiedName> visited;
+        std::set<QualifiedName> visited;
         visited.insert(cur.first);
         visited.insert(cur.second);
 
@@ -123,10 +123,10 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& t
     }
 
     // replace usage of relations according to alias map
-    visitDepthFirst(program, [&](const AstAtom& atom) {
+    visitDepthFirst(program, [&](const Atom& atom) {
         auto pos = isAliasOf.find(atom.getQualifiedName());
         if (pos != isAliasOf.end()) {
-            const_cast<AstAtom&>(atom).setQualifiedName(pos->second);
+            const_cast<Atom&>(atom).setQualifiedName(pos->second);
         }
     });
 
@@ -148,4 +148,4 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(AstTranslationUnit& t
     return true;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

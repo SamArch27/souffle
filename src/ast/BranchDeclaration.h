@@ -18,17 +18,19 @@
 
 #include "ast/Attribute.h"
 #include "ast/Node.h"
-#include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/tinyformat.h"
+#include <iosfwd>
 #include <string>
+#include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstBranchDeclaration
+ * @class BranchDeclaration
  * @brief Wrapper for the single branch declaration (product type) inside ADT declaration.
  *
  * @param constructor An entity used to create a variant type. Can be though of as a name of the branch.
@@ -37,21 +39,21 @@ namespace souffle {
  * A branch declaration corresponds to a product type and forms a part of ADT declaration.
  * Currently it's required for all the branches to have unique names.
  */
-class AstBranchDeclaration : public AstNode {
+class BranchDeclaration : public Node {
 public:
-    AstBranchDeclaration(std::string constructor, VecOwn<AstAttribute> fields, SrcLocation loc = {})
-            : AstNode(std::move(loc)), constructor(std::move(constructor)), fields(std::move(fields)){};
+    BranchDeclaration(std::string constructor, VecOwn<Attribute> fields, SrcLocation loc = {})
+            : Node(std::move(loc)), constructor(std::move(constructor)), fields(std::move(fields)){};
 
     const std::string& getConstructor() const {
         return constructor;
     }
 
-    std::vector<AstAttribute*> getFields() {
+    std::vector<Attribute*> getFields() {
         return toPtrVector(fields);
     }
 
-    AstBranchDeclaration* clone() const override {
-        return new AstBranchDeclaration(constructor, souffle::clone(fields), getSrcLoc());
+    BranchDeclaration* clone() const override {
+        return new BranchDeclaration(constructor, souffle::clone(fields), getSrcLoc());
     }
 
 protected:
@@ -61,7 +63,7 @@ protected:
 
 private:
     std::string constructor;
-    VecOwn<AstAttribute> fields;
+    VecOwn<Attribute> fields;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast

@@ -24,23 +24,23 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstSubroutineArgument
+ * @class SubroutineArgument
  * @brief Defines the argument class for subrountines
  */
-class AstSubroutineArgument : public AstArgument {
+class SubroutineArgument : public Argument {
 public:
-    AstSubroutineArgument(size_t index, SrcLocation loc = {}) : AstArgument(std::move(loc)), index(index) {}
+    SubroutineArgument(size_t index, SrcLocation loc = {}) : Argument(std::move(loc)), index(index) {}
 
     /** Return argument index */
     size_t getNumber() const {
         return index;
     }
 
-    AstSubroutineArgument* clone() const override {
-        return new AstSubroutineArgument(index, getSrcLoc());
+    SubroutineArgument* clone() const override {
+        return new SubroutineArgument(index, getSrcLoc());
     }
 
 protected:
@@ -48,8 +48,8 @@ protected:
         os << "arg(" << index << ")";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstSubroutineArgument&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const SubroutineArgument&>(node);
         return index == other.index;
     }
 
@@ -58,4 +58,4 @@ private:
     size_t index;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

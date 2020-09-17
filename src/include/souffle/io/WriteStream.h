@@ -124,16 +124,24 @@ protected:
         const size_t numBranches = adtInfo["arity"].long_value();
         assert(numBranches > 0);
 
-        // adt is encoded as [branchID, [branch args]]
+        // adt is encoded as [branchID, [branch_args]] when |branch_args| != 1
+        // and as [branchID, arg] when a branch takes a single argument.
         const RamDomain* tuplePtr = recordTable.unpack(value, 2);
 
         const RamDomain branchId = tuplePtr[0];
-        const RamDomain wrappedBranchArgs = tuplePtr[1];
+        const RamDomain rawBranchArgs = tuplePtr[1];
 
         auto branchInfo = adtInfo["branches"][branchId];
         auto branchTypes = branchInfo["types"].array_items();
 
-        const RamDomain* branchArgs = recordTable.unpack(wrappedBranchArgs, branchTypes.size());
+        // Prepare branch's arguments for output.
+        const RamDomain* branchArgs = [&]() -> const RamDomain* {
+            if (branchTypes.size() > 1) {
+                return recordTable.unpack(rawBranchArgs, branchTypes.size());
+            } else {
+                return &rawBranchArgs;
+            }
+        }();
 
         destination << "$" << branchInfo["name"].string_value();
 
@@ -167,7 +175,7 @@ protected:
 
 class WriteStreamFactory {
 public:
-    virtual std::unique_ptr<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
+    virtual Own<WriteStream> getWriter(const std::map<std::string, std::string>& rwOperation,
             const SymbolTable& symbolTable, const RecordTable& recordTable) = 0;
 
     virtual const std::string& getName() const = 0;

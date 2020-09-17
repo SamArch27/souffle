@@ -18,6 +18,7 @@
 
 #include "souffle/RamTypes.h"
 #include "souffle/SymbolTable.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -150,7 +151,7 @@ public:
          * iterator_base class pointer.
          *
          */
-        std::unique_ptr<iterator_base> iter = nullptr;
+        Own<iterator_base> iter = nullptr;
 
     public:
         /**

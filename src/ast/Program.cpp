@@ -25,22 +25,22 @@
 #include "ast/Relation.h"
 #include "ast/Type.h"
 #include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/MiscUtil.h"
 #include <cassert>
+#include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
-void AstProgram::addRelation(Own<AstRelation> relation) {
-    auto* existingRelation = getIf(getRelations(), [&](const AstRelation* current) {
+void Program::addRelation(Own<Relation> relation) {
+    auto* existingRelation = getIf(getRelations(), [&](const Relation* current) {
         return current->getQualifiedName() == relation->getQualifiedName();
     });
     assert(existingRelation == nullptr && "Redefinition of relation!");
     relations.push_back(std::move(relation));
 }
 
-bool AstProgram::removeRelationDecl(const AstQualifiedName& name) {
+bool Program::removeRelationDecl(const QualifiedName& name) {
     for (auto it = relations.begin(); it != relations.end(); it++) {
         const auto& rel = *it;
         if (rel->getQualifiedName() == name) {
@@ -51,13 +51,13 @@ bool AstProgram::removeRelationDecl(const AstQualifiedName& name) {
     return false;
 }
 
-void AstProgram::addClause(Own<AstClause> clause) {
+void Program::addClause(Own<Clause> clause) {
     assert(clause != nullptr && "Undefined clause");
     assert(clause->getHead() != nullptr && "Undefined head of the clause");
     clauses.push_back(std::move(clause));
 }
 
-bool AstProgram::removeClause(const AstClause* clause) {
+bool Program::removeClause(const Clause* clause) {
     for (auto it = clauses.begin(); it != clauses.end(); it++) {
         if (**it == *clause) {
             clauses.erase(it);
@@ -67,7 +67,7 @@ bool AstProgram::removeClause(const AstClause* clause) {
     return false;
 }
 
-bool AstProgram::removeDirective(const AstDirective* directive) {
+bool Program::removeDirective(const Directive* directive) {
     for (auto it = directives.begin(); it != directives.end(); it++) {
         if (**it == *directive) {
             directives.erase(it);
@@ -77,23 +77,23 @@ bool AstProgram::removeDirective(const AstDirective* directive) {
     return false;
 }
 
-void AstProgram::addType(Own<AstType> type) {
+void Program::addType(Own<Type> type) {
     auto* existingType = getIf(getTypes(),
-            [&](const AstType* current) { return current->getQualifiedName() == type->getQualifiedName(); });
+            [&](const Type* current) { return current->getQualifiedName() == type->getQualifiedName(); });
     assert(existingType == nullptr && "Redefinition of type!");
     types.push_back(std::move(type));
 }
 
-void AstProgram::addPragma(Own<AstPragma> pragma) {
+void Program::addPragma(Own<Pragma> pragma) {
     assert(pragma && "NULL pragma");
     pragmas.push_back(std::move(pragma));
 }
 
-void AstProgram::addFunctorDeclaration(Own<souffle::AstFunctorDeclaration> f) {
+void Program::addFunctorDeclaration(Own<FunctorDeclaration> f) {
     auto* existingFunctorDecl = getIf(getFunctorDeclarations(),
-            [&](const AstFunctorDeclaration* current) { return current->getName() == f->getName(); });
+            [&](const FunctorDeclaration* current) { return current->getName() == f->getName(); });
     assert(existingFunctorDecl == nullptr && "Redefinition of functor!");
     functors.push_back(std::move(f));
 }
 
-}  // namespace souffle
+}  // namespace souffle::ast

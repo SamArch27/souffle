@@ -30,7 +30,7 @@ void error(std::string txt) {
     exit(1);
 }
 
-void printSource2sink(std::unique_ptr<SouffleProgram>& prog) {
+void printSource2sink(Own<SouffleProgram>& prog) {
     Relation* source2sink = prog->getRelation("source2sink");
     for (tuple tuple : *source2sink) {
         std::string field;
@@ -44,7 +44,7 @@ void printSource2sink(std::unique_ptr<SouffleProgram>& prog) {
  * Main program
  */
 int main(int argc, char** argv) {
-    std::unique_ptr<SouffleProgram> prog(ProgramFactory::newInstance("repeat_analysis"));
+    Own<SouffleProgram> prog(ProgramFactory::newInstance("repeat_analysis"));
     if (prog == nullptr) {
         error("failed to create souffle program");
     }

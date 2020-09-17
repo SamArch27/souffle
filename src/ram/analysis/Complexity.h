@@ -17,32 +17,31 @@
 
 #pragma once
 
+#include "ram/Node.h"
+#include "ram/TranslationUnit.h"
 #include "ram/analysis/Analysis.h"
 
-namespace souffle {
-
-class RamNode;
-class RamTranslationUnit;
+namespace souffle::ram::analysis {
 
 /**
- * @class RamComplexityAnalysis
+ * @class ComplexityAnalysis
  * @brief A Ram Analysis for determining the number of relational
  *        operations in a condition / expression.
  *
  *
  */
-class RamComplexityAnalysis : public RamAnalysis {
+class ComplexityAnalysis : public Analysis {
 public:
-    RamComplexityAnalysis(const char* id) : RamAnalysis(id) {}
+    ComplexityAnalysis(const char* id) : Analysis(id) {}
 
     static constexpr const char* name = "complexity-analysis";
 
-    void run(const RamTranslationUnit&) override {}
+    void run(const TranslationUnit&) override {}
 
     /**
      * @brief Get complexity of a RAM expression/condition
      */
-    int getComplexity(const RamNode* value) const;
+    int getComplexity(const Node* value) const;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::analysis

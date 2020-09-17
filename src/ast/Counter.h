@@ -19,18 +19,18 @@
 #include "ast/Argument.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstCounter
+ * @class Counter
  * @brief counter functor (incrementing a value after each invocation)
  */
-class AstCounter : public AstArgument {
+class Counter : public Argument {
 public:
-    using AstArgument::AstArgument;
+    using Argument::Argument;
 
-    AstCounter* clone() const override {
-        return new AstCounter(getSrcLoc());
+    Counter* clone() const override {
+        return new Counter(getSrcLoc());
     }
 
 protected:
@@ -39,4 +39,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

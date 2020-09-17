@@ -14,13 +14,12 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class ReorderBreak
@@ -47,7 +46,7 @@ class RamProgram;
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  */
-class ReorderFilterBreak : public RamTransformer {
+class ReorderFilterBreak : public Transformer {
 public:
     std::string getName() const override {
         return "ReorderFilterBreak";
@@ -58,12 +57,12 @@ public:
      * @param program Program that is transform
      * @return Flag showing whether the program has been changed by the transformation
      */
-    bool reorderFilterBreak(RamProgram& program);
+    bool reorderFilterBreak(Program& program);
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         return reorderFilterBreak(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

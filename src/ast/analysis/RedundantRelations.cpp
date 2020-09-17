@@ -28,18 +28,18 @@
 #include <set>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-void RedundantRelationsAnalysis::run(const AstTranslationUnit& translationUnit) {
+void RedundantRelationsAnalysis::run(const TranslationUnit& translationUnit) {
     precedenceGraph = translationUnit.getAnalysis<PrecedenceGraphAnalysis>();
 
-    std::set<const AstRelation*> work;
-    std::set<const AstRelation*> notRedundant;
-    auto* ioType = translationUnit.getAnalysis<IOType>();
+    std::set<const Relation*> work;
+    std::set<const Relation*> notRedundant;
+    auto* ioType = translationUnit.getAnalysis<IOTypeAnalysis>();
 
-    const std::vector<AstRelation*>& relations = translationUnit.getProgram()->getRelations();
+    const std::vector<Relation*>& relations = translationUnit.getProgram()->getRelations();
     /* Add all output relations to the work set */
-    for (const AstRelation* r : relations) {
+    for (const Relation* r : relations) {
         if (ioType->isOutput(r)) {
             work.insert(r);
         }
@@ -49,13 +49,13 @@ void RedundantRelationsAnalysis::run(const AstTranslationUnit& translationUnit) 
        output relations. */
     while (!work.empty()) {
         /* Chose one element in the work set and add it to notRedundant */
-        const AstRelation* u = *(work.begin());
+        const Relation* u = *(work.begin());
         work.erase(work.begin());
         notRedundant.insert(u);
 
         /* Find all predecessors of u and add them to the worklist
             if they are not in the set notRedundant */
-        for (const AstRelation* predecessor : precedenceGraph->graph().predecessors(u)) {
+        for (const Relation* predecessor : precedenceGraph->graph().predecessors(u)) {
             if (notRedundant.count(predecessor) == 0u) {
                 work.insert(predecessor);
             }
@@ -64,7 +64,7 @@ void RedundantRelationsAnalysis::run(const AstTranslationUnit& translationUnit) 
 
     /* All remaining relations are redundant. */
     redundantRelations.clear();
-    for (const AstRelation* r : relations) {
+    for (const Relation* r : relations) {
         if (notRedundant.count(r) == 0u) {
             redundantRelations.insert(r);
         }
@@ -75,4 +75,4 @@ void RedundantRelationsAnalysis::print(std::ostream& os) const {
     os << redundantRelations << std::endl;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

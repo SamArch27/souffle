@@ -16,50 +16,49 @@
 
 #pragma once
 
+#include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/ComponentType.h"
+#include "ast/Program.h"
+#include "ast/TranslationUnit.h"
+#include "ast/analysis/ComponentLookup.h"
 #include "ast/transform/Transformer.h"
+#include "parser/SrcLocation.h"
+#include "reports/ErrorReport.h"
 #include <string>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-class AstComponent;
-class AstComponentType;
-class AstComponentInit;
-class AstProgram;
-class SrcLocation;
-class AstTranslationUnit;
-class ComponentLookup;
-class ErrorReport;
-class TypeBinding;
-
-class AstComponentChecker : public AstTransformer {
+class ComponentChecker : public Transformer {
 public:
-    ~AstComponentChecker() override = default;
+    ~ComponentChecker() override = default;
 
     std::string getName() const override {
-        return "AstComponentChecker";
+        return "ComponentChecker";
     }
 
-    AstComponentChecker* clone() const override {
-        return new AstComponentChecker();
+    ComponentChecker* clone() const override {
+        return new ComponentChecker();
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
-    static const AstComponent* checkComponentNameReference(ErrorReport& report,
-            const AstComponent* enclosingComponent, const ComponentLookup& componentLookup,
-            const std::string& name, const SrcLocation& loc, const TypeBinding& binding);
-    static void checkComponentReference(ErrorReport& report, const AstComponent* enclosingComponent,
-            const ComponentLookup& componentLookup, const AstComponentType& type, const SrcLocation& loc,
-            const TypeBinding& binding);
-    static void checkComponentInit(ErrorReport& report, const AstComponent* enclosingComponent,
-            const ComponentLookup& componentLookup, const AstComponentInit& init, const TypeBinding& binding);
-    static void checkComponent(ErrorReport& report, const AstComponent* enclosingComponent,
-            const ComponentLookup& componentLookup, const AstComponent& component,
-            const TypeBinding& binding);
-    static void checkComponents(
-            ErrorReport& report, const AstProgram& program, const ComponentLookup& componentLookup);
-    static void checkComponentNamespaces(ErrorReport& report, const AstProgram& program);
+    static const Component* checkComponentNameReference(ErrorReport& report,
+            const Component* enclosingComponent, const analysis::ComponentLookupAnalysis& componentLookup,
+            const std::string& name, const SrcLocation& loc, const analysis::TypeBinding& binding);
+    static void checkComponentReference(ErrorReport& report, const Component* enclosingComponent,
+            const analysis::ComponentLookupAnalysis& componentLookup, const ast::ComponentType& type,
+            const SrcLocation& loc, const analysis::TypeBinding& binding);
+    static void checkComponentInit(ErrorReport& report, const Component* enclosingComponent,
+            const analysis::ComponentLookupAnalysis& componentLookup, const ComponentInit& init,
+            const analysis::TypeBinding& binding);
+    static void checkComponent(ErrorReport& report, const Component* enclosingComponent,
+            const analysis::ComponentLookupAnalysis& componentLookup, const Component& component,
+            const analysis::TypeBinding& binding);
+    static void checkComponents(ErrorReport& report, const Program& program,
+            const analysis::ComponentLookupAnalysis& componentLookup);
+    static void checkComponentNamespaces(ErrorReport& report, const Program& program);
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

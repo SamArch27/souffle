@@ -17,6 +17,8 @@
 #pragma once
 
 #include "ram/Expression.h"
+#include "ram/Node.h"
+#include "ram/NodeMapper.h"
 #include "ram/Relation.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
@@ -27,10 +29,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamRelationSize
+ * @class RelationSize
  * @brief Returns the numbers of tuples in a relation
  *
  * For example:
@@ -38,26 +40,26 @@ namespace souffle {
  * size(B)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamRelationSize : public RamExpression {
+class RelationSize : public Expression {
 public:
-    RamRelationSize(std::unique_ptr<RamRelationReference> relRef) : relationRef(std::move(relRef)) {
+    RelationSize(Own<RelationReference> relRef) : relationRef(std::move(relRef)) {
         assert(relationRef != nullptr && "Relation reference is a nullptr");
     }
 
     /** @brief Get relation */
-    const RamRelation& getRelation() const {
+    const Relation& getRelation() const {
         return *relationRef->get();
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {relationRef.get()};
     }
 
-    RamRelationSize* clone() const override {
-        return new RamRelationSize(souffle::clone(relationRef));
+    RelationSize* clone() const override {
+        return new RelationSize(souffle::clone(relationRef));
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         relationRef = map(std::move(relationRef));
     }
 
@@ -66,13 +68,13 @@ protected:
         os << "size(" << getRelation().getName() << ")";
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamRelationSize&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const RelationSize&>(node);
         return equal_ptr(relationRef, other.relationRef);
     }
 
     /** Relation */
-    std::unique_ptr<RamRelationReference> relationRef;
+    Own<RelationReference> relationRef;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

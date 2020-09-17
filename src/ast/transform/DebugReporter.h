@@ -15,9 +15,11 @@
  ***********************************************************************/
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Meta.h"
 #include "ast/transform/Null.h"
 #include "ast/transform/Transformer.h"
+#include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <set>
@@ -25,9 +27,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass which wraps another transformation pass and generates
@@ -36,10 +36,9 @@ class AstTranslationUnit;
  */
 class DebugReporter : public MetaTransformer {
 public:
-    DebugReporter(std::unique_ptr<AstTransformer> wrappedTransformer)
-            : wrappedTransformer(std::move(wrappedTransformer)) {}
+    DebugReporter(Own<Transformer> wrappedTransformer) : wrappedTransformer(std::move(wrappedTransformer)) {}
 
-    std::vector<AstTransformer*> getSubtransformers() const override {
+    std::vector<Transformer*> getSubtransformers() const override {
         return {wrappedTransformer.get()};
     }
 
@@ -56,7 +55,7 @@ public:
         if (auto* mt = dynamic_cast<MetaTransformer*>(wrappedTransformer.get())) {
             mt->disableTransformers(transforms);
         } else if (transforms.find(wrappedTransformer->getName()) != transforms.end()) {
-            wrappedTransformer = std::make_unique<NullTransformer>();
+            wrappedTransformer = mk<NullTransformer>();
         }
     }
 
@@ -69,11 +68,11 @@ public:
     }
 
 private:
-    std::unique_ptr<AstTransformer> wrappedTransformer;
+    Own<Transformer> wrappedTransformer;
 
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
-    void generateDebugReport(AstTranslationUnit& tu, const std::string& preTransformDatalog);
+    void generateDebugReport(TranslationUnit& tu, const std::string& preTransformDatalog);
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -17,14 +17,24 @@
 #pragma once
 
 #include "ast/BranchDeclaration.h"
+#include "ast/Node.h"
+#include "ast/QualifiedName.h"
 #include "ast/Type.h"
 #include "parser/SrcLocation.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/tinyformat.h"
+#include <cassert>
+#include <iosfwd>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstAlgebraicDataType
+ * @class AlgebraicDataType
  * @brief Combination of types using sums and products.
  *
  * ADT combines a simpler types using product types and sum types.
@@ -36,14 +46,14 @@ namespace souffle {
  * arguments.
  *
  */
-class AstAlgebraicDataType : public AstType {
+class AlgebraicDataType : public Type {
 public:
-    AstAlgebraicDataType(AstQualifiedName name, VecOwn<AstBranchDeclaration> branches, SrcLocation loc = {})
-            : AstType(std::move(name), std::move(loc)), branches(std::move(branches)) {
+    AlgebraicDataType(QualifiedName name, VecOwn<BranchDeclaration> branches, SrcLocation loc = {})
+            : Type(std::move(name), std::move(loc)), branches(std::move(branches)) {
         assert(!this->branches.empty());
     };
 
-    std::vector<AstBranchDeclaration*> getBranches() const {
+    std::vector<BranchDeclaration*> getBranches() const {
         return toPtrVector(branches);
     }
 
@@ -51,19 +61,19 @@ public:
         os << tfm::format(".type %s = %s", getQualifiedName(), join(branches, " | "));
     }
 
-    AstAlgebraicDataType* clone() const override {
-        return new AstAlgebraicDataType(getQualifiedName(), souffle::clone(branches), getSrcLoc());
+    AlgebraicDataType* clone() const override {
+        return new AlgebraicDataType(getQualifiedName(), souffle::clone(branches), getSrcLoc());
     }
 
 protected:
-    bool equal(const AstNode& node) const override {
-        const auto& other = dynamic_cast<const AstAlgebraicDataType&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = dynamic_cast<const AlgebraicDataType&>(node);
         return getQualifiedName() == other.getQualifiedName() && branches == other.branches;
     }
 
 private:
     /** The list of branches for this sum type. */
-    VecOwn<AstBranchDeclaration> branches;
+    VecOwn<BranchDeclaration> branches;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast

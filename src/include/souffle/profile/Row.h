@@ -10,9 +10,7 @@
 
 #include "souffle/profile/CellInterface.h"
 
-#include <iostream>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace souffle {

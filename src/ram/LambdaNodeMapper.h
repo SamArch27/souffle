@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ram/NodeMapper.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -25,29 +26,29 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
-class RamNode;
+class Node;
 
 /**
- * @class LambdaRamNodeMapper
- * @brief A special RamNodeMapper wrapping a lambda conducting node transformations.
+ * @class LambdaNodeMapper
+ * @brief A special NodeMapper wrapping a lambda conducting node transformations.
  */
 template <typename Lambda>
-class LambdaRamNodeMapper : public RamNodeMapper {
+class LambdaNodeMapper : public NodeMapper {
     const Lambda& lambda;
 
 public:
     /**
-     * @brief Constructor for LambdaRamNodeMapper
+     * @brief Constructor for LambdaNodeMapper
      */
-    LambdaRamNodeMapper(const Lambda& lambda) : lambda(lambda) {}
+    LambdaNodeMapper(const Lambda& lambda) : lambda(lambda) {}
 
     /**
      * @brief Applies lambda
      */
-    std::unique_ptr<RamNode> operator()(std::unique_ptr<RamNode> node) const override {
-        std::unique_ptr<RamNode> result = lambda(std::move(node));
+    Own<Node> operator()(Own<Node> node) const override {
+        Own<Node> result = lambda(std::move(node));
         assert(result != nullptr && "null-pointer in lambda ram-node mapper");
         return result;
     }
@@ -57,8 +58,8 @@ public:
  * @brief Creates a node mapper based on a corresponding lambda expression.
  */
 template <typename Lambda>
-LambdaRamNodeMapper<Lambda> makeLambdaRamMapper(const Lambda& lambda) {
-    return LambdaRamNodeMapper<Lambda>(lambda);
+LambdaNodeMapper<Lambda> makeLambdaRamMapper(const Lambda& lambda) {
+    return LambdaNodeMapper<Lambda>(lambda);
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

@@ -23,15 +23,15 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstConstant
+ * @class Constant
  * @brief Abstract constant class
  */
-class AstConstant : public AstArgument {
+class Constant : public Argument {
 public:
-    AstConstant* clone() const override = 0;
+    Constant* clone() const override = 0;
 
     /** Get string representation of Constant */
     const std::string& getConstant() const {
@@ -43,17 +43,17 @@ protected:
         os << getConstant();
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstConstant&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Constant&>(node);
         return constant == other.constant;
     }
 
-    AstConstant(std::string value, SrcLocation loc = {})
-            : AstArgument(std::move(loc)), constant(std::move(value)){};
+    Constant(std::string value, SrcLocation loc = {})
+            : Argument(std::move(loc)), constant(std::move(value)){};
 
 private:
     /** String representation of constant */
     const std::string constant;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

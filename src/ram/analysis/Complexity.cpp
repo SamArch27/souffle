@@ -16,52 +16,57 @@
 
 #include "ram/analysis/Complexity.h"
 #include "ram/Condition.h"
+#include "ram/Conjunction.h"
+#include "ram/EmptinessCheck.h"
+#include "ram/ExistenceCheck.h"
 #include "ram/Expression.h"
+#include "ram/Negation.h"
 #include "ram/Node.h"
+#include "ram/ProvenanceExistenceCheck.h"
 #include "ram/Relation.h"
 #include "ram/Visitor.h"
 #include <cassert>
 
-namespace souffle {
+namespace souffle::ram::analysis {
 
-int RamComplexityAnalysis::getComplexity(const RamNode* node) const {
+int ComplexityAnalysis::getComplexity(const Node* node) const {
     // visitor
-    class ValueComplexityVisitor : public RamVisitor<int> {
+    class ValueComplexityVisitor : public Visitor<int> {
     public:
         // conjunction
-        int visitConjunction(const RamConjunction& conj) override {
+        int visitConjunction(const Conjunction& conj) override {
             return visit(conj.getLHS()) + visit(conj.getRHS());
         }
 
         // negation
-        int visitNegation(const RamNegation& neg) override {
+        int visitNegation(const Negation& neg) override {
             return visit(neg.getOperand());
         }
 
         // existence check
-        int visitExistenceCheck(const RamExistenceCheck&) override {
+        int visitExistenceCheck(const ExistenceCheck&) override {
             return 2;
         }
 
         // provenance existence check
-        int visitProvenanceExistenceCheck(const RamProvenanceExistenceCheck&) override {
+        int visitProvenanceExistenceCheck(const ProvenanceExistenceCheck&) override {
             return 2;
         }
 
         // emptiness check
-        int visitEmptinessCheck(const RamEmptinessCheck& emptiness) override {
+        int visitEmptinessCheck(const EmptinessCheck& emptiness) override {
             // emptiness check for nullary relations is for free; others have weight one
             return (emptiness.getRelation().getArity() > 0) ? 1 : 0;
         }
 
         // default rule
-        int visitNode(const RamNode&) override {
+        int visitNode(const Node&) override {
             return 0;
         }
     };
 
-    assert((isA<RamExpression>(node) || isA<RamCondition>(node)) && "not an expression/condition/operation");
+    assert((isA<Expression>(node) || isA<Condition>(node)) && "not an expression/condition/operation");
     return ValueComplexityVisitor().visit(node);
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::analysis

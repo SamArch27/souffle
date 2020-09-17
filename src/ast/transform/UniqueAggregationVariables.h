@@ -14,17 +14,16 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to rename aggregation variables to make them unique.
  */
-class UniqueAggregationVariablesTransformer : public AstTransformer {
+class UniqueAggregationVariablesTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "UniqueAggregationVariablesTransformer";
@@ -35,7 +34,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -19,17 +19,20 @@
 #include "Global.h"
 #include "ast/Directive.h"
 #include "ast/Program.h"
+#include "ast/QualifiedName.h"
 #include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
+#include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include <string>
+#include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to set defaults for IO operations.
  */
-class IODefaultsTransformer : public AstTransformer {
+class IODefaultsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "IODefaultsTransformer";
@@ -40,7 +43,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
 
         changed |= setDefaults(translationUnit);
@@ -62,13 +65,13 @@ private:
      * @param translationUnit
      * @return true if any changes were made
      */
-    bool setDefaults(AstTranslationUnit& translationUnit) {
+    bool setDefaults(TranslationUnit& translationUnit) {
         bool changed = false;
-        AstProgram* program = translationUnit.getProgram();
-        for (AstDirective* io : program->getDirectives()) {
+        Program* program = translationUnit.getProgram();
+        for (Directive* io : program->getDirectives()) {
             // Don't do anything for a directive which
             // is not an I/O directive
-            if (io->getType() == AstDirectiveType::limitsize) continue;
+            if (io->getType() == ast::DirectiveType::limitsize) continue;
 
             // Set a default IO of file
             if (!io->hasDirective("IO")) {
@@ -84,14 +87,14 @@ private:
 
             // Set the operation type (input/output/printsize)
             if (!io->hasDirective("operation")) {
-                if (io->getType() == AstDirectiveType::input) {
+                if (io->getType() == ast::DirectiveType::input) {
                     io->addDirective("operation", "input");
                     changed = true;
                     // Configure input directory
                     if (Global::config().has("fact-dir")) {
                         io->addDirective("fact-dir", Global::config().get("fact-dir"));
                     }
-                } else if (io->getType() == AstDirectiveType::output) {
+                } else if (io->getType() == ast::DirectiveType::output) {
                     io->addDirective("operation", "output");
                     changed = true;
                     // Configure output directory
@@ -103,7 +106,7 @@ private:
                             io->addDirective("output-dir", Global::config().get("output-dir"));
                         }
                     }
-                } else if (io->getType() == AstDirectiveType::printsize) {
+                } else if (io->getType() == ast::DirectiveType::printsize) {
                     io->addDirective("operation", "printsize");
                     io->addDirective("IO", "stdoutprintsize");
                     changed = true;
@@ -119,9 +122,9 @@ private:
      *
      * @return Valid relation name from the concatenated qualified name.
      */
-    std::string getRelationName(const AstDirective* node) {
+    std::string getRelationName(const Directive* node) {
         return toString(join(node->getQualifiedName().getQualifiers(), "."));
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

@@ -22,20 +22,20 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstStringConstant
+ * @class StringConstant
  * @brief String constant class
  */
-class AstStringConstant : public AstConstant {
+class StringConstant : public Constant {
 public:
-    explicit AstStringConstant(std::string value, SrcLocation loc = {}) : AstConstant(std::move(value)) {
+    explicit StringConstant(std::string value, SrcLocation loc = {}) : Constant(std::move(value)) {
         setSrcLoc(std::move(loc));
     }
 
-    AstStringConstant* clone() const override {
-        auto* res = new AstStringConstant(getConstant());
+    StringConstant* clone() const override {
+        auto* res = new StringConstant(getConstant());
         res->setSrcLoc(getSrcLoc());
         return res;
     }
@@ -46,4 +46,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

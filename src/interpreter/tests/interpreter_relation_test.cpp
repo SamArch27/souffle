@@ -27,6 +27,8 @@
 
 namespace souffle::test {
 
+using ram::analysis::MinIndexSelection;
+
 TEST(Relation0, Construction) {
     // create a nullary relation
     SymbolTable symbolTable;

@@ -15,10 +15,37 @@
  ***********************************************************************/
 
 #include "ram/analysis/Level.h"
+#include "ram/Aggregate.h"
+#include "ram/AutoIncrement.h"
+#include "ram/Break.h"
+#include "ram/Choice.h"
 #include "ram/Condition.h"
+#include "ram/Conjunction.h"
+#include "ram/Constant.h"
+#include "ram/Constraint.h"
+#include "ram/EmptinessCheck.h"
+#include "ram/ExistenceCheck.h"
 #include "ram/Expression.h"
+#include "ram/False.h"
+#include "ram/Filter.h"
+#include "ram/IndexAggregate.h"
+#include "ram/IndexChoice.h"
+#include "ram/IndexScan.h"
+#include "ram/IntrinsicOperator.h"
+#include "ram/Negation.h"
 #include "ram/Node.h"
 #include "ram/Operation.h"
+#include "ram/PackRecord.h"
+#include "ram/Project.h"
+#include "ram/ProvenanceExistenceCheck.h"
+#include "ram/Scan.h"
+#include "ram/SubroutineArgument.h"
+#include "ram/SubroutineReturn.h"
+#include "ram/True.h"
+#include "ram/TupleElement.h"
+#include "ram/UndefValue.h"
+#include "ram/UnpackRecord.h"
+#include "ram/UserDefinedOperator.h"
 #include "ram/Visitor.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
@@ -26,39 +53,39 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram::analysis {
 
-int RamLevelAnalysis::getLevel(const RamNode* node) const {
+int LevelAnalysis::getLevel(const Node* node) const {
     // visitor
-    class ValueLevelVisitor : public RamVisitor<int> {
+    class ValueLevelVisitor : public Visitor<int> {
     public:
         // number
-        int visitConstant(const RamConstant&) override {
+        int visitConstant(const Constant&) override {
             return -1;
         }
 
         // true
-        int visitTrue(const RamTrue&) override {
+        int visitTrue(const True&) override {
             return -1;
         }
 
         // false
-        int visitFalse(const RamFalse&) override {
+        int visitFalse(const False&) override {
             return -1;
         }
 
         // tuple element access
-        int visitTupleElement(const RamTupleElement& elem) override {
+        int visitTupleElement(const TupleElement& elem) override {
             return elem.getTupleId();
         }
 
         // scan
-        int visitScan(const RamScan&) override {
+        int visitScan(const Scan&) override {
             return -1;
         }
 
         // index scan
-        int visitIndexScan(const RamIndexScan& indexScan) override {
+        int visitIndexScan(const IndexScan& indexScan) override {
             int level = -1;
             for (auto& index : indexScan.getRangePattern().first) {
                 level = std::max(level, visit(index));
@@ -70,12 +97,12 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // choice
-        int visitChoice(const RamChoice& choice) override {
+        int visitChoice(const Choice& choice) override {
             return std::max(-1, visit(choice.getCondition()));
         }
 
         // index choice
-        int visitIndexChoice(const RamIndexChoice& indexChoice) override {
+        int visitIndexChoice(const IndexChoice& indexChoice) override {
             int level = -1;
             for (auto& index : indexChoice.getRangePattern().first) {
                 level = std::max(level, visit(index));
@@ -87,12 +114,12 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // aggregate
-        int visitAggregate(const RamAggregate& aggregate) override {
+        int visitAggregate(const Aggregate& aggregate) override {
             return std::max(visit(aggregate.getExpression()), visit(aggregate.getCondition()));
         }
 
         // index aggregate
-        int visitIndexAggregate(const RamIndexAggregate& indexAggregate) override {
+        int visitIndexAggregate(const IndexAggregate& indexAggregate) override {
             int level = -1;
             for (auto& index : indexAggregate.getRangePattern().first) {
                 level = std::max(level, visit(index));
@@ -105,22 +132,22 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // unpack record
-        int visitUnpackRecord(const RamUnpackRecord& unpack) override {
+        int visitUnpackRecord(const UnpackRecord& unpack) override {
             return visit(unpack.getExpression());
         }
 
         // filter
-        int visitFilter(const RamFilter& filter) override {
+        int visitFilter(const Filter& filter) override {
             return visit(filter.getCondition());
         }
 
         // break
-        int visitBreak(const RamBreak& b) override {
+        int visitBreak(const Break& b) override {
             return visit(b.getCondition());
         }
 
         // project
-        int visitProject(const RamProject& project) override {
+        int visitProject(const Project& project) override {
             int level = -1;
             for (auto& exp : project.getValues()) {
                 level = std::max(level, visit(exp));
@@ -129,7 +156,7 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // return
-        int visitSubroutineReturn(const RamSubroutineReturn& ret) override {
+        int visitSubroutineReturn(const SubroutineReturn& ret) override {
             int level = -1;
             for (auto& exp : ret.getValues()) {
                 level = std::max(level, visit(exp));
@@ -138,17 +165,17 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // auto increment
-        int visitAutoIncrement(const RamAutoIncrement&) override {
+        int visitAutoIncrement(const AutoIncrement&) override {
             return -1;
         }
 
         // undef value
-        int visitUndefValue(const RamUndefValue&) override {
+        int visitUndefValue(const UndefValue&) override {
             return -1;
         }
 
         // intrinsic functors
-        int visitIntrinsicOperator(const RamIntrinsicOperator& op) override {
+        int visitIntrinsicOperator(const IntrinsicOperator& op) override {
             int level = -1;
             for (const auto& arg : op.getArguments()) {
                 level = std::max(level, visit(arg));
@@ -157,7 +184,7 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // pack operator
-        int visitPackRecord(const RamPackRecord& pack) override {
+        int visitPackRecord(const PackRecord& pack) override {
             int level = -1;
             for (const auto& arg : pack.getArguments()) {
                 level = std::max(level, visit(arg));
@@ -166,12 +193,12 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // argument
-        int visitSubroutineArgument(const RamSubroutineArgument&) override {
+        int visitSubroutineArgument(const SubroutineArgument&) override {
             return -1;
         }
 
         // user defined operator
-        int visitUserDefinedOperator(const RamUserDefinedOperator& op) override {
+        int visitUserDefinedOperator(const UserDefinedOperator& op) override {
             int level = -1;
             for (const auto& arg : op.getArguments()) {
                 level = std::max(level, visit(arg));
@@ -180,22 +207,22 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // conjunction
-        int visitConjunction(const RamConjunction& conj) override {
+        int visitConjunction(const Conjunction& conj) override {
             return std::max(visit(conj.getLHS()), visit(conj.getRHS()));
         }
 
         // negation
-        int visitNegation(const RamNegation& neg) override {
+        int visitNegation(const Negation& neg) override {
             return visit(neg.getOperand());
         }
 
         // constraint
-        int visitConstraint(const RamConstraint& binRel) override {
+        int visitConstraint(const Constraint& binRel) override {
             return std::max(visit(binRel.getLHS()), visit(binRel.getRHS()));
         }
 
         // existence check
-        int visitExistenceCheck(const RamExistenceCheck& exists) override {
+        int visitExistenceCheck(const ExistenceCheck& exists) override {
             int level = -1;
             for (const auto& cur : exists.getValues()) {
                 level = std::max(level, visit(cur));
@@ -204,7 +231,7 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // provenance existence check
-        int visitProvenanceExistenceCheck(const RamProvenanceExistenceCheck& provExists) override {
+        int visitProvenanceExistenceCheck(const ProvenanceExistenceCheck& provExists) override {
             int level = -1;
             for (const auto& cur : provExists.getValues()) {
                 level = std::max(level, visit(cur));
@@ -213,19 +240,19 @@ int RamLevelAnalysis::getLevel(const RamNode* node) const {
         }
 
         // emptiness check
-        int visitEmptinessCheck(const RamEmptinessCheck&) override {
+        int visitEmptinessCheck(const EmptinessCheck&) override {
             return -1;  // can be in the top level
         }
 
         // default rule
-        int visitNode(const RamNode&) override {
-            fatal("RamNode not implemented!");
+        int visitNode(const Node&) override {
+            fatal("Node not implemented!");
         }
     };
 
-    assert((isA<RamExpression>(node) || isA<RamCondition>(node) || isA<RamOperation>(node)) &&
+    assert((isA<Expression>(node) || isA<Condition>(node) || isA<Operation>(node)) &&
             "not an expression/condition/operation");
     return ValueLevelVisitor().visit(node);
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::analysis

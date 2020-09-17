@@ -31,21 +31,21 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /** Pattern type for lower/upper bound */
-using RamPattern =
-        std::pair<std::vector<std::unique_ptr<RamExpression>>, std::vector<std::unique_ptr<RamExpression>>>;
+using RamBound = VecOwn<Expression>;
+using RamPattern = std::pair<RamBound, RamBound>;
 
 /**
  * @class Relation Scan with Index
  * @brief An abstract class for performing indexed operations
  */
-class RamIndexOperation : public RamRelationOperation {
+class IndexOperation : public RelationOperation {
 public:
-    RamIndexOperation(std::unique_ptr<RamRelationReference> r, int ident, RamPattern queryPattern,
-            std::unique_ptr<RamOperation> nested, std::string profileText = "")
-            : RamRelationOperation(std::move(r), ident, std::move(nested), std::move(profileText)),
+    IndexOperation(Own<RelationReference> r, int ident, RamPattern queryPattern, Own<Operation> nested,
+            std::string profileText = "")
+            : RelationOperation(std::move(r), ident, std::move(nested), std::move(profileText)),
               queryPattern(std::move(queryPattern)) {
         assert(getRangePattern().first.size() == getRelation().getArity() &&
                 getRangePattern().second.size() == getRelation().getArity());
@@ -59,17 +59,17 @@ public:
 
     /**
      * @brief Get range pattern
-     * @return A pair of std::vector of pointers to RamExpression objects
+     * @return A pair of std::vector of pointers to Expression objects
      * These vectors represent the lower and upper bounds for each attribute in the tuple
      * <expr1> <= Tuple[level, element] <= <expr2>
      * We have that at an index for an attribute, its bounds are <expr1> and <expr2> respectively
      * */
-    std::pair<std::vector<RamExpression*>, std::vector<RamExpression*>> getRangePattern() const {
+    std::pair<std::vector<Expression*>, std::vector<Expression*>> getRangePattern() const {
         return std::make_pair(toPtrVector(queryPattern.first), toPtrVector(queryPattern.second));
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        auto res = RamRelationOperation::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = RelationOperation::getChildNodes();
         for (auto& pattern : queryPattern.first) {
             res.push_back(pattern.get());
         }
@@ -79,8 +79,8 @@ public:
         return res;
     }
 
-    void apply(const RamNodeMapper& map) override {
-        RamRelationOperation::apply(map);
+    void apply(const NodeMapper& map) override {
+        RelationOperation::apply(map);
         for (auto& pattern : queryPattern.first) {
             pattern = map(std::move(pattern));
         }
@@ -89,7 +89,7 @@ public:
         }
     }
 
-    RamIndexOperation* clone() const override {
+    IndexOperation* clone() const override {
         RamPattern resQueryPattern;
         for (const auto& i : queryPattern.first) {
             resQueryPattern.first.emplace_back(i->clone());
@@ -97,7 +97,7 @@ public:
         for (const auto& i : queryPattern.second) {
             resQueryPattern.second.emplace_back(i->clone());
         }
-        return new RamIndexOperation(souffle::clone(relationRef), getTupleId(), std::move(resQueryPattern),
+        return new IndexOperation(souffle::clone(relationRef), getTupleId(), std::move(resQueryPattern),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
@@ -109,8 +109,7 @@ public:
             // TODO: print proper upper lower/bound
 
             // early exit if no upper/lower bounds are defined
-            if (isRamUndefValue(queryPattern.first[i].get()) &&
-                    isRamUndefValue(queryPattern.second[i].get())) {
+            if (isUndefValue(queryPattern.first[i].get()) && isUndefValue(queryPattern.second[i].get())) {
                 continue;
             }
 
@@ -122,8 +121,7 @@ public:
             }
 
             // both bounds defined and equal => equality
-            if (!isRamUndefValue(queryPattern.first[i].get()) &&
-                    !isRamUndefValue(queryPattern.second[i].get())) {
+            if (!isUndefValue(queryPattern.first[i].get()) && !isUndefValue(queryPattern.second[i].get())) {
                 // print equality when lower bound = upper bound
                 if (*(queryPattern.first[i]) == *(queryPattern.second[i])) {
                     os << "t" << getTupleId() << ".";
@@ -133,16 +131,15 @@ public:
                 }
             }
             // at least one bound defined => inequality
-            if (!isRamUndefValue(queryPattern.first[i].get()) ||
-                    !isRamUndefValue(queryPattern.second[i].get())) {
-                if (!isRamUndefValue(queryPattern.first[i].get())) {
+            if (!isUndefValue(queryPattern.first[i].get()) || !isUndefValue(queryPattern.second[i].get())) {
+                if (!isUndefValue(queryPattern.first[i].get())) {
                     os << *(queryPattern.first[i]) << " <= ";
                 }
 
                 os << "t" << getTupleId() << ".";
                 os << i;
 
-                if (!isRamUndefValue(queryPattern.second[i].get())) {
+                if (!isUndefValue(queryPattern.second[i].get())) {
                     os << " <= " << *(queryPattern.second[i]);
                 }
 
@@ -152,9 +149,9 @@ public:
     }
 
 protected:
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamIndexOperation&>(node);
-        return RamRelationOperation::equal(other) &&
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const IndexOperation&>(node);
+        return RelationOperation::equal(other) &&
                equal_targets(queryPattern.first, other.queryPattern.first) &&
                equal_targets(queryPattern.second, other.queryPattern.second);
     }
@@ -163,4 +160,4 @@ protected:
     RamPattern queryPattern;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

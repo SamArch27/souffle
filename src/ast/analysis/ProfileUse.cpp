@@ -10,7 +10,7 @@
  *
  * @file ProfileUse.cpp
  *
- * Implements an AstAnalysis that provides profile information
+ * Implements an Analysis that provides profile information
  * from a profile log file for profile-guided optimisations.
  *
  ***********************************************************************/
@@ -24,14 +24,12 @@
 #include <limits>
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::analysis {
 
 /**
  * Run analysis, i.e., retrieve profile information
  */
-void AstProfileUseAnalysis::run(const AstTranslationUnit&) {
+void ProfileUseAnalysis::run(const TranslationUnit&) {
     if (Global::config().has("profile-use")) {
         std::string filename = Global::config().get("profile-use");
         profile::Reader(filename, programRun).processFile();
@@ -41,19 +39,19 @@ void AstProfileUseAnalysis::run(const AstTranslationUnit&) {
 /**
  * Print analysis
  */
-void AstProfileUseAnalysis::print(std::ostream&) const {}
+void ProfileUseAnalysis::print(std::ostream&) const {}
 
 /**
  * Check whether relation size is defined in profile
  */
-bool AstProfileUseAnalysis::hasRelationSize(const AstQualifiedName& rel) {
+bool ProfileUseAnalysis::hasRelationSize(const QualifiedName& rel) {
     return programRun->getRelation(rel.toString()) != nullptr;
 }
 
 /**
  * Get relation size from profile
  */
-size_t AstProfileUseAnalysis::getRelationSize(const AstQualifiedName& rel) {
+size_t ProfileUseAnalysis::getRelationSize(const QualifiedName& rel) {
     if (const auto* profRel = programRun->getRelation(rel.toString())) {
         return profRel->size();
     } else {
@@ -61,4 +59,4 @@ size_t AstProfileUseAnalysis::getRelationSize(const AstQualifiedName& rel) {
     }
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

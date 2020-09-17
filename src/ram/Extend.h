@@ -23,10 +23,10 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamExtend
+ * @class Extend
  * @brief Extend equivalence relation.
  *
  * The following example merges A into B:
@@ -34,23 +34,23 @@ namespace souffle {
  * EXTEND B WITH A
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamExtend : public RamBinRelationStatement {
+class Extend : public BinRelationStatement {
 public:
-    RamExtend(std::unique_ptr<RamRelationReference> tRef, std::unique_ptr<RamRelationReference> sRef)
-            : RamBinRelationStatement(std::move(sRef), std::move(tRef)) {}
+    Extend(Own<RelationReference> tRef, Own<RelationReference> sRef)
+            : BinRelationStatement(std::move(sRef), std::move(tRef)) {}
 
     /** @brief Get source relation */
-    const RamRelation& getSourceRelation() const {
+    const Relation& getSourceRelation() const {
         return getFirstRelation();
     }
 
     /** @brief Get target relation */
-    const RamRelation& getTargetRelation() const {
+    const Relation& getTargetRelation() const {
         return getSecondRelation();
     }
 
-    RamExtend* clone() const override {
-        auto* res = new RamExtend(souffle::clone(second), souffle::clone(first));
+    Extend* clone() const override {
+        auto* res = new Extend(souffle::clone(second), souffle::clone(first));
         return res;
     }
 
@@ -62,4 +62,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

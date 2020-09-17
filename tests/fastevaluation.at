@@ -7,6 +7,7 @@
 dnl Positive test cases for evaluating Datalog programs
 
 POSITIVE_TEST([aggregates2],[evaluation])
+POSITIVE_TEST([aggregates4],[evaluation])
 POSITIVE_TEST([aggregates],[evaluation])
 POSITIVE_TEST([aliases],[evaluation])
 POSITIVE_TEST([arithm],[evaluation])

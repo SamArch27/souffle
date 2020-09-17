@@ -19,9 +19,9 @@
 #include <chrono>
 #include <iostream>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, AstTransformer* transformer) {
+bool MetaTransformer::applySubtransformer(TranslationUnit& translationUnit, Transformer* transformer) {
     auto start = std::chrono::high_resolution_clock::now();
     bool changed = transformer->apply(translationUnit);
     auto end = std::chrono::high_resolution_clock::now();
@@ -35,4 +35,4 @@ bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, A
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

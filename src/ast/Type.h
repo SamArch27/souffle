@@ -22,32 +22,31 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
  *  @class Type
  *  @brief An abstract base class for types
  */
-class AstType : public AstNode {
+class Type : public Node {
 public:
-    AstType(AstQualifiedName name = {}, SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(name)) {}
+    Type(QualifiedName name = {}, SrcLocation loc = {}) : Node(std::move(loc)), name(std::move(name)) {}
 
     /** Return type name */
-    const AstQualifiedName& getQualifiedName() const {
+    const QualifiedName& getQualifiedName() const {
         return name;
     }
 
     /** Set type name */
-    void setQualifiedName(AstQualifiedName name) {
+    void setQualifiedName(QualifiedName name) {
         this->name = std::move(name);
     }
 
-    AstType* clone() const override = 0;
+    Type* clone() const override = 0;
 
 private:
     /** type name */
-    AstQualifiedName name;
+    QualifiedName name;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -31,10 +31,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstAggregator
+ * @class Aggregator
  * @brief Defines the aggregator class
  *
  * Example:
@@ -43,12 +43,10 @@ namespace souffle {
  * Aggregates over a sub-query using an aggregate operator
  * and an expression.
  */
-class AstAggregator : public AstArgument {
+class Aggregator : public Argument {
 public:
-    AstAggregator(AggregateOp fun, Own<AstArgument> expr = nullptr, VecOwn<AstLiteral> body = {},
-            SrcLocation loc = {})
-            : AstArgument(std::move(loc)), fun(fun), targetExpression(std::move(expr)),
-              body(std::move(body)) {}
+    Aggregator(AggregateOp fun, Own<Argument> expr = nullptr, VecOwn<Literal> body = {}, SrcLocation loc = {})
+            : Argument(std::move(loc)), fun(fun), targetExpression(std::move(expr)), body(std::move(body)) {}
 
     /** Return aggregate operator */
     AggregateOp getOperator() const {
@@ -61,22 +59,22 @@ public:
     }
 
     /** Return target expression */
-    const AstArgument* getTargetExpression() const {
+    const Argument* getTargetExpression() const {
         return targetExpression.get();
     }
 
     /** Return body literals */
-    std::vector<AstLiteral*> getBodyLiterals() const {
+    std::vector<Literal*> getBodyLiterals() const {
         return toPtrVector(body);
     }
 
     /** Set body */
-    void setBody(VecOwn<AstLiteral> bodyLiterals) {
+    void setBody(VecOwn<Literal> bodyLiterals) {
         body = std::move(bodyLiterals);
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        auto res = AstArgument::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = Argument::getChildNodes();
         if (targetExpression) {
             res.push_back(targetExpression.get());
         }
@@ -86,11 +84,11 @@ public:
         return res;
     }
 
-    AstAggregator* clone() const override {
-        return new AstAggregator(fun, souffle::clone(targetExpression), souffle::clone(body), getSrcLoc());
+    Aggregator* clone() const override {
+        return new Aggregator(fun, souffle::clone(targetExpression), souffle::clone(body), getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         if (targetExpression) {
             targetExpression = map(std::move(targetExpression));
         }
@@ -108,8 +106,8 @@ protected:
         os << " : { " << join(body) << " }";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstAggregator&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Aggregator&>(node);
         return fun == other.fun && equal_ptr(targetExpression, other.targetExpression) &&
                equal_targets(body, other.body);
     }
@@ -119,10 +117,10 @@ private:
     AggregateOp fun;
 
     /** Aggregate expression */
-    Own<AstArgument> targetExpression;
+    Own<Argument> targetExpression;
 
     /** Body literal of sub-query */
-    VecOwn<AstLiteral> body;
+    VecOwn<Literal> body;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

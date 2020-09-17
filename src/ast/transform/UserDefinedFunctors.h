@@ -17,29 +17,28 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation that passes the type information from user functors
  * declaration to functors instances
  */
-class AstUserDefinedFunctorsTransformer : public AstTransformer {
+class UserDefinedFunctorsTransformer : public Transformer {
 public:
     std::string getName() const override {
-        return "AstUserDefinedFunctorsTransformer";
+        return "UserDefinedFunctorsTransformer";
     }
 
-    AstUserDefinedFunctorsTransformer* clone() const override {
-        return new AstUserDefinedFunctorsTransformer();
+    UserDefinedFunctorsTransformer* clone() const override {
+        return new UserDefinedFunctorsTransformer();
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

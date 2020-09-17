@@ -16,15 +16,13 @@
 
 #pragma once
 
+#include "ast/Argument.h"
 #include "ast/Functor.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "souffle/RamTypes.h"
 #include "souffle/TypeAttribute.h"
 #include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <optional>
@@ -33,18 +31,18 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstUserDefinedFunctor
+ * @class UserDefinedFunctor
  * @brief User-Defined functor class
  */
-class AstUserDefinedFunctor : public AstFunctor {
+class UserDefinedFunctor : public Functor {
 public:
-    explicit AstUserDefinedFunctor(std::string name) : AstFunctor({}, {}), name(std::move(name)){};
+    explicit UserDefinedFunctor(std::string name) : Functor({}, {}), name(std::move(name)){};
 
-    AstUserDefinedFunctor(std::string name, VecOwn<AstArgument> args, SrcLocation loc = {})
-            : AstFunctor(std::move(args), std::move(loc)), name(std::move(name)){};
+    UserDefinedFunctor(std::string name, VecOwn<Argument> args, SrcLocation loc = {})
+            : Functor(std::move(args), std::move(loc)), name(std::move(name)){};
 
     /** return the name */
     const std::string& getName() const {
@@ -79,8 +77,8 @@ public:
         return stateful;
     }
 
-    AstUserDefinedFunctor* clone() const override {
-        auto res = new AstUserDefinedFunctor(name, souffle::clone(args), getSrcLoc());
+    UserDefinedFunctor* clone() const override {
+        auto res = new UserDefinedFunctor(name, souffle::clone(args), getSrcLoc());
         // Only copy types if they have already been set.
         if (returnType.has_value()) {
             res->setTypes(argTypes.value(), returnType.value(), stateful);
@@ -93,9 +91,9 @@ protected:
         os << '@' << name << "(" << join(args) << ")";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstUserDefinedFunctor&>(node);
-        return name == other.name && AstFunctor::equal(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const UserDefinedFunctor&>(node);
+        return name == other.name && Functor::equal(node);
     }
 
     /** Argument types */
@@ -111,4 +109,4 @@ protected:
     const std::string name;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

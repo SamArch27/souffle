@@ -20,6 +20,7 @@
 #include "ast/Node.h"
 #include "ast/NumericConstant.h"
 #include "ast/Program.h"
+#include "ast/Relation.h"
 #include "ast/StringConstant.h"
 #include "ast/TranslationUnit.h"
 #include "ast/UnnamedVariable.h"
@@ -35,17 +36,16 @@
 #include <set>
 #include <vector>
 
-namespace souffle {
-class AstRelation;
+namespace souffle::ast::transform {
 
-bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationUnit) {
+bool NormaliseConstraintsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
 
     // set a prefix for variables bound by magic-set for identification later
     // prepended by + to avoid conflict with user-defined variables
     static constexpr const char* boundPrefix = "+abdul";
 
-    AstProgram& program = *translationUnit.getProgram();
+    Program& program = *translationUnit.getProgram();
 
     /* Create a node mapper that recursively replaces all constants and underscores
      * with named variables.
@@ -53,11 +53,11 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
      * The mapper keeps track of constraints that should be added to the original
      * clause it is being applied on in a given constraint set.
      */
-    struct constraintNormaliser : public AstNodeMapper {
-        std::set<AstBinaryConstraint*>& constraints;
+    struct constraintNormaliser : public NodeMapper {
+        std::set<BinaryConstraint*>& constraints;
         mutable int changeCount;
 
-        constraintNormaliser(std::set<AstBinaryConstraint*>& constraints, int changeCount)
+        constraintNormaliser(std::set<BinaryConstraint*>& constraints, int changeCount)
                 : constraints(constraints), changeCount(changeCount) {}
 
         bool hasChanged() const {
@@ -68,8 +68,8 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
             return changeCount;
         }
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            if (auto* stringConstant = dynamic_cast<AstStringConstant*>(node.get())) {
+        Own<Node> operator()(Own<Node> node) const override {
+            if (auto* stringConstant = dynamic_cast<StringConstant*>(node.get())) {
                 // string constant found
                 changeCount++;
 
@@ -79,13 +79,13 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
                 newVariableName << boundPrefix << changeCount << "_" << constantValue << "_s";
 
                 // create new constraint (+abdulX = constant)
-                auto newVariable = std::make_unique<AstVariable>(newVariableName.str());
-                constraints.insert(new AstBinaryConstraint(
+                auto newVariable = mk<ast::Variable>(newVariableName.str());
+                constraints.insert(new BinaryConstraint(
                         BinaryConstraintOp::EQ, souffle::clone(newVariable), souffle::clone(stringConstant)));
 
                 // update constant to be the variable created
                 return newVariable;
-            } else if (auto* numberConstant = dynamic_cast<AstNumericConstant*>(node.get())) {
+            } else if (auto* numberConstant = dynamic_cast<NumericConstant*>(node.get())) {
                 // number constant found
                 changeCount++;
 
@@ -94,18 +94,18 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
                 newVariableName << boundPrefix << changeCount << "_" << numberConstant->getConstant() << "_n";
 
                 assert(numberConstant->getType() && "numeric constant hasn't been poly-constrained");
-                auto opEq = *numberConstant->getType() == AstNumericConstant::Type::Float
+                auto opEq = *numberConstant->getType() == NumericConstant::Type::Float
                                     ? BinaryConstraintOp::FEQ
                                     : BinaryConstraintOp::EQ;
 
                 // create new constraint (+abdulX = constant)
-                auto newVariable = std::make_unique<AstVariable>(newVariableName.str());
-                constraints.insert(new AstBinaryConstraint(
+                auto newVariable = mk<ast::Variable>(newVariableName.str());
+                constraints.insert(new BinaryConstraint(
                         opEq, souffle::clone(newVariable), souffle::clone(numberConstant)));
 
                 // update constant to be the variable created
                 return newVariable;
-            } else if (isA<AstUnnamedVariable>(node.get())) {
+            } else if (isA<UnnamedVariable>(node.get())) {
                 // underscore found
                 changeCount++;
 
@@ -113,7 +113,7 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
                 std::stringstream newVariableName;
                 newVariableName << "+underscore" << changeCount;
 
-                return std::make_unique<AstVariable>(newVariableName.str());
+                return mk<ast::Variable>(newVariableName.str());
             }
 
             node->apply(*this);
@@ -124,21 +124,21 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
     int changeCount = 0;  // number of constants and underscores seen so far
 
     // apply the change to all clauses in the program
-    for (AstRelation* rel : program.getRelations()) {
-        for (AstClause* clause : getClauses(program, *rel)) {
+    for (Relation* rel : program.getRelations()) {
+        for (Clause* clause : getClauses(program, *rel)) {
             if (isFact(*clause)) {
                 continue;  // don't normalise facts
             }
 
-            std::set<AstBinaryConstraint*> constraints;
+            std::set<BinaryConstraint*> constraints;
             constraintNormaliser update(constraints, changeCount);
             clause->apply(update);
 
             changeCount = update.getChangeCount();
             changed = changed || update.hasChanged();
 
-            for (AstBinaryConstraint* constraint : constraints) {
-                clause->addToBody(std::unique_ptr<AstBinaryConstraint>(constraint));
+            for (BinaryConstraint* constraint : constraints) {
+                clause->addToBody(Own<BinaryConstraint>(constraint));
             }
         }
     }
@@ -146,4 +146,4 @@ bool NormaliseConstraintsTransformer::transform(AstTranslationUnit& translationU
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

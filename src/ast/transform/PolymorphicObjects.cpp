@@ -15,6 +15,7 @@
 #include "ast/transform/PolymorphicObjects.h"
 #include "AggregateOp.h"
 #include "ast/Aggregator.h"
+#include "ast/Argument.h"
 #include "ast/BinaryConstraint.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Node.h"
@@ -26,7 +27,7 @@
 #include "ast/utility/NodeMapper.h"
 #include "ast/utility/Utils.h"
 #include "souffle/BinaryConstraintOps.h"
-#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/FunctionalUtil.h"
 #include <memory>
@@ -34,12 +35,12 @@
 #include <stdexcept>
 #include <vector>
 
-namespace souffle {
-class AstArgument;
-class ErrorReport;
+namespace souffle::ast::transform {
 
-bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUnit) {
-    struct TypeRewriter : public AstNodeMapper {
+using namespace analysis;
+
+bool PolymorphicObjectsTransformer::transform(TranslationUnit& translationUnit) {
+    struct TypeRewriter : public NodeMapper {
         mutable bool changed{false};
         const TypeAnalysis& typeAnalysis;
         ErrorReport& report;
@@ -47,15 +48,15 @@ bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUni
         TypeRewriter(const TypeAnalysis& typeAnalysis, ErrorReport& report)
                 : typeAnalysis(typeAnalysis), report(report) {}
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+        Own<Node> operator()(Own<Node> node) const override {
             // Utility lambdas to determine if all args are of the same type.
-            auto isFloat = [&](const AstArgument* argument) {
+            auto isFloat = [&](const Argument* argument) {
                 return isOfKind(typeAnalysis.getTypes(argument), TypeAttribute::Float);
             };
-            auto isUnsigned = [&](const AstArgument* argument) {
+            auto isUnsigned = [&](const Argument* argument) {
                 return isOfKind(typeAnalysis.getTypes(argument), TypeAttribute::Unsigned);
             };
-            auto isSymbol = [&](const AstArgument* argument) {
+            auto isSymbol = [&](const Argument* argument) {
                 return isOfKind(typeAnalysis.getTypes(argument), TypeAttribute::Symbol);
             };
 
@@ -66,29 +67,30 @@ bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUni
             // In this case types can't be assigned to it, and the procedure getTypes can fail
             try {
                 // Handle numeric constant
-                if (auto* numericConstant = dynamic_cast<AstNumericConstant*>(node.get())) {
+                if (auto* numericConstant = dynamic_cast<NumericConstant*>(node.get())) {
                     // Check if there is no value yet.
                     if (!numericConstant->getType().has_value()) {
                         TypeSet types = typeAnalysis.getTypes(numericConstant);
 
                         auto hasOfKind = [&](TypeAttribute kind) -> bool {
-                            return any_of(types, [&](const Type& type) { return isOfKind(type, kind); });
+                            return any_of(
+                                    types, [&](const analysis::Type& type) { return isOfKind(type, kind); });
                         };
                         if (hasOfKind(TypeAttribute::Signed)) {
-                            numericConstant->setType(AstNumericConstant::Type::Int);
+                            numericConstant->setType(NumericConstant::Type::Int);
                             changed = true;
                         } else if (hasOfKind(TypeAttribute::Unsigned)) {
-                            numericConstant->setType(AstNumericConstant::Type::Uint);
+                            numericConstant->setType(NumericConstant::Type::Uint);
                             changed = true;
                         } else if (hasOfKind(TypeAttribute::Float)) {
-                            numericConstant->setType(AstNumericConstant::Type::Float);
+                            numericConstant->setType(NumericConstant::Type::Float);
                             changed = true;
                         }
                     }
                 }
 
                 // Handle functor
-                auto* functor = as<AstIntrinsicFunctor>(node);
+                auto* functor = as<IntrinsicFunctor>(node);
                 if (functor && !functor->getFunctionInfo()) {
                     // any valid candidate will do. pick the first.
                     auto candidates = validOverloads(typeAnalysis, *functor);
@@ -99,7 +101,7 @@ bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUni
                 }
 
                 // Handle binary constraint
-                if (auto* binaryConstraint = dynamic_cast<AstBinaryConstraint*>(node.get())) {
+                if (auto* binaryConstraint = dynamic_cast<BinaryConstraint*>(node.get())) {
                     if (isOverloaded(binaryConstraint->getOperator())) {
                         // Get arguments
                         auto* leftArg = binaryConstraint->getLHS();
@@ -122,7 +124,7 @@ bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUni
                     }
                 }
 
-                if (auto* aggregator = dynamic_cast<AstAggregator*>(node.get())) {
+                if (auto* aggregator = dynamic_cast<Aggregator*>(node.get())) {
                     if (isOverloadedAggregator(aggregator->getOperator())) {
                         auto* targetExpression = aggregator->getTargetExpression();
                         auto oldOp = aggregator->getOperator();
@@ -145,10 +147,10 @@ bool PolymorphicObjectsTransformer::transform(AstTranslationUnit& translationUni
             return node;
         }
     };
-    const TypeAnalysis& typeAnalysis = *translationUnit.getAnalysis<TypeAnalysis>();
+    const TypeAnalysis& typeAnalysis = *translationUnit.getAnalysis<analysis::TypeAnalysis>();
     TypeRewriter update(typeAnalysis, translationUnit.getErrorReport());
     translationUnit.getProgram()->apply(update);
     return update.changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

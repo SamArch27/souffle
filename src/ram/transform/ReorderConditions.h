@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Complexity.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class ReorderConditionsTransformer
@@ -52,7 +51,7 @@ class RamProgram;
  *
  */
 
-class ReorderConditionsTransformer : public RamTransformer {
+class ReorderConditionsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ReorderConditionsTransformer";
@@ -64,15 +63,15 @@ public:
      * @return Flag showing whether the program has been changed
      *         by the transformation
      */
-    bool reorderConditions(RamProgram& program);
+    bool reorderConditions(Program& program);
 
 protected:
-    RamComplexityAnalysis* rca{nullptr};
+    analysis::ComplexityAnalysis* rca{nullptr};
 
-    bool transform(RamTranslationUnit& translationUnit) override {
-        rca = translationUnit.getAnalysis<RamComplexityAnalysis>();
+    bool transform(TranslationUnit& translationUnit) override {
+        rca = translationUnit.getAnalysis<analysis::ComplexityAnalysis>();
         return reorderConditions(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

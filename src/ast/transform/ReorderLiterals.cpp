@@ -35,7 +35,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
 sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen) {
     // --- Create the appropriate SIPS function ---
@@ -49,9 +49,9 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
 
     if (sipsChosen == "naive") {
         // Goal: choose the first atom with at least one bound argument, or with no arguments
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -81,9 +81,9 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
         };
     } else if (sipsChosen == "all-bound") {
         // Goal: prioritise atoms with all arguments bound
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -116,12 +116,12 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
     } else if (sipsChosen == "max-bound") {
         // Goal: choose the atom with the maximum number of bound variables
         //       - exception: propositions should be prioritised
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             int currMaxBound = -1;
             unsigned int currMaxIdx = 0U;
 
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -144,7 +144,7 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
         };
     } else if (sipsChosen == "max-ratio") {
         // Goal: choose the atom with the maximum ratio of bound to unbound
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             auto isLargerRatio = [&](std::pair<int, int> lhs, std::pair<int, int> rhs) {
                 return (lhs.first * rhs.second > lhs.second * rhs.first);
             };
@@ -153,7 +153,7 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
             unsigned int currMaxIdx = 0U;
 
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -178,12 +178,12 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
         };
     } else if (sipsChosen == "least-free") {
         // Goal: choose the atom with the least number of unbound arguments
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             int currLeastFree = -1;
             unsigned int currLeastIdx = 0U;
 
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -207,12 +207,12 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
         };
     } else if (sipsChosen == "least-free-vars") {
         // Goal: choose the atom with the least amount of unbound variables
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             int currLeastFree = -1;
             unsigned int currLeastIdx = 0U;
 
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -226,7 +226,7 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
 
                 // use a set to hold all free variables to avoid double-counting
                 std::set<std::string> freeVars;
-                visitDepthFirst(*currAtom, [&](const AstVariable& var) {
+                visitDepthFirst(*currAtom, [&](const ast::Variable& var) {
                     if (bindingStore.isBound(var.getName())) {
                         freeVars.insert(var.getName());
                     }
@@ -246,7 +246,7 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
     } else {
         // chosen SIPS is not implemented, so keep the same order
         // Goal: leftmost atom first
-        getNextAtomSips = [&](std::vector<AstAtom*> atoms, const BindingStore& /* bindingStore */) {
+        getNextAtomSips = [&](std::vector<Atom*> atoms, const BindingStore& /* bindingStore */) {
             for (unsigned int i = 0; i < atoms.size(); i++) {
                 if (atoms[i] == nullptr) {
                     // already processed - move on
@@ -265,21 +265,21 @@ sips_t ReorderLiteralsTransformer::getSipsFunction(const std::string& sipsChosen
 }
 
 std::vector<unsigned int> ReorderLiteralsTransformer::getOrderingAfterSIPS(
-        sips_t sipsFunction, const AstClause* clause) {
+        sips_t sipsFunction, const Clause* clause) {
     BindingStore bindingStore(clause);
-    auto atoms = getBodyLiterals<AstAtom>(*clause);
+    auto atoms = getBodyLiterals<Atom>(*clause);
     std::vector<unsigned int> newOrder(atoms.size());
 
     unsigned int numAdded = 0;
     while (numAdded < atoms.size()) {
         // grab the next atom, based on the SIPS function
         unsigned int nextIdx = sipsFunction(atoms, bindingStore);
-        AstAtom* nextAtom = atoms[nextIdx];
+        Atom* nextAtom = atoms[nextIdx];
 
         // set all arguments that are variables as bound
         // note: arguments that are functors, etc., do not newly bind anything
-        for (AstArgument* arg : nextAtom->getArguments()) {
-            if (auto* var = dynamic_cast<AstVariable*>(arg)) {
+        for (Argument* arg : nextAtom->getArguments()) {
+            if (auto* var = dynamic_cast<ast::Variable*>(arg)) {
                 bindingStore.bindVariableStrongly(var->getName());
             }
         }
@@ -292,7 +292,7 @@ std::vector<unsigned int> ReorderLiteralsTransformer::getOrderingAfterSIPS(
     return newOrder;
 }
 
-AstClause* ReorderLiteralsTransformer::reorderClauseWithSips(sips_t sipsFunction, const AstClause* clause) {
+Clause* ReorderLiteralsTransformer::reorderClauseWithSips(sips_t sipsFunction, const Clause* clause) {
     // ignore clauses with fixed execution plans
     if (clause->getExecutionPlan() != nullptr) {
         return nullptr;
@@ -313,9 +313,9 @@ AstClause* ReorderLiteralsTransformer::reorderClauseWithSips(sips_t sipsFunction
     return changeNeeded ? reorderAtoms(clause, newOrdering) : nullptr;
 }
 
-bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) {
+bool ReorderLiteralsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    AstProgram& program = *translationUnit.getProgram();
+    Program& program = *translationUnit.getProgram();
 
     // --- SIPS-based static reordering ---
     // ordering is based on the given SIPS
@@ -328,14 +328,14 @@ bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) 
     auto sipsFunction = getSipsFunction(sipsChosen);
 
     // literal reordering is a rule-local transformation
-    std::vector<AstClause*> clausesToRemove;
+    std::vector<Clause*> clausesToRemove;
 
-    for (AstClause* clause : program.getClauses()) {
-        AstClause* newClause = reorderClauseWithSips(sipsFunction, clause);
+    for (Clause* clause : program.getClauses()) {
+        Clause* newClause = reorderClauseWithSips(sipsFunction, clause);
         if (newClause != nullptr) {
             // reordering needed - swap around
             clausesToRemove.push_back(clause);
-            program.addClause(std::unique_ptr<AstClause>(newClause));
+            program.addClause(Own<Clause>(newClause));
         }
     }
 
@@ -347,9 +347,9 @@ bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) 
     // --- profile-guided reordering ---
     if (Global::config().has("profile-use")) {
         // parse supplied profile information
-        auto* profileUse = translationUnit.getAnalysis<AstProfileUseAnalysis>();
+        auto* profileUse = translationUnit.getAnalysis<analysis::ProfileUseAnalysis>();
 
-        auto profilerSips = [&](std::vector<AstAtom*> atoms, const BindingStore& bindingStore) {
+        auto profilerSips = [&](std::vector<Atom*> atoms, const BindingStore& bindingStore) {
             // Goal: reorder based on the given profiling information
             // Metric: cost(atom_R) = log(|atom_R|) * #free/#args
             //         - exception: propositions are prioritised
@@ -359,7 +359,7 @@ bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) 
             bool set = false;
 
             for (unsigned int i = 0; i < atoms.size(); i++) {
-                const AstAtom* currAtom = atoms[i];
+                const Atom* currAtom = atoms[i];
 
                 if (currAtom == nullptr) {
                     // already processed - move on
@@ -389,14 +389,14 @@ bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) 
         };
 
         // change the ordering of literals within clauses
-        std::vector<AstClause*> clausesToRemove;
+        std::vector<Clause*> clausesToRemove;
 
-        for (AstClause* clause : program.getClauses()) {
-            AstClause* newClause = reorderClauseWithSips(profilerSips, clause);
+        for (Clause* clause : program.getClauses()) {
+            Clause* newClause = reorderClauseWithSips(profilerSips, clause);
             if (newClause != nullptr) {
                 // reordering needed - swap around
                 clausesToRemove.push_back(clause);
-                program.addClause(std::unique_ptr<AstClause>(newClause));
+                program.addClause(Own<Clause>(newClause));
             }
         }
 
@@ -409,4 +409,4 @@ bool ReorderLiteralsTransformer::transform(AstTranslationUnit& translationUnit) 
     return changed;
 }
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

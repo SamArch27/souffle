@@ -14,18 +14,18 @@
 
 #pragma once
 
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <functional>
-#include <set>
 #include <string>
 #include <vector>
 
-namespace souffle {
-
-class AstAtom;
-class AstClause;
-class AstTranslationUnit;
+namespace souffle::ast {
 class BindingStore;
+}
+namespace souffle::ast::transform {
 
 /**
  * Type for SIPS functions
@@ -33,12 +33,12 @@ class BindingStore;
  * @param bindingStore a store of currently bound variables
  * @return the index of the best atom to choose based on some SIPS-specific cost metric
  */
-using sips_t = std::function<unsigned int(std::vector<AstAtom*>, const BindingStore&)>;
+using sips_t = std::function<unsigned int(std::vector<Atom*>, const BindingStore&)>;
 
 /**
  * Transformation pass to reorder body literals.
  */
-class ReorderLiteralsTransformer : public AstTransformer {
+class ReorderLiteralsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ReorderLiteralsTransformer";
@@ -57,10 +57,10 @@ public:
      * @param clause clause to reorder
      * @return nullptr if no change, otherwise a new reordered clause
      */
-    static AstClause* reorderClauseWithSips(sips_t sipsFunction, const AstClause* clause);
+    static Clause* reorderClauseWithSips(sips_t sipsFunction, const Clause* clause);
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /**
      * Determines the new ordering of a clause after the given SIPS is applied.
@@ -68,7 +68,7 @@ private:
      * @param clause clause to reorder
      * @return the vector of new positions; v[i] = j iff atom j moves to pos i
      */
-    static std::vector<unsigned int> getOrderingAfterSIPS(sips_t sipsFunction, const AstClause* clause);
+    static std::vector<unsigned int> getOrderingAfterSIPS(sips_t sipsFunction, const Clause* clause);
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -17,10 +17,20 @@
 #pragma once
 
 #include "RelationTag.h"
+#include "ast/Clause.h"
+#include "ast/Component.h"
+#include "ast/ComponentInit.h"
+#include "ast/Directive.h"
+#include "ast/FunctorDeclaration.h"
+#include "ast/Pragma.h"
 #include "ast/QualifiedName.h"
+#include "ast/Relation.h"
+#include "ast/SubsetType.h"
 #include "ast/TranslationUnit.h"
+#include "ast/Type.h"
 #include "parser/SrcLocation.h"
 #include "parser/parser.hh"
+#include "reports/DebugReport.h"
 #include <cstdio>
 #include <memory>
 #include <set>
@@ -28,18 +38,6 @@
 #include <vector>
 
 namespace souffle {
-
-class AstClause;
-class AstComponent;
-class AstComponentInit;
-class AstFunctorDeclaration;
-class AstPragma;
-class AstRelation;
-class AstDirective;
-class AstSubsetType;
-class AstType;
-class DebugReport;
-class ErrorReport;
 
 using yyscan_t = void*;
 
@@ -54,19 +52,20 @@ class ParserDriver {
 public:
     virtual ~ParserDriver() = default;
 
-    std::unique_ptr<AstTranslationUnit> translationUnit;
+    Own<ast::TranslationUnit> translationUnit;
 
-    void addRelation(std::unique_ptr<AstRelation> r);
-    void addFunctorDeclaration(std::unique_ptr<AstFunctorDeclaration> f);
-    void addDirective(std::unique_ptr<AstDirective> d);
-    void addType(std::unique_ptr<AstType> type);
-    void addClause(std::unique_ptr<AstClause> c);
-    void addComponent(std::unique_ptr<AstComponent> c);
-    void addInstantiation(std::unique_ptr<AstComponentInit> ci);
-    void addPragma(std::unique_ptr<AstPragma> p);
+    void addRelation(Own<ast::Relation> r);
+    void addFunctorDeclaration(Own<ast::FunctorDeclaration> f);
+    void addDirective(Own<ast::Directive> d);
+    void addType(Own<ast::Type> type);
+    void addClause(Own<ast::Clause> c);
+    void addComponent(Own<ast::Component> c);
+    void addInstantiation(Own<ast::ComponentInit> ci);
+    void addPragma(Own<ast::Pragma> p);
 
-    void addIoFromDeprecatedTag(AstRelation& r);
-    Own<AstSubsetType> mkDeprecatedSubType(AstQualifiedName name, AstQualifiedName attr, SrcLocation loc);
+    void addIoFromDeprecatedTag(ast::Relation& r);
+    Own<ast::SubsetType> mkDeprecatedSubType(
+            ast::QualifiedName name, ast::QualifiedName attr, SrcLocation loc);
 
     std::set<RelationTag> addReprTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags);
     std::set<RelationTag> addDeprecatedTag(RelationTag tag, SrcLocation tagLoc, std::set<RelationTag> tags);
@@ -76,13 +75,13 @@ public:
 
     bool trace_scanning = false;
 
-    std::unique_ptr<AstTranslationUnit> parse(
+    Own<ast::TranslationUnit> parse(
             const std::string& filename, FILE* in, ErrorReport& errorReport, DebugReport& debugReport);
-    std::unique_ptr<AstTranslationUnit> parse(
+    Own<ast::TranslationUnit> parse(
             const std::string& code, ErrorReport& errorReport, DebugReport& debugReport);
-    static std::unique_ptr<AstTranslationUnit> parseTranslationUnit(
+    static Own<ast::TranslationUnit> parseTranslationUnit(
             const std::string& filename, FILE* in, ErrorReport& errorReport, DebugReport& debugReport);
-    static std::unique_ptr<AstTranslationUnit> parseTranslationUnit(
+    static Own<ast::TranslationUnit> parseTranslationUnit(
             const std::string& code, ErrorReport& errorReport, DebugReport& debugReport);
 
     void warning(const SrcLocation& loc, const std::string& msg);

@@ -27,10 +27,10 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamBreak
+ * @class Break
  * @brief Breaks out of the loop if a condition holds
  *
  * The following example will break out of the inner-most
@@ -42,22 +42,21 @@ namespace souffle {
  *     ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamBreak : public RamAbstractConditional {
+class Break : public AbstractConditional {
 public:
-    RamBreak(std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested,
-            std::string profileText = "")
-            : RamAbstractConditional(std::move(cond), std::move(nested), std::move(profileText)) {}
+    Break(Own<Condition> cond, Own<Operation> nested, std::string profileText = "")
+            : AbstractConditional(std::move(cond), std::move(nested), std::move(profileText)) {}
 
-    RamBreak* clone() const override {
-        return new RamBreak(souffle::clone(condition), souffle::clone(&getOperation()), getProfileText());
+    Break* clone() const override {
+        return new Break(souffle::clone(condition), souffle::clone(&getOperation()), getProfileText());
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "IF " << getCondition() << " BREAK" << std::endl;
-        RamNestedOperation::print(os, tabpos + 1);
+        NestedOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

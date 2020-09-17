@@ -33,10 +33,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamChoice
+ * @class Choice
  * @brief Find a tuple in a relation such that a given condition holds.
  *
  * Only one tuple is returned (if one exists), even
@@ -50,25 +50,25 @@ namespace souffle {
  *      ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamChoice : public RamRelationOperation, public RamAbstractChoice {
+class Choice : public RelationOperation, public AbstractChoice {
 public:
-    RamChoice(std::unique_ptr<RamRelationReference> rel, size_t ident, std::unique_ptr<RamCondition> cond,
-            std::unique_ptr<RamOperation> nested, std::string profileText = "")
-            : RamRelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)),
-              RamAbstractChoice(std::move(cond)) {}
+    Choice(Own<RelationReference> rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
+            std::string profileText = "")
+            : RelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)),
+              AbstractChoice(std::move(cond)) {}
 
-    void apply(const RamNodeMapper& map) override {
-        RamRelationOperation::apply(map);
-        RamAbstractChoice::apply(map);
+    void apply(const NodeMapper& map) override {
+        RelationOperation::apply(map);
+        AbstractChoice::apply(map);
     }
 
-    RamChoice* clone() const override {
-        return new RamChoice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
+    Choice* clone() const override {
+        return new Choice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        return {nestedOperation.get(), relationRef.get(), RamAbstractChoice::getChildNodes().at(0)};
+    std::vector<const Node*> getChildNodes() const override {
+        return {nestedOperation.get(), relationRef.get(), AbstractChoice::getChildNodes().at(0)};
     }
 
 protected:
@@ -78,13 +78,13 @@ protected:
         os << " IN " << getRelation().getName();
         os << " WHERE " << getCondition();
         os << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        RelationOperation::print(os, tabpos + 1);
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamChoice&>(node);
-        return RamRelationOperation::equal(other) && RamAbstractChoice::equal(other);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Choice&>(node);
+        return RelationOperation::equal(other) && AbstractChoice::equal(other);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

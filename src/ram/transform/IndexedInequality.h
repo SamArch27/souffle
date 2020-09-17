@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Index.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class IndexedInequalityTransformer
@@ -35,7 +34,7 @@ class RamProgram;
  * we may find that the Indexed Operation is empty (no constraints).
  * This occurs in the case where an Indexed Operation is composed entirely of inequality constraints.
  * In this situation, the Indexed Operation is empty and replaced with a semantically equivalent Operation.
- * i.e. RamIndexScan -> RamScan
+ * i.e. IndexScan -> Scan
  *
  * For example,
  *
@@ -62,14 +61,14 @@ class RamProgram;
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *  QUERY
  *   ...
- *       FOR t1 in X // RamScan instead of RamIndexScan
+ *       FOR t1 in X // Scan instead of IndexScan
  *            IF t1.x < 10 AND t1.y > 20
  *                // replaced with a semantically equivalent filter
  *      ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  */
-class IndexedInequalityTransformer : public RamTransformer {
+class IndexedInequalityTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "IndexedInequalityTransformer";
@@ -78,15 +77,15 @@ public:
     /** Converts a box query into a corresponding partial box query operation.
      *  This will turn every box query into a filter operation.
      */
-    bool transformIndexToFilter(RamProgram& program);
+    bool transformIndexToFilter(Program& program);
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
-        idxAnalysis = translationUnit.getAnalysis<RamIndexAnalysis>();
+    bool transform(TranslationUnit& translationUnit) override {
+        idxAnalysis = translationUnit.getAnalysis<analysis::IndexAnalysis>();
         return transformIndexToFilter(translationUnit.getProgram());
     }
 
-    RamIndexAnalysis* idxAnalysis;
+    analysis::IndexAnalysis* idxAnalysis;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

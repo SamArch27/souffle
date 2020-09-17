@@ -87,12 +87,12 @@ void RuleBody::disjunct(RuleBody other) {
     }
 }
 
-VecOwn<AstClause> RuleBody::toClauseBodies() const {
+VecOwn<ast::Clause> RuleBody::toClauseBodies() const {
     // collect clause results
-    VecOwn<AstClause> bodies;
+    VecOwn<ast::Clause> bodies;
     for (const clause& cur : dnf) {
-        bodies.push_back(mk<AstClause>());
-        AstClause& clause = *bodies.back();
+        bodies.push_back(mk<ast::Clause>());
+        ast::Clause& clause = *bodies.back();
 
         for (const literal& lit : cur) {
             // extract literal
@@ -100,11 +100,11 @@ VecOwn<AstClause> RuleBody::toClauseBodies() const {
             // negate if necessary
             if (lit.negated) {
                 // negate
-                if (auto* atom = dynamic_cast<AstAtom*>(&*base)) {
+                if (auto* atom = dynamic_cast<ast::Atom*>(&*base)) {
                     base.release();
-                    base = mk<AstNegation>(std::unique_ptr<AstAtom>(atom));
+                    base = mk<ast::Negation>(Own<ast::Atom>(atom));
                     base->setSrcLoc(atom->getSrcLoc());
-                } else if (auto* cstr = dynamic_cast<AstConstraint*>(&*base)) {
+                } else if (auto* cstr = dynamic_cast<ast::Constraint*>(&*base)) {
                     negateConstraintInPlace(*cstr);
                 }
             }
@@ -130,14 +130,14 @@ RuleBody RuleBody::getFalse() {
     return RuleBody();
 }
 
-RuleBody RuleBody::atom(Own<AstAtom> atom) {
+RuleBody RuleBody::atom(Own<ast::Atom> atom) {
     RuleBody body;
     body.dnf.push_back(clause());
     body.dnf.back().emplace_back(literal{false, std::move(atom)});
     return body;
 }
 
-RuleBody RuleBody::constraint(Own<AstConstraint> constraint) {
+RuleBody RuleBody::constraint(Own<ast::Constraint> constraint) {
     RuleBody body;
     body.dnf.push_back(clause());
     body.dnf.back().emplace_back(literal{false, std::move(constraint)});

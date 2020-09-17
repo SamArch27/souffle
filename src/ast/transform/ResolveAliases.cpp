@@ -25,6 +25,7 @@
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/RecordInit.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Variable.h"
 #include "ast/utility/NodeMapper.h"
@@ -47,20 +48,19 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-class AstRelation;
+namespace souffle::ast::transform {
 
 namespace {
 
 /**
  * A utility class for the unification process required to eliminate aliases.
  * A substitution maps variables to terms and can be applied as a transformation
- * to AstArguments.
+ * to Arguments.
  */
 class Substitution {
     // map type used for internally storing var->term mappings
     //      - note: variables are identified by their names
-    using map_t = std::map<std::string, std::unique_ptr<AstArgument>>;
+    using map_t = std::map<std::string, Own<Argument>>;
 
     // the mapping of variables to terms
     map_t varToTerm;
@@ -70,7 +70,7 @@ public:
 
     Substitution() = default;
 
-    Substitution(const std::string& var, const AstArgument* arg) {
+    Substitution(const std::string& var, const Argument* arg) {
         varToTerm.insert(std::make_pair(var, souffle::clone(arg)));
     }
 
@@ -83,18 +83,18 @@ public:
      * @param node the node to be transformed
      * @return a pointer to the modified or replaced node
      */
-    std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const {
+    Own<Node> operator()(Own<Node> node) const {
         // create a substitution mapper
-        struct M : public AstNodeMapper {
+        struct M : public NodeMapper {
             const map_t& map;
 
             M(const map_t& map) : map(map) {}
 
-            using AstNodeMapper::operator();
+            using NodeMapper::operator();
 
-            std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+            Own<Node> operator()(Own<Node> node) const override {
                 // see whether it is a variable to be substituted
-                if (auto var = dynamic_cast<AstVariable*>(node.get())) {
+                if (auto var = dynamic_cast<ast::Variable*>(node.get())) {
                     auto pos = map.find(var->getName());
                     if (pos != map.end()) {
                         return souffle::clone(pos->second);
@@ -115,10 +115,10 @@ public:
      * A generic, type consistent wrapper of the transformation operation above.
      */
     template <typename T>
-    std::unique_ptr<T> operator()(std::unique_ptr<T> node) const {
-        std::unique_ptr<AstNode> resPtr = (*this)(std::unique_ptr<AstNode>(node.release()));
+    Own<T> operator()(Own<T> node) const {
+        Own<Node> resPtr = (*this)(Own<Node>(node.release()));
         assert(isA<T>(resPtr.get()) && "Invalid node type mapping.");
-        return std::unique_ptr<T>(dynamic_cast<T*>(resPtr.release()));
+        return Own<T>(dynamic_cast<T*>(resPtr.release()));
     }
 
     /**
@@ -147,8 +147,7 @@ public:
     void print(std::ostream& out) const {
         out << "{"
             << join(varToTerm, ",",
-                       [](std::ostream& out,
-                               const std::pair<const std::string, std::unique_ptr<AstArgument>>& cur) {
+                       [](std::ostream& out, const std::pair<const std::string, Own<Argument>>& cur) {
                            out << cur.first << " -> " << *cur.second;
                        })
             << "}";
@@ -161,20 +160,19 @@ public:
 };
 
 /**
- * An equality constraint between two AstArguments utilised by the unification
+ * An equality constraint between two Arguments utilised by the unification
  * algorithm required by the alias resolution.
  */
 class Equation {
 public:
     // the two terms to be equivalent
-    std::unique_ptr<AstArgument> lhs;
-    std::unique_ptr<AstArgument> rhs;
+    Own<Argument> lhs;
+    Own<Argument> rhs;
 
-    Equation(const AstArgument& lhs, const AstArgument& rhs)
+    Equation(const Argument& lhs, const Argument& rhs)
             : lhs(souffle::clone(&lhs)), rhs(souffle::clone(&rhs)) {}
 
-    Equation(const AstArgument* lhs, const AstArgument* rhs)
-            : lhs(souffle::clone(lhs)), rhs(souffle::clone(rhs)) {}
+    Equation(const Argument* lhs, const Argument* rhs) : lhs(souffle::clone(lhs)), rhs(souffle::clone(rhs)) {}
 
     Equation(const Equation& other) : lhs(souffle::clone(other.lhs)), rhs(souffle::clone(other.rhs)) {}
 
@@ -205,34 +203,34 @@ public:
 
 }  // namespace
 
-std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstClause& clause) {
+Own<Clause> ResolveAliasesTransformer::resolveAliases(const Clause& clause) {
     // -- utilities --
 
     // tests whether something is a variable
-    auto isVar = [&](const AstArgument& arg) { return isA<AstVariable>(&arg); };
+    auto isVar = [&](const Argument& arg) { return isA<ast::Variable>(&arg); };
 
     // tests whether something is a record
-    auto isRec = [&](const AstArgument& arg) { return isA<AstRecordInit>(&arg); };
+    auto isRec = [&](const Argument& arg) { return isA<RecordInit>(&arg); };
 
     // tests whether a value `a` occurs in a term `b`
-    auto occurs = [](const AstArgument& a, const AstArgument& b) {
+    auto occurs = [](const Argument& a, const Argument& b) {
         bool res = false;
-        visitDepthFirst(b, [&](const AstArgument& arg) { res = (res || (arg == a)); });
+        visitDepthFirst(b, [&](const Argument& arg) { res = (res || (arg == a)); });
         return res;
     };
 
     // variables appearing as functorless arguments in atoms or records should not
     // be resolved
     std::set<std::string> baseGroundedVariables;
-    for (const auto* atom : getBodyLiterals<AstAtom>(clause)) {
-        for (const AstArgument* arg : atom->getArguments()) {
-            if (const auto* var = dynamic_cast<const AstVariable*>(arg)) {
+    for (const auto* atom : getBodyLiterals<Atom>(clause)) {
+        for (const Argument* arg : atom->getArguments()) {
+            if (const auto* var = dynamic_cast<const ast::Variable*>(arg)) {
                 baseGroundedVariables.insert(var->getName());
             }
         }
-        visitDepthFirst(*atom, [&](const AstRecordInit& rec) {
-            for (const AstArgument* arg : rec.getArguments()) {
-                if (const auto* var = dynamic_cast<const AstVariable*>(arg)) {
+        visitDepthFirst(*atom, [&](const RecordInit& rec) {
+            for (const Argument* arg : rec.getArguments()) {
+                if (const auto* var = dynamic_cast<const ast::Variable*>(arg)) {
                     baseGroundedVariables.insert(var->getName());
                 }
             }
@@ -241,7 +239,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
 
     // I) extract equations
     std::vector<Equation> equations;
-    visitDepthFirst(clause, [&](const AstBinaryConstraint& constraint) {
+    visitDepthFirst(clause, [&](const BinaryConstraint& constraint) {
         if (isEqConstraint(constraint.getOperator())) {
             equations.push_back(Equation(constraint.getLHS(), constraint.getRHS()));
         }
@@ -251,7 +249,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
     Substitution substitution;
 
     // a utility for processing newly identified mappings
-    auto newMapping = [&](const std::string& var, const AstArgument* term) {
+    auto newMapping = [&](const std::string& var, const Argument* term) {
         // found a new substitution
         Substitution newMapping(var, term);
 
@@ -270,8 +268,8 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
         equations.pop_back();
 
         // shortcuts for left/right
-        const AstArgument& lhs = *equation.lhs;
-        const AstArgument& rhs = *equation.rhs;
+        const Argument& lhs = *equation.lhs;
+        const Argument& rhs = *equation.rhs;
 
         // #1:  t = t   => skip
         if (lhs == rhs) {
@@ -281,8 +279,8 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
         // #2:  [..] = [..]  => decompose
         if (isRec(lhs) && isRec(rhs)) {
             // get arguments
-            const auto& lhs_args = static_cast<const AstRecordInit&>(lhs).getArguments();
-            const auto& rhs_args = static_cast<const AstRecordInit&>(rhs).getArguments();
+            const auto& lhs_args = static_cast<const RecordInit&>(lhs).getArguments();
+            const auto& rhs_args = static_cast<const RecordInit&>(rhs).getArguments();
 
             // make sure sizes are identical
             assert(lhs_args.size() == rhs_args.size() && "Record lengths not equal");
@@ -302,7 +300,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
 
         // #4:  v = w    => add mapping
         if (isVar(lhs) && isVar(rhs)) {
-            auto& var = static_cast<const AstVariable&>(lhs);
+            auto& var = static_cast<const ast::Variable&>(lhs);
             newMapping(var.getName(), &rhs);
             continue;
         }
@@ -317,8 +315,8 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
         assert(isVar(lhs));
 
         // therefore, we have v = t
-        const auto& v = static_cast<const AstVariable&>(lhs);
-        const AstArgument& t = rhs;
+        const auto& v = static_cast<const ast::Variable&>(lhs);
+        const Argument& t = rhs;
 
         // #6:  v occurs in t   => skip
         if (occurs(v, t)) {
@@ -347,12 +345,12 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::resolveAliases(const AstCl
     return substitution(souffle::clone(&clause));
 }
 
-std::unique_ptr<AstClause> ResolveAliasesTransformer::removeTrivialEquality(const AstClause& clause) {
-    std::unique_ptr<AstClause> res(cloneHead(&clause));
+Own<Clause> ResolveAliasesTransformer::removeTrivialEquality(const Clause& clause) {
+    Own<Clause> res(cloneHead(&clause));
 
     // add all literals, except filtering out t = t constraints
-    for (AstLiteral* literal : clause.getBodyLiterals()) {
-        if (auto* constraint = dynamic_cast<AstBinaryConstraint*>(literal)) {
+    for (Literal* literal : clause.getBodyLiterals()) {
+        if (auto* constraint = dynamic_cast<BinaryConstraint*>(literal)) {
             // TODO: don't filter out `FEQ` constraints, since `x = x` can fail when `x` is a NaN
             if (isEqConstraint(constraint->getOperator())) {
                 if (*constraint->getLHS() == *constraint->getRHS()) {
@@ -368,63 +366,62 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::removeTrivialEquality(cons
     return res;
 }
 
-std::unique_ptr<AstClause> ResolveAliasesTransformer::removeComplexTermsInAtoms(const AstClause& clause) {
-    std::unique_ptr<AstClause> res(clause.clone());
+Own<Clause> ResolveAliasesTransformer::removeComplexTermsInAtoms(const Clause& clause) {
+    Own<Clause> res(clause.clone());
 
     // get list of atoms
-    std::vector<AstAtom*> atoms = getBodyLiterals<AstAtom>(*res);
+    std::vector<Atom*> atoms = getBodyLiterals<Atom>(*res);
 
     // find all functors in atoms
-    std::vector<const AstArgument*> terms;
-    for (const AstAtom* atom : atoms) {
-        for (const AstArgument* arg : atom->getArguments()) {
+    std::vector<const Argument*> terms;
+    for (const Atom* atom : atoms) {
+        for (const Argument* arg : atom->getArguments()) {
             // ignore if not a functor
-            if (!isA<AstFunctor>(arg)) {
+            if (!isA<Functor>(arg)) {
                 continue;
             }
 
             // add this functor if not seen yet
-            if (!any_of(terms, [&](const AstArgument* cur) { return *cur == *arg; })) {
+            if (!any_of(terms, [&](const Argument* cur) { return *cur == *arg; })) {
                 terms.push_back(arg);
             }
         }
     }
 
     // find all functors in records too
-    visitDepthFirst(atoms, [&](const AstRecordInit& rec) {
-        for (const AstArgument* arg : rec.getArguments()) {
+    visitDepthFirst(atoms, [&](const RecordInit& rec) {
+        for (const Argument* arg : rec.getArguments()) {
             // ignore if not a functor
-            if (!isA<AstFunctor>(arg)) {
+            if (!isA<Functor>(arg)) {
                 continue;
             }
 
             // add this functor if not seen yet
-            if (!any_of(terms, [&](const AstArgument* cur) { return *cur == *arg; })) {
+            if (!any_of(terms, [&](const Argument* cur) { return *cur == *arg; })) {
                 terms.push_back(arg);
             }
         }
     });
 
     // substitute them with new variables (a real map would compare pointers)
-    using substitution_map =
-            std::vector<std::pair<std::unique_ptr<AstArgument>, std::unique_ptr<AstVariable>>>;
+    using substitution_map = std::vector<std::pair<Own<Argument>, Own<ast::Variable>>>;
     substitution_map termToVar;
 
     static int varCounter = 0;
-    for (const AstArgument* arg : terms) {
+    for (const Argument* arg : terms) {
         // create a new mapping for this term
         auto term = souffle::clone(arg);
-        auto newVariable = std::make_unique<AstVariable>(" _tmp_" + toString(varCounter++));
+        auto newVariable = mk<ast::Variable>(" _tmp_" + toString(varCounter++));
         termToVar.push_back(std::make_pair(std::move(term), std::move(newVariable)));
     }
 
     // apply mapping to replace the terms with the variables
-    struct Update : public AstNodeMapper {
+    struct Update : public NodeMapper {
         const substitution_map& map;
 
         Update(const substitution_map& map) : map(map) {}
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+        Own<Node> operator()(Own<Node> node) const override {
             // check whether node needs to be replaced
             for (const auto& pair : map) {
                 auto& term = pair.first;
@@ -443,7 +440,7 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::removeComplexTermsInAtoms(
 
     // update atoms
     Update update(termToVar);
-    for (AstAtom* atom : atoms) {
+    for (Atom* atom : atoms) {
         atom->apply(update);
     }
 
@@ -452,37 +449,37 @@ std::unique_ptr<AstClause> ResolveAliasesTransformer::removeComplexTermsInAtoms(
         auto& term = pair.first;
         auto& variable = pair.second;
 
-        res->addToBody(std::make_unique<AstBinaryConstraint>(
-                BinaryConstraintOp::EQ, souffle::clone(variable), souffle::clone(term)));
+        res->addToBody(
+                mk<BinaryConstraint>(BinaryConstraintOp::EQ, souffle::clone(variable), souffle::clone(term)));
     }
 
     return res;
 }
 
-bool ResolveAliasesTransformer::transform(AstTranslationUnit& translationUnit) {
+bool ResolveAliasesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    AstProgram& program = *translationUnit.getProgram();
+    Program& program = *translationUnit.getProgram();
 
     // get all clauses
-    std::vector<const AstClause*> clauses;
-    visitDepthFirst(program, [&](const AstRelation& rel) {
+    std::vector<const Clause*> clauses;
+    visitDepthFirst(program, [&](const Relation& rel) {
         for (const auto& clause : getClauses(program, rel)) {
             clauses.push_back(clause);
         }
     });
 
     // clean all clauses
-    for (const AstClause* clause : clauses) {
+    for (const Clause* clause : clauses) {
         // -- Step 1 --
         // get rid of aliases
-        std::unique_ptr<AstClause> noAlias = resolveAliases(*clause);
+        Own<Clause> noAlias = resolveAliases(*clause);
 
         // clean up equalities
-        std::unique_ptr<AstClause> cleaned = removeTrivialEquality(*noAlias);
+        Own<Clause> cleaned = removeTrivialEquality(*noAlias);
 
         // -- Step 2 --
         // restore simple terms in atoms
-        std::unique_ptr<AstClause> normalised = removeComplexTermsInAtoms(*cleaned);
+        Own<Clause> normalised = removeComplexTermsInAtoms(*cleaned);
 
         // swap if changed
         if (*normalised != *clause) {
@@ -495,4 +492,4 @@ bool ResolveAliasesTransformer::transform(AstTranslationUnit& translationUnit) {
     return changed;
 }
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

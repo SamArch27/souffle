@@ -15,6 +15,7 @@
  ***********************************************************************/
 
 #include "ast/transform/GroundedTermsChecker.h"
+#include "ast/BranchInit.h"
 #include "ast/Clause.h"
 #include "ast/Program.h"
 #include "ast/RecordInit.h"
@@ -29,17 +30,17 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-void GroundedTermsChecker::verify(AstTranslationUnit& translationUnit) {
+void GroundedTermsChecker::verify(TranslationUnit& translationUnit) {
     auto&& program = *translationUnit.getProgram();
     auto&& report = translationUnit.getErrorReport();
 
     // -- check grounded variables and records --
-    visitDepthFirst(program.getClauses(), [&](const AstClause& clause) {
+    visitDepthFirst(program.getClauses(), [&](const Clause& clause) {
         if (isFact(clause)) return;  // only interested in rules
 
-        auto isGrounded = getGroundedTerms(translationUnit, clause);
+        auto isGrounded = analysis::getGroundedTerms(translationUnit, clause);
 
         std::set<std::string> reportedVars;
         // all terms in head need to be grounded
@@ -50,14 +51,14 @@ void GroundedTermsChecker::verify(AstTranslationUnit& translationUnit) {
         }
 
         // all records need to be grounded
-        visitDepthFirst(clause, [&](const AstRecordInit& record) {
+        visitDepthFirst(clause, [&](const RecordInit& record) {
             if (!isGrounded[&record]) {
                 report.addError("Ungrounded record", record.getSrcLoc());
             }
         });
 
         // All sums need to be grounded
-        visitDepthFirst(clause, [&](const AstBranchInit& adt) {
+        visitDepthFirst(clause, [&](const BranchInit& adt) {
             if (!isGrounded[&adt]) {
                 report.addError("Ungrounded ADT branch", adt.getSrcLoc());
             }
@@ -65,4 +66,4 @@ void GroundedTermsChecker::verify(AstTranslationUnit& translationUnit) {
     });
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

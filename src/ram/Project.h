@@ -30,10 +30,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamProject
+ * @class Project
  * @brief Project a result into the target relation.
  *
  * For example:
@@ -43,10 +43,9 @@ namespace souffle {
  *     PROJECT (t0.a, t0.b, t0.c) INTO @new_X
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamProject : public RamOperation {
+class Project : public Operation {
 public:
-    RamProject(std::unique_ptr<RamRelationReference> relRef,
-            std::vector<std::unique_ptr<RamExpression>> expressions)
+    Project(Own<RelationReference> relRef, VecOwn<Expression> expressions)
             : relationRef(std::move(relRef)), expressions(std::move(expressions)) {
         assert(relationRef != nullptr && "Relation reference is a null-pointer");
         for (auto const& expr : expressions) {
@@ -55,17 +54,17 @@ public:
     }
 
     /** @brief Get relation */
-    const RamRelation& getRelation() const {
+    const Relation& getRelation() const {
         return *relationRef->get();
     }
 
     /** @brief Get expressions */
-    std::vector<RamExpression*> getValues() const {
+    std::vector<Expression*> getValues() const {
         return toPtrVector(expressions);
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        std::vector<const RamNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
         res.push_back(relationRef.get());
         for (const auto& expr : expressions) {
             res.push_back(expr.get());
@@ -73,15 +72,15 @@ public:
         return res;
     }
 
-    RamProject* clone() const override {
-        std::vector<std::unique_ptr<RamExpression>> newValues;
+    Project* clone() const override {
+        VecOwn<Expression> newValues;
         for (auto& expr : expressions) {
             newValues.emplace_back(expr->clone());
         }
-        return new RamProject(souffle::clone(relationRef), std::move(newValues));
+        return new Project(souffle::clone(relationRef), std::move(newValues));
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         relationRef = map(std::move(relationRef));
         for (auto& expr : expressions) {
             expr = map(std::move(expr));
@@ -91,20 +90,20 @@ public:
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
-        os << "PROJECT (" << join(expressions, ", ", print_deref<std::unique_ptr<RamExpression>>())
-           << ") INTO " << getRelation().getName() << std::endl;
+        os << "PROJECT (" << join(expressions, ", ", print_deref<Own<Expression>>()) << ") INTO "
+           << getRelation().getName() << std::endl;
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamProject&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Project&>(node);
         return equal_ptr(relationRef, other.relationRef) && equal_targets(expressions, other.expressions);
     }
 
     /** Relation that values are projected into */
-    std::unique_ptr<RamRelationReference> relationRef;
+    Own<RelationReference> relationRef;
 
     /* Values (expressions) for projection */
-    std::vector<std::unique_ptr<RamExpression>> expressions;
+    VecOwn<Expression> expressions;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

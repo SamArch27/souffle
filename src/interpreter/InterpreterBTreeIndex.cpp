@@ -44,29 +44,29 @@ public:
     using GenericIndex<btree_set<t_tuple<Arity>, comparator<Arity>>>::GenericIndex;
 };
 
-std::unique_ptr<InterpreterIndex> createBTreeIndex(const Order& order) {
+Own<InterpreterIndex> createBTreeIndex(const Order& order) {
     switch (order.size()) {
-        case 0: return std::make_unique<NullaryIndex>();
-        case 1: return std::make_unique<BTreeIndex<1>>(order);
-        case 2: return std::make_unique<BTreeIndex<2>>(order);
-        case 3: return std::make_unique<BTreeIndex<3>>(order);
-        case 4: return std::make_unique<BTreeIndex<4>>(order);
-        case 5: return std::make_unique<BTreeIndex<5>>(order);
-        case 6: return std::make_unique<BTreeIndex<6>>(order);
-        case 7: return std::make_unique<BTreeIndex<7>>(order);
-        case 8: return std::make_unique<BTreeIndex<8>>(order);
-        case 9: return std::make_unique<BTreeIndex<9>>(order);
-        case 10: return std::make_unique<BTreeIndex<10>>(order);
-        case 11: return std::make_unique<BTreeIndex<11>>(order);
-        case 12: return std::make_unique<BTreeIndex<12>>(order);
-        case 13: return std::make_unique<BTreeIndex<13>>(order);
-        case 14: return std::make_unique<BTreeIndex<14>>(order);
-        case 15: return std::make_unique<BTreeIndex<15>>(order);
-        case 16: return std::make_unique<BTreeIndex<16>>(order);
-        case 17: return std::make_unique<BTreeIndex<17>>(order);
-        case 18: return std::make_unique<BTreeIndex<18>>(order);
-        case 19: return std::make_unique<BTreeIndex<19>>(order);
-        case 20: return std::make_unique<BTreeIndex<20>>(order);
+        case 0: return mk<NullaryIndex>();
+        case 1: return mk<BTreeIndex<1>>(order);
+        case 2: return mk<BTreeIndex<2>>(order);
+        case 3: return mk<BTreeIndex<3>>(order);
+        case 4: return mk<BTreeIndex<4>>(order);
+        case 5: return mk<BTreeIndex<5>>(order);
+        case 6: return mk<BTreeIndex<6>>(order);
+        case 7: return mk<BTreeIndex<7>>(order);
+        case 8: return mk<BTreeIndex<8>>(order);
+        case 9: return mk<BTreeIndex<9>>(order);
+        case 10: return mk<BTreeIndex<10>>(order);
+        case 11: return mk<BTreeIndex<11>>(order);
+        case 12: return mk<BTreeIndex<12>>(order);
+        case 13: return mk<BTreeIndex<13>>(order);
+        case 14: return mk<BTreeIndex<14>>(order);
+        case 15: return mk<BTreeIndex<15>>(order);
+        case 16: return mk<BTreeIndex<16>>(order);
+        case 17: return mk<BTreeIndex<17>>(order);
+        case 18: return mk<BTreeIndex<18>>(order);
+        case 19: return mk<BTreeIndex<19>>(order);
+        case 20: return mk<BTreeIndex<20>>(order);
     }
 
     fatal("Requested arity not yet supported. Feel free to add it.");

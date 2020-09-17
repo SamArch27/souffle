@@ -16,17 +16,21 @@
 
 #include "ast/analysis/SumTypeBranches.h"
 #include "ast/AlgebraicDataType.h"
+#include "ast/BranchDeclaration.h"
+#include "ast/Program.h"
 #include "ast/TranslationUnit.h"
+#include "ast/Type.h"
 #include "ast/analysis/TypeEnvironment.h"
 #include "ast/analysis/TypeSystem.h"
 #include "ast/utility/Visitor.h"
+#include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-void SumTypeBranchesAnalysis::run(const AstTranslationUnit& tu) {
+void SumTypeBranchesAnalysis::run(const TranslationUnit& tu) {
     const TypeEnvironment& env = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
-    visitDepthFirst(tu.getProgram()->getTypes(), [&](const AstAlgebraicDataType& adt) {
+    visitDepthFirst(tu.getProgram()->getTypes(), [&](const ast::AlgebraicDataType& adt) {
         auto typeName = adt.getQualifiedName();
         if (!env.isType(typeName)) return;
 
@@ -36,4 +40,4 @@ void SumTypeBranchesAnalysis::run(const AstTranslationUnit& tu) {
     });
 }
 
-}  // namespace souffle
+}  // namespace souffle::ast::analysis

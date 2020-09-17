@@ -21,9 +21,9 @@
 #include "reports/DebugReport.h"
 #include <chrono>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool DebugReporter::transform(AstTranslationUnit& translationUnit) {
+bool DebugReporter::transform(TranslationUnit& translationUnit) {
     translationUnit.getDebugReport().startSection();
     auto datalogSpecOriginal = pprint(*translationUnit.getProgram());
     auto start = std::chrono::high_resolution_clock::now();
@@ -40,9 +40,9 @@ bool DebugReporter::transform(AstTranslationUnit& translationUnit) {
     return changed;
 }
 
-void DebugReporter::generateDebugReport(AstTranslationUnit& tu, const std::string& preTransformDatalog) {
+void DebugReporter::generateDebugReport(TranslationUnit& tu, const std::string& preTransformDatalog) {
     tu.getDebugReport().addCodeSection(
             "dl", "Datalog", "souffle", preTransformDatalog, pprint(*tu.getProgram()));
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

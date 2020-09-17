@@ -34,31 +34,31 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstRelation
+ * @class Relation
  * @brief Defines a relation with a name, attributes, qualifiers, and internal representation.
  */
-class AstRelation : public AstNode {
+class Relation : public Node {
 public:
-    AstRelation() = default;
-    AstRelation(AstQualifiedName name, SrcLocation loc = {}) : name(std::move(name)) {
+    Relation() = default;
+    Relation(QualifiedName name, SrcLocation loc = {}) : name(std::move(name)) {
         setSrcLoc(std::move(loc));
     }
 
     /** Get qualified relation name */
-    const AstQualifiedName& getQualifiedName() const {
+    const QualifiedName& getQualifiedName() const {
         return name;
     }
 
     /** Set name for this relation */
-    void setQualifiedName(AstQualifiedName n) {
+    void setQualifiedName(QualifiedName n) {
         name = std::move(n);
     }
 
     /** Add a new used type to this relation */
-    void addAttribute(Own<AstAttribute> attr) {
+    void addAttribute(Own<Attribute> attr) {
         assert(attr && "Undefined attribute");
         attributes.push_back(std::move(attr));
     }
@@ -69,12 +69,12 @@ public:
     }
 
     /** Set relation attributes */
-    void setAttributes(VecOwn<AstAttribute> attrs) {
+    void setAttributes(VecOwn<Attribute> attrs) {
         attributes = std::move(attrs);
     }
 
     /** Get relation attributes */
-    std::vector<AstAttribute*> getAttributes() const {
+    std::vector<Attribute*> getAttributes() const {
         return toPtrVector(attributes);
     }
 
@@ -108,22 +108,22 @@ public:
         return qualifiers.find(q) != qualifiers.end();
     }
 
-    AstRelation* clone() const override {
-        auto res = new AstRelation(name, getSrcLoc());
+    Relation* clone() const override {
+        auto res = new Relation(name, getSrcLoc());
         res->attributes = souffle::clone(attributes);
         res->qualifiers = qualifiers;
         res->representation = representation;
         return res;
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& cur : attributes) {
             cur = map(std::move(cur));
         }
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        std::vector<const AstNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
         for (const auto& cur : attributes) {
             res.push_back(cur.get());
         }
@@ -136,16 +136,16 @@ protected:
            << " " << representation;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstRelation&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Relation&>(node);
         return name == other.name && equal_targets(attributes, other.attributes);
     }
 
     /** Name of relation */
-    AstQualifiedName name;
+    QualifiedName name;
 
     /** Attributes of the relation */
-    VecOwn<AstAttribute> attributes;
+    VecOwn<Attribute> attributes;
 
     /** Qualifiers of relation */
     std::set<RelationQualifier> qualifiers;
@@ -155,14 +155,14 @@ protected:
 };
 
 /**
- * @class AstNameComparison
+ * @class NameComparison
  * @brief Comparator for relations
  *
- * Lexicographical order for AstRelation
+ * Lexicographical order for Relation
  * using the qualified name as an ordering criteria.
  */
-struct AstNameComparison {
-    bool operator()(const AstRelation* x, const AstRelation* y) const {
+struct NameComparison {
+    bool operator()(const Relation* x, const Relation* y) const {
         if (x != nullptr && y != nullptr) {
             return x->getQualifiedName() < y->getQualifiedName();
         }
@@ -171,6 +171,6 @@ struct AstNameComparison {
 };
 
 /** Relation set */
-using AstRelationSet = std::set<const AstRelation*, AstNameComparison>;
+using RelationSet = std::set<const Relation*, NameComparison>;
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

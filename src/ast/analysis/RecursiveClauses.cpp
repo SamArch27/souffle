@@ -21,6 +21,7 @@
 #include "ast/Clause.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/RelationDetailCache.h"
 #include "ast/utility/Utils.h"
@@ -31,11 +32,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-class AstRelation;
+namespace souffle::ast::analysis {
 
-void RecursiveClausesAnalysis::run(const AstTranslationUnit& translationUnit) {
-    visitDepthFirst(*translationUnit.getProgram(), [&](const AstClause& clause) {
+void RecursiveClausesAnalysis::run(const TranslationUnit& translationUnit) {
+    visitDepthFirst(*translationUnit.getProgram(), [&](const Clause& clause) {
         if (computeIsRecursive(clause, translationUnit)) {
             recursiveClauses.insert(&clause);
         }
@@ -47,18 +47,18 @@ void RecursiveClausesAnalysis::print(std::ostream& os) const {
 }
 
 bool RecursiveClausesAnalysis::computeIsRecursive(
-        const AstClause& clause, const AstTranslationUnit& translationUnit) const {
+        const Clause& clause, const TranslationUnit& translationUnit) const {
     const auto& relationDetail = *translationUnit.getAnalysis<RelationDetailCacheAnalysis>();
-    const AstProgram& program = *translationUnit.getProgram();
+    const Program& program = *translationUnit.getProgram();
 
     // we want to reach the atom of the head through the body
-    const AstRelation* trg = getHeadRelation(&clause, &program);
+    const Relation* trg = getHeadRelation(&clause, &program);
 
-    std::set<const AstRelation*> reached;
-    std::vector<const AstRelation*> worklist;
+    std::set<const Relation*> reached;
+    std::vector<const Relation*> worklist;
 
     // set up start list
-    for (const auto* cur : getBodyLiterals<AstAtom>(clause)) {
+    for (const auto* cur : getBodyLiterals<Atom>(clause)) {
         auto rel = relationDetail.getRelation(cur->getQualifiedName());
         if (rel == trg) {
             return true;
@@ -69,7 +69,7 @@ bool RecursiveClausesAnalysis::computeIsRecursive(
     // process remaining elements
     while (!worklist.empty()) {
         // get next to process
-        const AstRelation* cur = worklist.back();
+        const Relation* cur = worklist.back();
         worklist.pop_back();
 
         // skip null pointers (errors in the input code)
@@ -83,8 +83,8 @@ bool RecursiveClausesAnalysis::computeIsRecursive(
         }
 
         // check all atoms in the relations
-        for (const AstClause* cl : relationDetail.getClauses(cur)) {
-            for (const AstAtom* at : getBodyLiterals<AstAtom>(*cl)) {
+        for (const Clause* cl : relationDetail.getClauses(cur)) {
+            for (const Atom* at : getBodyLiterals<Atom>(*cl)) {
                 auto rel = relationDetail.getRelation(at->getQualifiedName());
                 if (rel == trg) {
                     return true;
@@ -98,4 +98,4 @@ bool RecursiveClausesAnalysis::computeIsRecursive(
     return false;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

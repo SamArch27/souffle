@@ -27,10 +27,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamQuery
+ * @class Query
  * @brief A relational algebra query
  *
  * Corresponds to the core machinery of semi-naive evaluation
@@ -43,26 +43,26 @@ namespace souffle {
  *       ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamQuery : public RamStatement {
+class Query : public Statement {
 public:
-    RamQuery(std::unique_ptr<RamOperation> o) : operation(std::move(o)) {
+    Query(Own<Operation> o) : operation(std::move(o)) {
         assert(operation && "operation is a nullptr");
     }
 
     /** @brief Get RAM operation */
-    const RamOperation& getOperation() const {
+    const Operation& getOperation() const {
         return *operation;
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {operation.get()};
     }
 
-    RamQuery* clone() const override {
-        return new RamQuery(souffle::clone(operation));
+    Query* clone() const override {
+        return new Query(souffle::clone(operation));
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         operation = map(std::move(operation));
     }
 
@@ -72,13 +72,13 @@ protected:
         operation->print(os, tabpos + 1);
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamQuery&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Query&>(node);
         return equal_ptr(operation, other.operation);
     }
 
     /** RAM operation */
-    std::unique_ptr<RamOperation> operation;
+    Own<Operation> operation;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

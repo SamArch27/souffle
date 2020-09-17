@@ -18,6 +18,7 @@
 #include "souffle/RecordTable.h"
 #include "souffle/SymbolTable.h"
 #include "souffle/io/SerialisationStream.h"
+#include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include "souffle/utility/json11.h"
@@ -219,11 +220,18 @@ protected:
 
         consumeChar(source, ')', pos);
 
-        RamDomain branchValue = recordTable.pack(branchArgs.data(), branchArgs.size());
-
         if (charactersRead != nullptr) {
             *charactersRead = pos - initial_position;
         }
+
+        // Store branch either as [branch_id, [arguments]] or [branch_id, argument].
+        RamDomain branchValue = [&]() -> RamDomain {
+            if (branchArgs.size() != 1) {
+                return recordTable.pack(branchArgs.data(), branchArgs.size());
+            } else {
+                return branchArgs[0];
+            }
+        }();
 
         return recordTable.pack(toVector<RamDomain>(branchIdx, branchValue).data(), 2);
     }
@@ -285,12 +293,12 @@ protected:
         }
     }
 
-    virtual std::unique_ptr<RamDomain[]> readNextTuple() = 0;
+    virtual Own<RamDomain[]> readNextTuple() = 0;
 };
 
 class ReadStreamFactory {
 public:
-    virtual std::unique_ptr<ReadStream> getReader(
+    virtual Own<ReadStream> getReader(
             const std::map<std::string, std::string>&, SymbolTable&, RecordTable&) = 0;
     virtual const std::string& getName() const = 0;
     virtual ~ReadStreamFactory() = default;

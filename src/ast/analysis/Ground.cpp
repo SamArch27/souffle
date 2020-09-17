@@ -15,11 +15,11 @@
  ***********************************************************************/
 
 #include "ast/analysis/Ground.h"
-#include "ConstraintSystem.h"
 #include "RelationTag.h"
 #include "ast/Aggregator.h"
 #include "ast/Atom.h"
 #include "ast/BinaryConstraint.h"
+#include "ast/BranchInit.h"
 #include "ast/Clause.h"
 #include "ast/Constant.h"
 #include "ast/Functor.h"
@@ -29,6 +29,7 @@
 #include "ast/TranslationUnit.h"
 #include "ast/TypeCast.h"
 #include "ast/analysis/Constraint.h"
+#include "ast/analysis/ConstraintSystem.h"
 #include "ast/analysis/RelationDetailCache.h"
 #include "souffle/BinaryConstraintOps.h"
 #include "souffle/utility/StreamUtil.h"
@@ -40,7 +41,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
 namespace {
 
@@ -76,7 +77,7 @@ struct false_factory {
 struct bool_disjunct_lattic : public property_space<bool, bool_or, false_factory> {};
 
 /** A base type for analysis based on the boolean disjunct lattice */
-using BoolDisjunctVar = AstConstraintAnalysisVar<bool_disjunct_lattic>;
+using BoolDisjunctVar = ConstraintAnalysisVar<bool_disjunct_lattic>;
 
 /** A base type for constraints on the boolean disjunct lattice */
 using BoolDisjunctConstraint = std::shared_ptr<Constraint<BoolDisjunctVar>>;
@@ -151,15 +152,15 @@ BoolDisjunctConstraint imply(const std::vector<BoolDisjunctVar>& vars, const Boo
     return std::make_shared<C>(res, vars);
 }
 
-struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
+struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     const RelationDetailCacheAnalysis& relCache;
-    std::set<const AstAtom*> ignore;
+    std::set<const Atom*> ignore;
 
-    GroundednessAnalysis(const AstTranslationUnit& tu)
+    GroundednessAnalysis(const TranslationUnit& tu)
             : relCache(*tu.getAnalysis<RelationDetailCacheAnalysis>()) {}
 
     // atoms are producing grounded variables
-    void visitAtom(const AstAtom& cur) override {
+    void visitAtom(const Atom& cur) override {
         // some atoms need to be skipped (head or negation)
         if (ignore.find(&cur) != ignore.end()) {
             return;
@@ -172,13 +173,13 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // negations need to be skipped
-    void visitNegation(const AstNegation& cur) override {
+    void visitNegation(const Negation& cur) override {
         // add nested atom to black-list
         ignore.insert(cur.getAtom());
     }
 
     // also skip head if we don't have an inline qualifier
-    void visitClause(const AstClause& clause) override {
+    void visitClause(const Clause& clause) override {
         if (auto clauseHead = clause.getHead()) {
             auto relation = relCache.getRelation(clauseHead->getQualifiedName());
             // Only skip the head if the relation ISN'T inline. Keeping the head will ground
@@ -190,7 +191,7 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // binary equality relations propagates groundness
-    void visitBinaryConstraint(const AstBinaryConstraint& cur) override {
+    void visitBinaryConstraint(const BinaryConstraint& cur) override {
         // only target equality
         if (!isEqConstraint(cur.getOperator())) {
             return;
@@ -205,7 +206,7 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // record init nodes
-    void visitRecordInit(const AstRecordInit& init) override {
+    void visitRecordInit(const RecordInit& init) override {
         auto cur = getVar(init);
 
         std::vector<BoolDisjunctVar> vars;
@@ -221,7 +222,7 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
         addConstraint(imply(vars, cur));
     }
 
-    void visitBranchInit(const AstBranchInit& adt) override {
+    void visitBranchInit(const BranchInit& adt) override {
         auto branchVar = getVar(adt);
 
         std::vector<BoolDisjunctVar> argVars;
@@ -238,17 +239,17 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // Constants are also sources of grounded values
-    void visitConstant(const AstConstant& constant) override {
+    void visitConstant(const Constant& constant) override {
         addConstraint(isTrue(getVar(constant)));
     }
 
     // Aggregators are grounding values
-    void visitAggregator(const AstAggregator& aggregator) override {
+    void visitAggregator(const Aggregator& aggregator) override {
         addConstraint(isTrue(getVar(aggregator)));
     }
 
     // Functors with grounded values are grounded values
-    void visitFunctor(const AstFunctor& functor) override {
+    void visitFunctor(const Functor& functor) override {
         auto var = getVar(functor);
         std::vector<BoolDisjunctVar> varArgs;
         for (const auto& arg : functor.getArguments()) {
@@ -258,7 +259,7 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // casts propogate groundedness in and out
-    void visitTypeCast(const AstTypeCast& cast) override {
+    void visitTypeCast(const ast::TypeCast& cast) override {
         addConstraint(imply(getVar(cast.getValue()), getVar(cast)));
     }
 };
@@ -268,9 +269,9 @@ struct GroundednessAnalysis : public AstConstraintAnalysis<BoolDisjunctVar> {
 /***
  * computes for variables in the clause whether they are grounded
  */
-std::map<const AstArgument*, bool> getGroundedTerms(const AstTranslationUnit& tu, const AstClause& clause) {
+std::map<const Argument*, bool> getGroundedTerms(const TranslationUnit& tu, const Clause& clause) {
     // run analysis on given clause
     return GroundednessAnalysis(tu).analyse(clause);
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

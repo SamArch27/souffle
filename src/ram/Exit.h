@@ -27,10 +27,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamExit
+ * @class Exit
  * @brief Exit statement for a loop
  *
  * Exits a loop if exit condition holds.
@@ -41,26 +41,26 @@ namespace souffle {
  * EXIT (A = ∅)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamExit : public RamStatement {
+class Exit : public Statement {
 public:
-    RamExit(std::unique_ptr<RamCondition> c) : condition(std::move(c)) {
+    Exit(Own<Condition> c) : condition(std::move(c)) {
         assert(condition && "condition is a nullptr");
     }
 
     /** @brief Get exit condition */
-    const RamCondition& getCondition() const {
+    const Condition& getCondition() const {
         return *condition;
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {condition.get()};
     }
 
-    RamExit* clone() const override {
-        return new RamExit(souffle::clone(condition));
+    Exit* clone() const override {
+        return new Exit(souffle::clone(condition));
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         condition = map(std::move(condition));
     }
 
@@ -69,13 +69,13 @@ protected:
         os << times(" ", tabpos) << "EXIT " << getCondition() << std::endl;
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamExit&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Exit&>(node);
         return equal_ptr(condition, other.condition);
     }
 
     /** exit condition */
-    std::unique_ptr<RamCondition> condition;
+    Own<Condition> condition;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

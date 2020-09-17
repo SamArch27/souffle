@@ -23,23 +23,23 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstQualifiedName
+ * @class QualifiedName
  * @brief Qualified Name class defines fully/partially qualified names
  * to identify objects in components.
  */
-class AstQualifiedName {
+class QualifiedName {
 public:
-    AstQualifiedName() : qualifiers() {}
-    AstQualifiedName(const std::string& name) : qualifiers({name}) {}
-    AstQualifiedName(const char* name) : AstQualifiedName(std::string(name)) {}
-    AstQualifiedName(const std::vector<std::string> qualifiers) : qualifiers(qualifiers) {}
-    AstQualifiedName(const AstQualifiedName&) = default;
-    AstQualifiedName(AstQualifiedName&&) = default;
-    AstQualifiedName& operator=(const AstQualifiedName&) = default;
-    AstQualifiedName& operator=(AstQualifiedName&&) = default;
+    QualifiedName() : qualifiers() {}
+    QualifiedName(const std::string& name) : qualifiers({name}) {}
+    QualifiedName(const char* name) : QualifiedName(std::string(name)) {}
+    QualifiedName(const std::vector<std::string> qualifiers) : qualifiers(qualifiers) {}
+    QualifiedName(const QualifiedName&) = default;
+    QualifiedName(QualifiedName&&) = default;
+    QualifiedName& operator=(const QualifiedName&) = default;
+    QualifiedName& operator=(QualifiedName&&) = default;
 
     /** append qualifiers */
     void append(std::string name) {
@@ -68,15 +68,15 @@ public:
         return ss.str();
     }
 
-    bool operator==(const AstQualifiedName& other) const {
+    bool operator==(const QualifiedName& other) const {
         return qualifiers == other.qualifiers;
     }
 
-    bool operator!=(const AstQualifiedName& other) const {
+    bool operator!=(const QualifiedName& other) const {
         return !(*this == other);
     }
 
-    bool operator<(const AstQualifiedName& other) const {
+    bool operator<(const QualifiedName& other) const {
         return std::lexicographical_compare(
                 qualifiers.begin(), qualifiers.end(), other.qualifiers.begin(), other.qualifiers.end());
     }
@@ -86,7 +86,7 @@ public:
         out << join(qualifiers, ".");
     }
 
-    friend std::ostream& operator<<(std::ostream& out, const AstQualifiedName& id) {
+    friend std::ostream& operator<<(std::ostream& out, const QualifiedName& id) {
         id.print(out);
         return out;
     }
@@ -96,10 +96,10 @@ private:
     std::vector<std::string> qualifiers;
 };
 
-inline AstQualifiedName operator+(const std::string& name, const AstQualifiedName& id) {
-    AstQualifiedName res = id;
+inline QualifiedName operator+(const std::string& name, const QualifiedName& id) {
+    QualifiedName res = id;
     res.prepend(name);
     return res;
 }
 
-}  // namespace souffle
+}  // namespace souffle::ast

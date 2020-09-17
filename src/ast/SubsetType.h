@@ -24,26 +24,26 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstSubsetType
+ * @class SubsetType
  * @brief Defines subset type class
  *
  * Example:
  *    .type A <: B
  */
-class AstSubsetType : public AstType {
+class SubsetType : public Type {
 public:
-    AstSubsetType(AstQualifiedName name, AstQualifiedName baseTypeName, SrcLocation loc = {})
-            : AstType(std::move(name), std::move(loc)), baseType(std::move(baseTypeName)) {}
+    SubsetType(QualifiedName name, QualifiedName baseTypeName, SrcLocation loc = {})
+            : Type(std::move(name), std::move(loc)), baseType(std::move(baseTypeName)) {}
 
-    AstSubsetType* clone() const override {
-        return new AstSubsetType(getQualifiedName(), getBaseType(), getSrcLoc());
+    SubsetType* clone() const override {
+        return new SubsetType(getQualifiedName(), getBaseType(), getSrcLoc());
     }
 
     /** Return base type */
-    const AstQualifiedName& getBaseType() const {
+    const QualifiedName& getBaseType() const {
         return baseType;
     }
 
@@ -52,14 +52,14 @@ protected:
         os << ".type " << getQualifiedName() << " <: " << getBaseType();
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstSubsetType&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const SubsetType&>(node);
         return getQualifiedName() == other.getQualifiedName() && baseType == other.baseType;
     }
 
 private:
     /** Base type */
-    const AstQualifiedName baseType;
+    const QualifiedName baseType;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

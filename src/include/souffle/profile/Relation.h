@@ -10,7 +10,9 @@
 
 #include "souffle/profile/Iteration.h"
 #include "souffle/profile/Rule.h"
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <string>

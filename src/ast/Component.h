@@ -35,10 +35,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstComponent
+ * @class Component
  * @brief Component class
  *
  * Example:
@@ -49,90 +49,90 @@ namespace souffle {
  *
  * Component consists of type declaration, relations, rules, etc.
  */
-class AstComponent : public AstNode {
+class Component : public Node {
 public:
     /** Get component type */
-    const AstComponentType* getComponentType() const {
+    const ComponentType* getComponentType() const {
         return componentType.get();
     }
 
     /** Set component type */
-    void setComponentType(Own<AstComponentType> other) {
+    void setComponentType(Own<ComponentType> other) {
         componentType = std::move(other);
     }
 
     /** Get base components */
-    const std::vector<AstComponentType*> getBaseComponents() const {
+    const std::vector<ComponentType*> getBaseComponents() const {
         return toPtrVector(baseComponents);
     }
 
     /** Add base components */
-    void addBaseComponent(Own<AstComponentType> component) {
+    void addBaseComponent(Own<ComponentType> component) {
         baseComponents.push_back(std::move(component));
     }
 
     /** Add type */
-    void addType(Own<AstType> t) {
+    void addType(Own<Type> t) {
         types.push_back(std::move(t));
     }
 
     /** Get types */
-    std::vector<AstType*> getTypes() const {
+    std::vector<Type*> getTypes() const {
         return toPtrVector(types);
     }
 
     /** Copy base components */
-    void copyBaseComponents(const AstComponent& other) {
+    void copyBaseComponents(const Component& other) {
         baseComponents = souffle::clone(other.baseComponents);
     }
 
     /** Add relation */
-    void addRelation(Own<AstRelation> r) {
+    void addRelation(Own<Relation> r) {
         relations.push_back(std::move(r));
     }
 
     /** Get relations */
-    std::vector<AstRelation*> getRelations() const {
+    std::vector<Relation*> getRelations() const {
         return toPtrVector(relations);
     }
 
     /** Add clause */
-    void addClause(Own<AstClause> c) {
+    void addClause(Own<Clause> c) {
         clauses.push_back(std::move(c));
     }
 
     /** Get clauses */
-    std::vector<AstClause*> getClauses() const {
+    std::vector<Clause*> getClauses() const {
         return toPtrVector(clauses);
     }
 
     /** Add directive */
-    void addDirective(Own<AstDirective> directive) {
+    void addDirective(Own<Directive> directive) {
         directives.push_back(std::move(directive));
     }
 
     /** Get directive statements */
-    std::vector<AstDirective*> getDirectives() const {
+    std::vector<Directive*> getDirectives() const {
         return toPtrVector(directives);
     }
 
     /** Add components */
-    void addComponent(Own<AstComponent> c) {
+    void addComponent(Own<Component> c) {
         components.push_back(std::move(c));
     }
 
     /** Get components */
-    std::vector<AstComponent*> getComponents() const {
+    std::vector<Component*> getComponents() const {
         return toPtrVector(components);
     }
 
     /** Add instantiation */
-    void addInstantiation(Own<AstComponentInit> i) {
+    void addInstantiation(Own<ComponentInit> i) {
         instantiations.push_back(std::move(i));
     }
 
     /** Get instantiation */
-    std::vector<AstComponentInit*> getInstantiations() const {
+    std::vector<ComponentInit*> getInstantiations() const {
         return toPtrVector(instantiations);
     }
 
@@ -146,8 +146,8 @@ public:
         return overrideRules;
     }
 
-    AstComponent* clone() const override {
-        auto* res = new AstComponent();
+    Component* clone() const override {
+        auto* res = new Component();
         res->componentType = souffle::clone(componentType);
         res->baseComponents = souffle::clone(baseComponents);
         res->components = souffle::clone(components);
@@ -160,7 +160,7 @@ public:
         return res;
     }
 
-    void apply(const AstNodeMapper& mapper) override {
+    void apply(const NodeMapper& mapper) override {
         componentType = mapper(std::move(componentType));
         for (auto& cur : baseComponents) {
             cur = mapper(std::move(cur));
@@ -185,8 +185,8 @@ public:
         }
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        std::vector<const AstNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
 
         res.push_back(componentType.get());
         for (const auto& cur : baseComponents) {
@@ -233,8 +233,8 @@ protected:
         os << "}\n";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstComponent&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Component&>(node);
 
         if (equal_ptr(componentType, other.componentType)) {
             return true;
@@ -267,31 +267,31 @@ protected:
     }
 
     /** Name of component and its formal component arguments. */
-    Own<AstComponentType> componentType;
+    Own<ComponentType> componentType;
 
     /** Base components of component */
-    VecOwn<AstComponentType> baseComponents;
+    VecOwn<ComponentType> baseComponents;
 
     /** Types declarations */
-    VecOwn<AstType> types;
+    VecOwn<Type> types;
 
     /** Relations */
-    VecOwn<AstRelation> relations;
+    VecOwn<Relation> relations;
 
     /** Clauses */
-    VecOwn<AstClause> clauses;
+    VecOwn<Clause> clauses;
 
     /** I/O directives */
-    VecOwn<AstDirective> directives;
+    VecOwn<Directive> directives;
 
     /** Nested components */
-    VecOwn<AstComponent> components;
+    VecOwn<Component> components;
 
     /** Nested component instantiations. */
-    VecOwn<AstComponentInit> instantiations;
+    VecOwn<ComponentInit> instantiations;
 
     /** Clauses of relations that are overwritten by this component */
     std::set<std::string> overrideRules;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -16,27 +16,26 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Meta.h"
+#include "ast/transform/Transformer.h"
 #include <set>
 #include <string>
 #include <vector>
 
-namespace souffle {
-
-class AstTranslationUnit;
-class AstTransformer;
+namespace souffle::ast::transform {
 
 /**
  * Transformer that does absolutely nothing
  */
 class NullTransformer : public MetaTransformer {
 private:
-    bool transform(AstTranslationUnit& /* translationUnit */) override {
+    bool transform(TranslationUnit& /* translationUnit */) override {
         return false;
     }
 
 public:
-    std::vector<AstTransformer*> getSubtransformers() const override {
+    std::vector<Transformer*> getSubtransformers() const override {
         return {};
     }
 
@@ -55,4 +54,4 @@ public:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

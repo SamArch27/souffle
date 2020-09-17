@@ -19,6 +19,7 @@
 #include "parser/SrcLocation.h"
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <set>
 #include <string>

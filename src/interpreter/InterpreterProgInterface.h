@@ -19,10 +19,10 @@
 #include "interpreter/InterpreterEngine.h"
 #include "interpreter/InterpreterIndex.h"
 #include "interpreter/InterpreterRelation.h"
+#include "ram/IO.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
 #include "ram/Relation.h"
-#include "ram/Statement.h"
 #include "ram/TranslationUnit.h"
 #include "ram/Visitor.h"
 #include "souffle/RamTypes.h"
@@ -215,8 +215,8 @@ public:
         uint32_t id = 0;
 
         // Retrieve AST Relations and store them in a map
-        std::map<std::string, const RamRelation*> map;
-        visitDepthFirst(prog, [&](const RamRelation& rel) { map[rel.getName()] = &rel; });
+        std::map<std::string, const ram::Relation*> map;
+        visitDepthFirst(prog, [&](const ram::Relation& rel) { map[rel.getName()] = &rel; });
 
         // Build wrapper relations for Souffle's interface
         for (auto& relHandler : exec.getRelationMap()) {
@@ -227,7 +227,7 @@ public:
             auto& interpreterRel = **relHandler;
             auto& name = interpreterRel.getName();
             assert(map[name]);
-            const RamRelation& rel = *map[name];
+            const ram::Relation& rel = *map[name];
 
             // construct types and names vectors
             std::vector<std::string> types = rel.getAttributeTypes();
@@ -238,7 +238,7 @@ public:
             interfaces.push_back(interface);
             bool input = false;
             bool output = false;
-            visitDepthFirst(prog, [&](const RamIO& io) {
+            visitDepthFirst(prog, [&](const ram::IO& io) {
                 if (io.getRelation() == rel) {
                     const std::string& op = io.get("operation");
                     if (op == "input") {
@@ -290,7 +290,7 @@ public:
     }
 
 private:
-    const RamProgram& prog;
+    const ram::Program& prog;
     InterpreterEngine& exec;
     SymbolTable& symTable;
     std::vector<InterpreterRelInterface*> interfaces;

@@ -19,10 +19,10 @@
 #include "ram/analysis/Index.h"
 #include <cstddef>
 #include <cstdint>
-#include <set>
 #include <string>
 
-namespace souffle {
+namespace souffle::ram {
+using namespace analysis;
 
 class TestAutoIndex : public MinIndexSelection {
 public:
@@ -129,4 +129,4 @@ TEST(Matching, TestOver64BitSignature) {
     EXPECT_EQ(num, 3);
 }
 
-}  // namespace souffle
+}  // namespace souffle::ram

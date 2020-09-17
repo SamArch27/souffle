@@ -26,17 +26,17 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamBinRelationStatement
+ * @class BinRelationStatement
  * @brief Abstract class for a binary relation
  *
- * Comprises two RamRelations
+ * Comprises two Relations
  */
-class RamBinRelationStatement : public RamStatement {
+class BinRelationStatement : public Statement {
 public:
-    RamBinRelationStatement(std::unique_ptr<RamRelationReference> f, std::unique_ptr<RamRelationReference> s)
+    BinRelationStatement(Own<RelationReference> f, Own<RelationReference> s)
             : first(std::move(f)), second(std::move(s)) {
         assert(first->get()->getArity() == second->get()->getArity() && "mismatching arities");
 
@@ -50,36 +50,36 @@ public:
     }
 
     /** @brief Get first relation */
-    const RamRelation& getFirstRelation() const {
+    const Relation& getFirstRelation() const {
         return *first->get();
     }
 
     /** @brief Get second relation */
-    const RamRelation& getSecondRelation() const {
+    const Relation& getSecondRelation() const {
         return *second->get();
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {first.get(), second.get()};
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         first = map(std::move(first));
         second = map(std::move(second));
     }
 
 protected:
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamBinRelationStatement&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const BinRelationStatement&>(node);
         return equal_ptr(first, other.first) && equal_ptr(second, other.second);
     }
 
 protected:
     /** first argument of binary statement */
-    std::unique_ptr<RamRelationReference> first;
+    Own<RelationReference> first;
 
     /** second argument of binary statement */
-    std::unique_ptr<RamRelationReference> second;
+    Own<RelationReference> second;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

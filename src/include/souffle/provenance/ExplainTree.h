@@ -129,7 +129,7 @@ public:
             : TreeNode(nodeText), label(std::move(label)) {}
 
     // add child to node
-    void add_child(std::unique_ptr<TreeNode> child) {
+    void add_child(Own<TreeNode> child) {
         children.push_back(std::move(child));
     }
 
@@ -145,7 +145,7 @@ public:
         height = 0;
 
         // compute size of bounding box
-        for (const std::unique_ptr<TreeNode>& k : children) {
+        for (const Own<TreeNode>& k : children) {
             k->place(x, y + 2);
             x += k->getWidth() + 1;
             width += k->getWidth() + 1;
@@ -162,7 +162,7 @@ public:
     // render node text and separator line
     void render(ScreenBuffer& s) override {
         s.write(xpos + (width - txt.length()) / 2, ypos, txt);
-        for (const std::unique_ptr<TreeNode>& k : children) {
+        for (const Own<TreeNode>& k : children) {
             k->render(s);
         }
         std::string separator(width - label.length(), '-');
@@ -177,7 +177,7 @@ public:
         os << tab << R"(  "rule-number": ")" << label << "\",\n";
         os << tab << "  \"children\": [\n";
         bool first = true;
-        for (const std::unique_ptr<TreeNode>& k : children) {
+        for (const Own<TreeNode>& k : children) {
             if (first) {
                 first = false;
             } else {
@@ -190,7 +190,7 @@ public:
     }
 
 private:
-    std::vector<std::unique_ptr<TreeNode>> children;
+    VecOwn<TreeNode> children;
     std::string label;
 };
 

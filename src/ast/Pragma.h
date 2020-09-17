@@ -22,19 +22,19 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstPragma
+ * @class Pragma
  * @brief Representation of a global option
  */
-class AstPragma : public AstNode {
+class Pragma : public Node {
 public:
-    AstPragma(std::string key, std::string value, SrcLocation loc = {})
-            : AstNode(std::move(loc)), key(std::move(key)), value(std::move(value)) {}
+    Pragma(std::string key, std::string value, SrcLocation loc = {})
+            : Node(std::move(loc)), key(std::move(key)), value(std::move(value)) {}
 
-    AstPragma* clone() const override {
-        return new AstPragma(key, value, getSrcLoc());
+    Pragma* clone() const override {
+        return new Pragma(key, value, getSrcLoc());
     }
 
     /* Get kvp */
@@ -47,8 +47,8 @@ protected:
         os << ".pragma " << key << " " << value << "\n";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstPragma&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Pragma&>(node);
         return other.key == key && other.value == value;
     }
 
@@ -59,4 +59,4 @@ protected:
     std::string value;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

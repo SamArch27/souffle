@@ -14,12 +14,12 @@
 
 #pragma once
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamAbstractParallel
+ * @class AbstractParallel
  * @brief Abstract class for parallel operation
  */
-class RamAbstractParallel {};
+class AbstractParallel {};
 
-}  // namespace souffle
+}  // namespace souffle::ram

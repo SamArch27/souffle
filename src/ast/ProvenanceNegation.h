@@ -23,7 +23,7 @@
 #include <iostream>
 #include <memory>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
  * Subclass of Literal that represents a negated atom, * e.g., !parent(x,y).
@@ -31,12 +31,12 @@ namespace souffle {
  *
  * Specialised for provenance: used for existence check that tuple doesn't already exist
  */
-class AstProvenanceNegation : public AstNegation {
+class ProvenanceNegation : public Negation {
 public:
-    using AstNegation::AstNegation;
+    using Negation::Negation;
 
-    AstProvenanceNegation* clone() const override {
-        return new AstProvenanceNegation(souffle::clone(atom), getSrcLoc());
+    ProvenanceNegation* clone() const override {
+        return new ProvenanceNegation(souffle::clone(atom), getSrcLoc());
     }
 
 protected:
@@ -45,4 +45,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

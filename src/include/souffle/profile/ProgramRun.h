@@ -12,11 +12,13 @@
 #include "souffle/profile/StringUtils.h"
 #include "souffle/profile/Table.h"
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace souffle {

@@ -16,34 +16,31 @@
 
 #pragma once
 
+#include "ast/Argument.h"
 #include "ast/Clause.h"
 #include "ast/analysis/Analysis.h"
 #include "ast/analysis/TypeSystem.h"
-#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-class AstArgument;
-class AstTranslationUnit;
-
-class TypeAnalysis : public AstAnalysis {
+class TypeAnalysis : public Analysis {
 public:
     static constexpr const char* name = "type-analysis";
 
-    TypeAnalysis() : AstAnalysis(name) {}
+    TypeAnalysis() : Analysis(name) {}
 
-    void run(const AstTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     void print(std::ostream& os) const override;
 
     /**
      * Get the computed types for the given argument.
      */
-    TypeSet const& getTypes(const AstArgument* argument) const {
+    TypeSet const& getTypes(const Argument* argument) const {
         return argumentTypes.at(argument);
     }
 
@@ -57,13 +54,13 @@ public:
      * @param program the program
      * @return a map mapping each contained argument to a a set of types
      */
-    static std::map<const AstArgument*, TypeSet> analyseTypes(
-            const AstTranslationUnit&, const AstClause&, std::ostream* /*logs*/ = nullptr);
+    static std::map<const Argument*, TypeSet> analyseTypes(
+            const TranslationUnit&, const Clause&, std::ostream* /*logs*/ = nullptr);
 
 private:
-    std::map<const AstArgument*, TypeSet> argumentTypes;
-    std::vector<std::unique_ptr<AstClause>> annotatedClauses;
+    std::map<const Argument*, TypeSet> argumentTypes;
+    VecOwn<Clause> annotatedClauses;
     std::stringstream analysisLogs;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

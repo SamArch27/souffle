@@ -25,10 +25,10 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamScan
+ * @class Scan
  * @brief Iterate all tuples of a relation
  *
  * The following example iterates over all tuples
@@ -40,14 +40,13 @@ namespace souffle {
  *     ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamScan : public RamRelationOperation {
+class Scan : public RelationOperation {
 public:
-    RamScan(std::unique_ptr<RamRelationReference> rel, int ident, std::unique_ptr<RamOperation> nested,
-            std::string profileText = "")
-            : RamRelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)) {}
+    Scan(Own<RelationReference> rel, int ident, Own<Operation> nested, std::string profileText = "")
+            : RelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)) {}
 
-    RamScan* clone() const override {
-        return new RamScan(
+    Scan* clone() const override {
+        return new Scan(
                 souffle::clone(relationRef), getTupleId(), souffle::clone(&getOperation()), getProfileText());
     }
 
@@ -56,8 +55,8 @@ protected:
         os << times(" ", tabpos);
         os << "FOR t" << getTupleId();
         os << " IN " << getRelation().getName() << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        RelationOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

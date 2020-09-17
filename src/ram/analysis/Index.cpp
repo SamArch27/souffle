@@ -15,16 +15,17 @@
  ***********************************************************************/
 
 #include "ram/analysis/Index.h"
-#include "ram/Condition.h"
+#include "Global.h"
+#include "RelationTag.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Relation.h"
-#include "ram/Statement.h"
+#include "ram/Swap.h"
 #include "ram/TranslationUnit.h"
 #include "ram/Utils.h"
 #include "ram/Visitor.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -32,7 +33,7 @@
 #include <iterator>
 #include <queue>
 
-namespace souffle {
+namespace souffle::ram::analysis {
 
 SearchSignature::SearchSignature(size_t arity) : constraints(arity, AttributeConstraint::None) {}
 
@@ -258,6 +259,9 @@ void MinIndexSelection::solve() {
         return;
     }
 
+    // discharge multiple inequalities
+    removeExtraInequalities();
+
     // map the signatures of each search to a unique index for the matching problem
     AttributeIndex currentIndex = 1;
     for (SearchSignature s : searches) {
@@ -375,7 +379,6 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
             Chain a;
             a.push_back(node);
             chainToOrder.push_back(a);
-            removeExtraInequalities();
             return chainToOrder;
         }
     }
@@ -393,7 +396,6 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
     }
 
     assert(!chainToOrder.empty());
-    removeExtraInequalities();
     return chainToOrder;
 }
 
@@ -415,26 +417,24 @@ void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature 
 }
 
 void MinIndexSelection::removeExtraInequalities() {
-    for (auto chain : chainToOrder) {
-        for (auto oldSearch : chain) {
-            auto newSearch = oldSearch;
-            bool seenInequality = false;
-            for (size_t i = 0; i < oldSearch.arity(); ++i) {
-                if (oldSearch[i] == AttributeConstraint::Inequal) {
-                    if (seenInequality) {
-                        newSearch[i] = AttributeConstraint::None;
-                    } else {
-                        seenInequality = true;
-                    }
+    for (auto oldSearch : searches) {
+        auto newSearch = oldSearch;
+        bool seenInequality = false;
+        for (size_t i = 0; i < oldSearch.arity(); ++i) {
+            if (oldSearch[i] == AttributeConstraint::Inequal) {
+                if (seenInequality) {
+                    newSearch[i] = AttributeConstraint::None;
+                } else {
+                    seenInequality = true;
                 }
             }
-            updateSearch(oldSearch, newSearch);
         }
+        updateSearch(oldSearch, newSearch);
     }
 }
 
 MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
-        const SearchSignature& s, const RamRelation& rel) {
+        const SearchSignature& s, const Relation& rel) {
     // by default we have all attributes w/inequalities discharged
     AttributeSet allInequalities;
     for (size_t i = 0; i < s.arity(); ++i) {
@@ -454,10 +454,22 @@ MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
         return allInequalities;
     }
 
+    // if we are in the interpreter then we only permit signed inequalities
+    AttributeSet inequalitiesNotSigned;
+    for (size_t i = 0; i < s.arity(); ++i) {
+        if (s[i] == AttributeConstraint::Inequal && rel.getAttributeTypes()[i][0] != 'i') {
+            inequalitiesNotSigned.insert(i);
+        }
+    }
+    if (!Global::config().has("compile") && !Global::config().has("dl-program") &&
+            !Global::config().has("generate") && !Global::config().has("swig")) {
+        return inequalitiesNotSigned;
+    }
+
     return dischargedMap[s];
 }
 
-void RamIndexAnalysis::run(const RamTranslationUnit& translationUnit) {
+void IndexAnalysis::run(const TranslationUnit& translationUnit) {
     // After complete:
     // 1. All relations should have at least one index (for full-order search).
     // 2. Two relations involved in a swap operation will have same set of indices.
@@ -469,32 +481,32 @@ void RamIndexAnalysis::run(const RamTranslationUnit& translationUnit) {
     // 0-arity relation in a provenance program still need to be revisited.
 
     // visit all nodes to collect searches of each relation
-    visitDepthFirst(translationUnit.getProgram(), [&](const RamNode& node) {
-        if (const auto* indexSearch = dynamic_cast<const RamIndexOperation*>(&node)) {
+    visitDepthFirst(translationUnit.getProgram(), [&](const Node& node) {
+        if (const auto* indexSearch = dynamic_cast<const IndexOperation*>(&node)) {
             MinIndexSelection& indexes = getIndexes(indexSearch->getRelation());
             indexes.addSearch(getSearchSignature(indexSearch));
-        } else if (const auto* exists = dynamic_cast<const RamExistenceCheck*>(&node)) {
+        } else if (const auto* exists = dynamic_cast<const ExistenceCheck*>(&node)) {
             MinIndexSelection& indexes = getIndexes(exists->getRelation());
             indexes.addSearch(getSearchSignature(exists));
-        } else if (const auto* provExists = dynamic_cast<const RamProvenanceExistenceCheck*>(&node)) {
+        } else if (const auto* provExists = dynamic_cast<const ProvenanceExistenceCheck*>(&node)) {
             MinIndexSelection& indexes = getIndexes(provExists->getRelation());
             indexes.addSearch(getSearchSignature(provExists));
-        } else if (const auto* ramRel = dynamic_cast<const RamRelation*>(&node)) {
+        } else if (const auto* ramRel = dynamic_cast<const Relation*>(&node)) {
             MinIndexSelection& indexes = getIndexes(*ramRel);
             indexes.addSearch(getSearchSignature(ramRel));
         }
     });
 
     // A swap happen between rel A and rel B indicates A should include all indices of B, vice versa.
-    visitDepthFirst(translationUnit.getProgram(), [&](const RamSwap& swap) {
+    visitDepthFirst(translationUnit.getProgram(), [&](const Swap& swap) {
         // Note: this naive approach will not work if there exists chain or cyclic swapping.
         // e.g.  swap(relA, relB) swap(relB, relC) swap(relC, relA)
         // One need to keep merging the search set until a fixed point where no more index is introduced
         // in any of the relation in a complete iteration.
         //
         // Currently RAM does not have such situation.
-        const RamRelation& relA = swap.getFirstRelation();
-        const RamRelation& relB = swap.getSecondRelation();
+        const Relation& relA = swap.getFirstRelation();
+        const Relation& relB = swap.getSecondRelation();
 
         MinIndexSelection& indexesA = getIndexes(relA);
         MinIndexSelection& indexesB = getIndexes(relB);
@@ -524,7 +536,7 @@ void RamIndexAnalysis::run(const RamTranslationUnit& translationUnit) {
     }
 }
 
-MinIndexSelection& RamIndexAnalysis::getIndexes(const RamRelation& rel) {
+MinIndexSelection& IndexAnalysis::getIndexes(const Relation& rel) {
     auto pos = minIndexCover.find(&rel);
     if (pos != minIndexCover.end()) {
         return pos->second;
@@ -535,9 +547,9 @@ MinIndexSelection& RamIndexAnalysis::getIndexes(const RamRelation& rel) {
     }
 }
 
-void RamIndexAnalysis::print(std::ostream& os) const {
+void IndexAnalysis::print(std::ostream& os) const {
     for (auto& cur : minIndexCover) {
-        const RamRelation& rel = *cur.first;
+        const Relation& rel = *cur.first;
         const MinIndexSelection& indexes = cur.second;
         const std::string& relName = rel.getName();
 
@@ -575,7 +587,7 @@ SearchSignature searchSignature(size_t arity, Iter const& bgn, Iter const& end) 
 
     size_t i = 0;
     for (auto cur = bgn; cur != end; ++cur, ++i) {
-        if (!isRamUndefValue(*cur)) {
+        if (!isUndefValue(*cur)) {
             keys[i] = AttributeConstraint::Equal;
         }
     }
@@ -588,7 +600,7 @@ SearchSignature searchSignature(size_t arity, Seq const& xs) {
 }
 }  // namespace
 
-SearchSignature RamIndexAnalysis::getSearchSignature(const RamIndexOperation* search) const {
+SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) const {
     size_t arity = search->getRelation().getArity();
 
     auto lower = search->getRangePattern().first;
@@ -596,7 +608,7 @@ SearchSignature RamIndexAnalysis::getSearchSignature(const RamIndexOperation* se
     SearchSignature keys(arity);
     for (size_t i = 0; i < arity; ++i) {
         // if both bounds are undefined
-        if (isRamUndefValue(lower[i]) && isRamUndefValue(upper[i])) {
+        if (isUndefValue(lower[i]) && isUndefValue(upper[i])) {
             keys[i] = AttributeConstraint::None;
             // if bounds are equal we have an equality
         } else if (*lower[i] == *upper[i]) {
@@ -608,8 +620,7 @@ SearchSignature RamIndexAnalysis::getSearchSignature(const RamIndexOperation* se
     return keys;
 }
 
-SearchSignature RamIndexAnalysis::getSearchSignature(
-        const RamProvenanceExistenceCheck* provExistCheck) const {
+SearchSignature IndexAnalysis::getSearchSignature(const ProvenanceExistenceCheck* provExistCheck) const {
     const auto values = provExistCheck->getValues();
     auto auxiliaryArity = provExistCheck->getRelation().getAuxiliaryArity();
 
@@ -617,7 +628,7 @@ SearchSignature RamIndexAnalysis::getSearchSignature(
 
     // all payload attributes should be equalities
     for (size_t i = 0; i < values.size() - auxiliaryArity; i++) {
-        if (!isRamUndefValue(values[i])) {
+        if (!isUndefValue(values[i])) {
             keys[i] = AttributeConstraint::Equal;
         }
     }
@@ -630,21 +641,21 @@ SearchSignature RamIndexAnalysis::getSearchSignature(
     return keys;
 }
 
-SearchSignature RamIndexAnalysis::getSearchSignature(const RamExistenceCheck* existCheck) const {
+SearchSignature IndexAnalysis::getSearchSignature(const ExistenceCheck* existCheck) const {
     return searchSignature(existCheck->getRelation().getArity(), existCheck->getValues());
 }
 
-SearchSignature RamIndexAnalysis::getSearchSignature(const RamRelation* ramRel) const {
+SearchSignature IndexAnalysis::getSearchSignature(const Relation* ramRel) const {
     return SearchSignature::getFullSearchSignature(ramRel->getArity());
 }
 
-bool RamIndexAnalysis::isTotalSignature(const RamAbstractExistenceCheck* existCheck) const {
+bool IndexAnalysis::isTotalSignature(const AbstractExistenceCheck* existCheck) const {
     for (const auto& cur : existCheck->getValues()) {
-        if (isRamUndefValue(cur)) {
+        if (isUndefValue(cur)) {
             return false;
         }
     }
     return true;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::analysis

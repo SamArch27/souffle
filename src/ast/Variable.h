@@ -23,16 +23,15 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstVariable
+ * @class Variable
  * @brief Named variable class
  */
-class AstVariable : public AstArgument {
+class Variable : public Argument {
 public:
-    AstVariable(std::string name, SrcLocation loc = {})
-            : AstArgument(std::move(loc)), name(std::move(name)) {}
+    Variable(std::string name, SrcLocation loc = {}) : Argument(std::move(loc)), name(std::move(name)) {}
 
     /** Set variable name */
     void setName(std::string name) {
@@ -44,8 +43,8 @@ public:
         return name;
     }
 
-    AstVariable* clone() const override {
-        return new AstVariable(name, getSrcLoc());
+    Variable* clone() const override {
+        return new Variable(name, getSrcLoc());
     }
 
 protected:
@@ -53,8 +52,8 @@ protected:
         os << name;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstVariable&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Variable&>(node);
         return name == other.name;
     }
 
@@ -62,4 +61,4 @@ protected:
     std::string name;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

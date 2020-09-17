@@ -16,6 +16,7 @@
 #include "ast/Clause.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/UnnamedVariable.h"
 #include "ast/Variable.h"
@@ -26,33 +27,32 @@
 #include <ostream>
 #include <vector>
 
-namespace souffle {
-class AstRelation;
+namespace souffle::ast::transform {
 
-bool NameUnnamedVariablesTransformer::transform(AstTranslationUnit& translationUnit) {
+bool NameUnnamedVariablesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
     static constexpr const char* boundPrefix = "+underscore";
     static size_t underscoreCount = 0;
 
-    struct nameVariables : public AstNodeMapper {
+    struct nameVariables : public NodeMapper {
         mutable bool changed = false;
         nameVariables() = default;
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            if (isA<AstUnnamedVariable>(node.get())) {
+        Own<Node> operator()(Own<Node> node) const override {
+            if (isA<UnnamedVariable>(node.get())) {
                 changed = true;
                 std::stringstream name;
                 name << boundPrefix << "_" << underscoreCount++;
-                return std::make_unique<AstVariable>(name.str());
+                return mk<ast::Variable>(name.str());
             }
             node->apply(*this);
             return node;
         }
     };
 
-    AstProgram& program = *translationUnit.getProgram();
-    for (AstRelation* rel : program.getRelations()) {
-        for (AstClause* clause : getClauses(program, *rel)) {
+    Program& program = *translationUnit.getProgram();
+    for (Relation* rel : program.getRelations()) {
+        for (Clause* clause : getClauses(program, *rel)) {
             nameVariables update;
             clause->apply(update);
             changed |= update.changed;
@@ -62,4 +62,4 @@ bool NameUnnamedVariablesTransformer::transform(AstTranslationUnit& translationU
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

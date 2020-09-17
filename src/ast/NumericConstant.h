@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
  * Numeric Constant
@@ -33,23 +33,23 @@ namespace souffle {
  * If this is the case, the typesystem will be forced to use it.
  * Otherwise the type is inferred from context.
  */
-class AstNumericConstant : public AstConstant {
+class NumericConstant : public Constant {
 public:
     enum class Type { Int, Uint, Float };
 
-    AstNumericConstant(RamSigned value) : AstConstant(std::to_string(value)), type(Type::Int) {}
+    NumericConstant(RamSigned value) : Constant(std::to_string(value)), type(Type::Int) {}
 
-    AstNumericConstant(std::string constant, SrcLocation loc) : AstConstant(std::move(constant)) {
+    NumericConstant(std::string constant, SrcLocation loc) : Constant(std::move(constant)) {
         setSrcLoc(std::move(loc));
     }
 
-    AstNumericConstant(std::string constant, std::optional<Type> type = std::nullopt, SrcLocation loc = {})
-            : AstConstant(std::move(constant)), type(type) {
+    NumericConstant(std::string constant, std::optional<Type> type = std::nullopt, SrcLocation loc = {})
+            : Constant(std::move(constant)), type(type) {
         setSrcLoc(std::move(loc));
     }
 
-    AstNumericConstant* clone() const override {
-        auto* copy = new AstNumericConstant(getConstant(), getType());
+    NumericConstant* clone() const override {
+        auto* copy = new NumericConstant(getConstant(), getType());
         copy->setSrcLoc(getSrcLoc());
         return copy;
     }
@@ -63,13 +63,13 @@ public:
     }
 
 protected:
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstNumericConstant&>(node);
-        return AstConstant::equal(node) && type == other.type;
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const NumericConstant&>(node);
+        return Constant::equal(node) && type == other.type;
     }
 
 private:
     std::optional<Type> type;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -23,14 +23,14 @@
 #include <set>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool UniqueAggregationVariablesTransformer::transform(AstTranslationUnit& translationUnit) {
+bool UniqueAggregationVariablesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
 
     // make variables in aggregates unique
     int aggNumber = 0;
-    visitDepthFirstPostOrder(*translationUnit.getProgram(), [&](const AstAggregator& agg) {
+    visitDepthFirstPostOrder(*translationUnit.getProgram(), [&](const Aggregator& agg) {
         // only applicable for aggregates with target expression
         if (agg.getTargetExpression() == nullptr) {
             return;
@@ -39,15 +39,15 @@ bool UniqueAggregationVariablesTransformer::transform(AstTranslationUnit& transl
         // get all variables in the target expression
         std::set<std::string> names;
         visitDepthFirst(
-                *agg.getTargetExpression(), [&](const AstVariable& var) { names.insert(var.getName()); });
+                *agg.getTargetExpression(), [&](const ast::Variable& var) { names.insert(var.getName()); });
 
         // rename them
-        visitDepthFirst(agg, [&](const AstVariable& var) {
+        visitDepthFirst(agg, [&](const ast::Variable& var) {
             auto pos = names.find(var.getName());
             if (pos == names.end()) {
                 return;
             }
-            const_cast<AstVariable&>(var).setName(" " + var.getName() + toString(aggNumber));
+            const_cast<ast::Variable&>(var).setName(" " + var.getName() + toString(aggNumber));
             changed = true;
         });
 
@@ -57,4 +57,4 @@ bool UniqueAggregationVariablesTransformer::transform(AstTranslationUnit& transl
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

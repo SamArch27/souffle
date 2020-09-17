@@ -60,7 +60,7 @@ protected:
     bool useObjects;
     std::map<const std::string, const size_t> paramIndex;
 
-    std::unique_ptr<RamDomain[]> readNextTuple() override {
+    Own<RamDomain[]> readNextTuple() override {
         // for some reasons we cannot initalized our json objects in constructor
         // otherwise it will segfault, so we initialize in the first call
         if (!isInitialized) {
@@ -97,12 +97,12 @@ protected:
         }
     }
 
-    std::unique_ptr<RamDomain[]> readNextTupleList() {
+    Own<RamDomain[]> readNextTupleList() {
         if (pos >= jsonSource.array_items().size()) {
             return nullptr;
         }
 
-        std::unique_ptr<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
+        Own<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
         const Json& jsonObj = jsonSource[pos];
         assert(jsonObj.is_array() && "the input is not json array");
         pos++;
@@ -192,12 +192,12 @@ protected:
         return recordTable.pack(recordValues.data(), recordValues.size());
     }
 
-    std::unique_ptr<RamDomain[]> readNextTupleObject() {
+    Own<RamDomain[]> readNextTupleObject() {
         if (pos >= jsonSource.array_items().size()) {
             return nullptr;
         }
 
-        std::unique_ptr<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
+        Own<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
         const Json& jsonObj = jsonSource[pos];
         assert(jsonObj.is_object() && "the input is not json object");
         pos++;
@@ -339,9 +339,9 @@ protected:
 
 class ReadCinJSONFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
-            SymbolTable& symbolTable, RecordTable& recordTable) override {
-        return std::make_unique<ReadStreamJSON>(std::cin, rwOperation, symbolTable, recordTable);
+    Own<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable) override {
+        return mk<ReadStreamJSON>(std::cin, rwOperation, symbolTable, recordTable);
     }
 
     const std::string& getName() const override {
@@ -353,9 +353,9 @@ public:
 
 class ReadFileJSONFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
-            SymbolTable& symbolTable, RecordTable& recordTable) override {
-        return std::make_unique<ReadFileJSON>(rwOperation, symbolTable, recordTable);
+    Own<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable) override {
+        return mk<ReadFileJSON>(rwOperation, symbolTable, recordTable);
     }
 
     const std::string& getName() const override {

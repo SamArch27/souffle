@@ -23,10 +23,10 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamSwap
+ * @class Swap
  * @brief Swap operation with respect to two relations
  *
  * Swaps the contents of the two relations
@@ -36,13 +36,13 @@ namespace souffle {
  * SWAP(A, B)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamSwap : public RamBinRelationStatement {
+class Swap : public BinRelationStatement {
 public:
-    RamSwap(std::unique_ptr<RamRelationReference> f, std::unique_ptr<RamRelationReference> s)
-            : RamBinRelationStatement(std::move(f), std::move(s)) {}
+    Swap(Own<RelationReference> f, Own<RelationReference> s)
+            : BinRelationStatement(std::move(f), std::move(s)) {}
 
-    RamSwap* clone() const override {
-        return new RamSwap(souffle::clone(first), souffle::clone(second));
+    Swap* clone() const override {
+        return new Swap(souffle::clone(first), souffle::clone(second));
     }
 
 protected:
@@ -53,4 +53,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

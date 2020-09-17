@@ -17,18 +17,22 @@
 #include "tests/test.h"
 
 #include "ast/analysis/TypeSystem.h"
-#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/StringUtil.h"
+#include <algorithm>
+#include <cstddef>
 #include <string>
 #include <vector>
 
-namespace souffle::test {
+namespace souffle::ast::test {
+using namespace analysis;
 
 TEST(TypeSystem, Basic) {
     TypeEnvironment env;
 
-    const Type& A = env.createType<SubsetType>("A", env.getType("number"));
-    const Type& B = env.createType<SubsetType>("B", env.getType("symbol"));
+    const analysis::Type& A = env.createType<SubsetType>("A", env.getType("number"));
+    const analysis::Type& B = env.createType<SubsetType>("B", env.getType("symbol"));
 
     auto& U = env.createType<UnionType>("U", toVector(&A, &B));
 
@@ -45,12 +49,12 @@ TEST(TypeSystem, Basic) {
 TEST(TypeSystem, isNumberType) {
     TypeEnvironment env;
 
-    const Type& N = env.getType("number");
+    const analysis::Type& N = env.getType("number");
 
-    const Type& A = env.createType<SubsetType>("A", env.getType("number"));
-    const Type& B = env.createType<SubsetType>("B", env.getType("number"));
+    const analysis::Type& A = env.createType<SubsetType>("A", env.getType("number"));
+    const analysis::Type& B = env.createType<SubsetType>("B", env.getType("number"));
 
-    const Type& C = env.createType<SubsetType>("C", env.getType("symbol"));
+    const analysis::Type& C = env.createType<SubsetType>("C", env.getType("symbol"));
 
     EXPECT_TRUE(isOfKind(N, TypeAttribute::Signed));
     EXPECT_TRUE(isOfKind(A, TypeAttribute::Signed));
@@ -64,20 +68,20 @@ TEST(TypeSystem, isNumberType) {
 
     // check the union type
     {
-        const Type& U = env.createType<UnionType>("U", toVector(&A, &B));
+        const analysis::Type& U = env.createType<UnionType>("U", toVector(&A, &B));
         EXPECT_TRUE(isOfKind(U, TypeAttribute::Signed));
         EXPECT_FALSE(isOfKind(U, TypeAttribute::Symbol));
-        const Type& U2 = env.createType<UnionType>("U2", toVector(&A, &B, &C));
+        const analysis::Type& U2 = env.createType<UnionType>("U2", toVector(&A, &B, &C));
         EXPECT_FALSE(isOfKind(U2, TypeAttribute::Signed));
         EXPECT_FALSE(isOfKind(U2, TypeAttribute::Symbol));
     }
     {
-        const Type& U3 = env.createType<UnionType>("U3", toVector(&A));
+        const analysis::Type& U3 = env.createType<UnionType>("U3", toVector(&A));
         EXPECT_TRUE(isOfKind(U3, TypeAttribute::Signed));
     }
 }
 
-bool isNotSubtypeOf(const Type& a, const Type& b) {
+bool isNotSubtypeOf(const analysis::Type& a, const analysis::Type& b) {
     return !isSubtypeOf(a, b);
 }
 
@@ -86,8 +90,8 @@ TEST(TypeSystem, isSubtypeOf_Basic) {
 
     // start with the two predefined types
 
-    const Type& N = env.getType("number");
-    const Type& S = env.getType("symbol");
+    const analysis::Type& N = env.getType("number");
+    const analysis::Type& S = env.getType("symbol");
 
     EXPECT_PRED2(isSubtypeOf, N, N);
     EXPECT_PRED2(isSubtypeOf, S, S);
@@ -97,8 +101,8 @@ TEST(TypeSystem, isSubtypeOf_Basic) {
 
     // check primitive type
 
-    const Type& A = env.createType<SubsetType>("A", env.getType("number"));
-    const Type& B = env.createType<SubsetType>("B", env.getType("number"));
+    const analysis::Type& A = env.createType<SubsetType>("A", env.getType("number"));
+    const analysis::Type& B = env.createType<SubsetType>("B", env.getType("number"));
 
     EXPECT_PRED2(isSubtypeOf, A, A);
     EXPECT_PRED2(isSubtypeOf, B, B);
@@ -114,7 +118,7 @@ TEST(TypeSystem, isSubtypeOf_Basic) {
 
     // check union types
 
-    const Type& U = env.createType<UnionType>("U", toVector(&A, &B));
+    const analysis::Type& U = env.createType<UnionType>("U", toVector(&A, &B));
 
     EXPECT_PRED2(isSubtypeOf, U, U);
     EXPECT_PRED2(isSubtypeOf, A, U);
@@ -134,8 +138,8 @@ TEST(TypeSystem, isSubtypeOf_Basic) {
 TEST(TypeSystem, isSubtypeOf_Records) {
     TypeEnvironment env;
 
-    const Type& A = env.createType<SubsetType>("A", env.getType("number"));
-    const Type& B = env.createType<SubsetType>("B", env.getType("number"));
+    const analysis::Type& A = env.createType<SubsetType>("A", env.getType("number"));
+    const analysis::Type& B = env.createType<SubsetType>("B", env.getType("number"));
 
     auto& R1 = env.createType<RecordType>("R1");
     auto& R2 = env.createType<RecordType>("R2");
@@ -153,11 +157,11 @@ TEST(TypeSystem, isSubtypeOf_Records) {
 TEST(TypeSystem, GreatestCommonSubtype) {
     TypeEnvironment env;
 
-    const Type& N = env.getType("number");
+    const analysis::Type& N = env.getType("number");
 
-    const Type& A = env.createType<SubsetType>("A", env.getType("number"));
-    const Type& B = env.createType<SubsetType>("B", env.getType("number"));
-    const Type& C = env.createType<SubsetType>("C", env.getType("symbol"));
+    const analysis::Type& A = env.createType<SubsetType>("A", env.getType("number"));
+    const analysis::Type& B = env.createType<SubsetType>("B", env.getType("number"));
+    const analysis::Type& C = env.createType<SubsetType>("C", env.getType("symbol"));
 
     EXPECT_EQ("{number}", toString(getGreatestCommonSubtypes(N, N)));
 
@@ -208,7 +212,7 @@ TEST(TypeSystem, GreatestCommonSubtype) {
     EXPECT_EQ("{R}", toString(getGreatestCommonSubtypes(U, R, N)));
     EXPECT_EQ("{R}", toString(getGreatestCommonSubtypes(S, R, N)));
 
-    R.setElements(toVector(static_cast<const Type*>(&U)));  // R = U = S
+    R.setElements(toVector(static_cast<const analysis::Type*>(&U)));  // R = U = S
 
     EXPECT_EQ("{U}", toString(getGreatestCommonSubtypes(U, R)));
     EXPECT_EQ("{S}", toString(getGreatestCommonSubtypes(S, R)));
@@ -216,7 +220,7 @@ TEST(TypeSystem, GreatestCommonSubtype) {
     EXPECT_EQ("{U}", toString(getGreatestCommonSubtypes(U, R, N)));
     EXPECT_EQ("{S}", toString(getGreatestCommonSubtypes(S, R, N)));
 
-    R.setElements(toVector(static_cast<const Type*>(&U), static_cast<const Type*>(&S)));
+    R.setElements(toVector(static_cast<const analysis::Type*>(&U), static_cast<const analysis::Type*>(&S)));
 
     EXPECT_EQ("{U}", toString(getGreatestCommonSubtypes(U, R)));
     EXPECT_EQ("{S}", toString(getGreatestCommonSubtypes(S, R)));
@@ -259,7 +263,7 @@ TEST(TypeSystem, EquivTypes) {
     TypeEnvironment env;
 
     auto& A = env.createType<SubsetType>("A", env.getType("number"));
-    auto& U = env.createType<UnionType>("U", toVector(dynamic_cast<const Type*>(&A)));
+    auto& U = env.createType<UnionType>("U", toVector(dynamic_cast<const analysis::Type*>(&A)));
 
     EXPECT_TRUE(areEquivalentTypes(A, U));
 }
@@ -273,4 +277,4 @@ TEST(TypeSystem, AlgebraicDataType) {
     EXPECT_EQ("{A}", toString(getGreatestCommonSubtypes(A, A)));
 }
 
-}  // namespace souffle::test
+}  // namespace souffle::ast::test

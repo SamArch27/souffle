@@ -8,19 +8,36 @@
 
 #pragma once
 
+#include "souffle/profile/CellInterface.h"
 #include "souffle/profile/HtmlGenerator.h"
+#include "souffle/profile/Iteration.h"
 #include "souffle/profile/OutputProcessor.h"
+#include "souffle/profile/ProfileDatabase.h"
 #include "souffle/profile/ProfileEvent.h"
+#include "souffle/profile/ProgramRun.h"
 #include "souffle/profile/Reader.h"
+#include "souffle/profile/Relation.h"
+#include "souffle/profile/Row.h"
+#include "souffle/profile/Rule.h"
+#include "souffle/profile/StringUtils.h"
 #include "souffle/profile/Table.h"
 #include "souffle/profile/UserInputReader.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
+#include <iterator>
+#include <map>
 #include <memory>
+#include <ratio>
+#include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 #include <dirent.h>
 #include <sys/ioctl.h>

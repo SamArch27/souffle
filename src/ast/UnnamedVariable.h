@@ -19,18 +19,18 @@
 #include "ast/Argument.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstUnnamedVariable
+ * @class UnnamedVariable
  * @brief Unnamed variable class
  */
-class AstUnnamedVariable : public AstArgument {
+class UnnamedVariable : public Argument {
 public:
-    using AstArgument::AstArgument;
+    using Argument::Argument;
 
-    AstUnnamedVariable* clone() const override {
-        return new AstUnnamedVariable(getSrcLoc());
+    UnnamedVariable* clone() const override {
+        return new UnnamedVariable(getSrcLoc());
     }
 
 protected:
@@ -39,4 +39,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

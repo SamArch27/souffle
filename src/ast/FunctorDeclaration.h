@@ -18,7 +18,6 @@
 
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "souffle/RamTypes.h"
 #include "souffle/TypeAttribute.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
@@ -31,21 +30,21 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstFunctorDeclaration
+ * @class FunctorDeclaration
  * @brief User-defined functor declaration
  *
  * Example:
  *    .declfun foo(x:number, y:number):number
  */
 
-class AstFunctorDeclaration : public AstNode {
+class FunctorDeclaration : public Node {
 public:
-    AstFunctorDeclaration(std::string name, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
+    FunctorDeclaration(std::string name, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
             bool stateful, SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(name)), argsTypes(std::move(argsTypes)),
+            : Node(std::move(loc)), name(std::move(name)), argsTypes(std::move(argsTypes)),
               returnType(returnType), stateful(stateful) {
         assert(this->name.length() > 0 && "functor name is empty");
     }
@@ -75,8 +74,8 @@ public:
         return stateful;
     }
 
-    AstFunctorDeclaration* clone() const override {
-        return new AstFunctorDeclaration(name, argsTypes, returnType, stateful, getSrcLoc());
+    FunctorDeclaration* clone() const override {
+        return new FunctorDeclaration(name, argsTypes, returnType, stateful, getSrcLoc());
     }
 
 protected:
@@ -101,8 +100,8 @@ protected:
         out << std::endl;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstFunctorDeclaration&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const FunctorDeclaration&>(node);
         return name == other.name && argsTypes == other.argsTypes && returnType == other.returnType &&
                stateful == other.stateful;
     }
@@ -120,4 +119,4 @@ protected:
     const bool stateful;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

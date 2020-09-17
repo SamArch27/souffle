@@ -33,20 +33,22 @@
 namespace souffle {
 class ErrorReport;
 
+namespace ram {
+
 /**
- * @class RamTranslationUnit
+ * @class TranslationUnit
  * @brief Translating a RAM program
  *
  * Comprises the program, symbol table, error report and debug report
  */
-class RamTranslationUnit {
+class TranslationUnit {
 public:
-    RamTranslationUnit(std::unique_ptr<RamProgram> prog, SymbolTable sym, ErrorReport& e, DebugReport& d)
+    TranslationUnit(Own<Program> prog, SymbolTable sym, ErrorReport& e, DebugReport& d)
             : program(std::move(prog)), symbolTable(std::move(sym)), errorReport(e), debugReport(d) {
         assert(program != nullptr && "program is a null-pointer");
     }
 
-    virtual ~RamTranslationUnit() = default;
+    virtual ~TranslationUnit() = default;
 
     /** @brief templated method to compute/retrieve an analysis for a translation unit */
     template <class Analysis>
@@ -56,7 +58,7 @@ public:
         auto it = analyses.find(name);
         if (it == analyses.end()) {
             // analysis does not exist yet, create instance and run it.
-            auto analysis = std::make_unique<Analysis>(Analysis::name);
+            auto analysis = mk<Analysis>(Analysis::name);
             analysis->run(*this);
             // output analysis in debug report
             if (debug) {
@@ -77,8 +79,8 @@ public:
     }
 
     /** @brief get the set of alive analyses of the translation unit */
-    std::set<const RamAnalysis*> getAliveAnalyses() const {
-        std::set<const RamAnalysis*> result;
+    std::set<const analysis::Analysis*> getAliveAnalyses() const {
+        std::set<const analysis::Analysis*> result;
         for (auto const& a : analyses) {
             result.insert(a.second.get());
         }
@@ -91,12 +93,12 @@ public:
     }
 
     /** @brief get the RAM Program of the translation unit  */
-    const RamProgram& getProgram() const {
+    const Program& getProgram() const {
         return *program;
     }
 
     /** @brief get the RAM Program of the translation unit  */
-    RamProgram& getProgram() {
+    Program& getProgram() {
         return *program;
     }
 
@@ -127,10 +129,10 @@ public:
 
 protected:
     /* cached analyses */
-    mutable std::map<std::string, std::unique_ptr<RamAnalysis>> analyses;
+    mutable std::map<std::string, Own<analysis::Analysis>> analyses;
 
     /* Program RAM */
-    std::unique_ptr<RamProgram> program;
+    Own<Program> program;
 
     /* The table of symbols encountered in the input program */
     souffle::SymbolTable symbolTable;
@@ -142,4 +144,5 @@ protected:
     DebugReport& debugReport;
 };
 
+}  // namespace ram
 }  // end of namespace souffle

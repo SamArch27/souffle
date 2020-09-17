@@ -24,18 +24,18 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstExecutionOrder
+ * @class ExecutionOrder
  * @brief An execution order for atoms within a clause;
  *        one or more execution orders form a plan.
  */
-class AstExecutionOrder : public AstNode {
+class ExecutionOrder : public Node {
 public:
     using ExecOrder = std::vector<unsigned int>;
 
-    AstExecutionOrder(ExecOrder order = {}, SrcLocation loc = {}) : order(std::move(order)) {
+    ExecutionOrder(ExecOrder order = {}, SrcLocation loc = {}) : order(std::move(order)) {
         setSrcLoc(std::move(loc));
     }
 
@@ -44,8 +44,8 @@ public:
         return order;
     }
 
-    AstExecutionOrder* clone() const override {
-        return new AstExecutionOrder(order, getSrcLoc());
+    ExecutionOrder* clone() const override {
+        return new ExecutionOrder(order, getSrcLoc());
     }
 
 protected:
@@ -53,8 +53,8 @@ protected:
         out << "(" << join(order) << ")";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstExecutionOrder&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const ExecutionOrder&>(node);
         return order == other.order;
     }
 
@@ -63,4 +63,4 @@ private:
     ExecOrder order;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -218,12 +218,12 @@ public:
         /**
          * Clone a source with the exact same state
          */
-        virtual std::unique_ptr<Source> clone() = 0;
+        virtual Own<Source> clone() = 0;
     };
 
 private:
     // the source to read data from
-    std::unique_ptr<Source> source = nullptr;
+    Own<Source> source = nullptr;
 
     // an internal buffer for decoded elements
     std::array<TupleRef, BUFFER_SIZE> buffer{};
@@ -235,7 +235,7 @@ private:
     int limit = 0;
 
 public:
-    Stream(std::unique_ptr<Source>&& src) : source(std::move(src)) {
+    Stream(Own<Source>&& src) : source(std::move(src)) {
         loadNext();
     }
 
@@ -259,13 +259,13 @@ public:
     }
 
     template <typename S>
-    Stream(std::unique_ptr<S>&& src) : Stream(std::unique_ptr<Source>(std::move(src))) {}
+    Stream(Own<S>&& src) : Stream(Own<Source>(std::move(src))) {}
 
-    std::unique_ptr<Stream> clone() const {
+    Own<Stream> clone() const {
         if (source == nullptr) {
-            return std::make_unique<Stream>();
+            return mk<Stream>();
         }
-        auto newStream = std::make_unique<Stream>(source->clone());
+        auto newStream = mk<Stream>(source->clone());
         newStream->source->reload(&newStream->buffer[0], limit);
         newStream->cur = cur;
         newStream->limit = limit;
@@ -387,7 +387,7 @@ public:
 };
 
 // A general handler type for index views.
-using IndexViewPtr = std::unique_ptr<IndexView>;
+using IndexViewPtr = Own<IndexView>;
 
 /**
  * An index is an abstraction of a data structure
@@ -592,8 +592,8 @@ class NullaryIndex : public InterpreterIndex {
             return 1;
         }
 
-        std::unique_ptr<Stream::Source> clone() override {
-            return std::make_unique<Source>(present);
+        Own<Stream::Source> clone() override {
+            return mk<Source>(present);
         }
     };
 
@@ -634,7 +634,7 @@ public:
     }
 
     IndexViewPtr createView() const override {
-        return std::make_unique<NullaryIndexView>(*this);
+        return mk<NullaryIndexView>(*this);
     }
 
     bool insert(const TupleRef& tuple) override {
@@ -659,7 +659,7 @@ public:
     }
 
     Stream scan() const override {
-        return std::make_unique<Source>(present);
+        return mk<Source>(present);
     }
 
     PartitionedStream partitionScan(int) const override {
@@ -741,8 +741,8 @@ protected:
             return c;
         }
 
-        std::unique_ptr<Stream::Source> clone() override {
-            auto source = std::make_unique<Source>(order, cur, end);
+        Own<Stream::Source> clone() override {
+            auto source = mk<Source>(order, cur, end);
             source->buffer = this->buffer;
             return source;
         }
@@ -771,7 +771,7 @@ protected:
 
         Stream range(const TupleRef& low, const TupleRef& high) const override {
             auto range = index.bounds(low, high, hints);
-            return std::make_unique<Source>(index.order, range.begin(), range.end());
+            return mk<Source>(index.order, range.begin(), range.end());
         }
 
         size_t getArity() const override {
@@ -783,7 +783,7 @@ public:
     GenericIndex(Order order) : order(std::move(order)) {}
 
     IndexViewPtr createView() const override {
-        return std::make_unique<GenericIndexView>(*this);
+        return mk<GenericIndexView>(*this);
     }
 
     size_t getArity() const override {
@@ -818,7 +818,7 @@ public:
     }
 
     Stream scan() const override {
-        return std::make_unique<Source>(order, data.begin(), data.end());
+        return mk<Source>(order, data.begin(), data.end());
     }
 
     PartitionedStream partitionScan(int partitionCount) const override {
@@ -826,7 +826,7 @@ public:
         std::vector<Stream> res;
         res.reserve(chunks.size());
         for (const auto& cur : chunks) {
-            res.push_back(std::make_unique<Source>(order, cur.begin(), cur.end()));
+            res.push_back(mk<Source>(order, cur.begin(), cur.end()));
         }
         return res;
     }
@@ -842,7 +842,7 @@ public:
         std::vector<Stream> res;
         res.reserve(partitionCount);
         for (const auto& cur : range.partition(partitionCount)) {
-            res.push_back(std::make_unique<Source>(order, cur.begin(), cur.end()));
+            res.push_back(mk<Source>(order, cur.begin(), cur.end()));
         }
         return res;
     }
@@ -853,21 +853,21 @@ public:
 };
 
 // The type of index factory functions.
-using IndexFactory = std::unique_ptr<InterpreterIndex> (*)(const Order&);
+using IndexFactory = Own<InterpreterIndex> (*)(const Order&);
 
 // A factory for BTree based index.
-std::unique_ptr<InterpreterIndex> createBTreeIndex(const Order&);
+Own<InterpreterIndex> createBTreeIndex(const Order&);
 
 // A factory for BTree provenance index.
-std::unique_ptr<InterpreterIndex> createBTreeProvenanceIndex(const Order&);
+Own<InterpreterIndex> createBTreeProvenanceIndex(const Order&);
 
 // A factory for Brie based index.
-std::unique_ptr<InterpreterIndex> createBrieIndex(const Order&);
+Own<InterpreterIndex> createBrieIndex(const Order&);
 
 // A factory for indirect index.
-std::unique_ptr<InterpreterIndex> createIndirectIndex(const Order&);
+Own<InterpreterIndex> createIndirectIndex(const Order&);
 
 // A factory for Eqrel index.
-std::unique_ptr<InterpreterIndex> createEqrelIndex(const Order&);
+Own<InterpreterIndex> createEqrelIndex(const Order&);
 
 }  // end of namespace souffle

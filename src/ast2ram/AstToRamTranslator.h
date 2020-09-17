@@ -38,7 +38,6 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Operation.h"
-#include "ram/Relation.h"
 #include "ram/Statement.h"
 #include "ram/TranslationUnit.h"
 #include "ram/TupleElement.h"
@@ -48,7 +47,6 @@
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include "souffle/utility/StringUtil.h"
-#include "souffle/utility/json11.h"
 #include <cassert>
 #include <cstddef>
 #include <map>
@@ -70,32 +68,32 @@ public:
     AstToRamTranslator() = default;
 
     /** translates AST to translation unit  */
-    std::unique_ptr<RamTranslationUnit> translateUnit(AstTranslationUnit& tu);
+    Own<ram::TranslationUnit> translateUnit(ast::TranslationUnit& tu);
 
 private:
     /** AST program */
-    const AstProgram* program = nullptr;
+    const ast::Program* program = nullptr;
 
     /** Type environment */
-    const TypeEnvironment* typeEnv = nullptr;
+    const ast::analysis::TypeEnvironment* typeEnv = nullptr;
 
     /** IO Type */
-    const IOType* ioType = nullptr;
+    const ast::analysis::IOTypeAnalysis* ioType = nullptr;
 
     /** RAM program */
-    std::unique_ptr<RamStatement> ramMain;
+    Own<ram::Statement> ramMain;
 
     /** Subroutines */
-    std::map<std::string, std::unique_ptr<RamStatement>> ramSubs;
+    std::map<std::string, Own<ram::Statement>> ramSubs;
 
     /** RAM relations */
-    std::map<std::string, std::unique_ptr<RamRelation>> ramRels;
+    std::map<std::string, Own<ram::Relation>> ramRels;
 
     /** Symbol Table **/
     SymbolTable symbolTable;
 
     /** Auxiliary Arity Analysis */
-    const AuxiliaryArity* auxArityAnalysis = nullptr;
+    const ast::analysis::AuxiliaryArityAnalysis* auxArityAnalysis = nullptr;
 
     /**
      * Concrete attribute
@@ -103,11 +101,11 @@ private:
     struct Location {
         int identifier{};
         int element{};
-        std::unique_ptr<RamRelationReference> relation{nullptr};
+        Own<ram::RelationReference> relation{nullptr};
 
         Location() = default;
 
-        Location(int ident, int elem, std::unique_ptr<RamRelationReference> rel = nullptr)
+        Location(int ident, int elem, Own<ram::RelationReference> rel = nullptr)
                 : identifier(ident), element(elem), relation(std::move(rel)) {}
 
         Location(const Location& l) : identifier(l.identifier), element(l.element) {
@@ -161,15 +159,15 @@ private:
          * The type mapping record init expressions to their definition points,
          * hence the point where they get grounded/bound.
          */
-        using record_definition_map = std::map<const AstRecordInit*, Location>;
+        using record_definition_map = std::map<const ast::RecordInit*, Location>;
 
         /**
-         * A map from generative `AstArgument`s to storage locations. Note,
-         * since in this case AstArgument are indexed by their values (not their
+         * A map from generative `ast::Argument`s to storage locations. Note,
+         * since in this case ast::Argument are indexed by their values (not their
          * address) no standard map can be utilized.
          * (By-value indexing induces an ad-hoc form of CSE.)
          */
-        using generator_location_map = std::vector<std::pair<const AstArgument*, Location>>;
+        using generator_location_map = std::vector<std::pair<const ast::Argument*, Location>>;
 
         /** The index of variable accesses */
         variable_reference_map var_references;
@@ -183,21 +181,21 @@ private:
     public:
         // -- variables --
 
-        void addVarReference(const AstVariable& var, const Location& l) {
+        void addVarReference(const ast::Variable& var, const Location& l) {
             std::set<Location>& locs = var_references[var.getName()];
             locs.insert(l);
         }
 
-        void addVarReference(const AstVariable& var, int ident, int pos,
-                std::unique_ptr<RamRelationReference> rel = nullptr) {
+        void addVarReference(
+                const ast::Variable& var, int ident, int pos, Own<ram::RelationReference> rel = nullptr) {
             addVarReference(var, Location({ident, pos, std::move(rel)}));
         }
 
-        bool isDefined(const AstVariable& var) const {
+        bool isDefined(const ast::Variable& var) const {
             return var_references.find(var.getName()) != var_references.end();
         }
 
-        const Location& getDefinitionPoint(const AstVariable& var) const {
+        const Location& getDefinitionPoint(const ast::Variable& var) const {
             auto pos = var_references.find(var.getName());
             assert(pos != var_references.end() && "Undefined variable referenced!");
             return *pos->second.begin();
@@ -211,16 +209,16 @@ private:
 
         // - definition -
 
-        void setRecordDefinition(const AstRecordInit& init, const Location& l) {
+        void setRecordDefinition(const ast::RecordInit& init, const Location& l) {
             record_definitions[&init] = l;
         }
 
-        void setRecordDefinition(const AstRecordInit& init, int ident, int pos,
-                std::unique_ptr<RamRelationReference> rel = nullptr) {
+        void setRecordDefinition(
+                const ast::RecordInit& init, int ident, int pos, Own<ram::RelationReference> rel = nullptr) {
             setRecordDefinition(init, Location({ident, pos, std::move(rel)}));
         }
 
-        const Location& getDefinitionPoint(const AstRecordInit& init) const {
+        const Location& getDefinitionPoint(const ast::RecordInit& init) const {
             auto pos = record_definitions.find(&init);
             if (pos != record_definitions.end()) {
                 return pos->second;
@@ -231,11 +229,11 @@ private:
 
         // -- generators (aggregates & some functors) --
 
-        void setGeneratorLoc(const AstArgument& agg, const Location& loc) {
+        void setGeneratorLoc(const ast::Argument& agg, const Location& loc) {
             arg_generator_locations.push_back(std::make_pair(&agg, loc));
         }
 
-        const Location& getGeneratorLoc(const AstArgument& arg) const {
+        const Location& getGeneratorLoc(const ast::Argument& arg) const {
             // search list
             for (const auto& cur : arg_generator_locations) {
                 if (*cur.first == arg) {
@@ -283,74 +281,73 @@ private:
     };
 
     /** create a RAM element access node */
-    static std::unique_ptr<RamTupleElement> makeRamTupleElement(const Location& loc);
+    static Own<ram::TupleElement> makeRamTupleElement(const Location& loc);
 
     /** determine the auxiliary for relations */
-    size_t getEvaluationArity(const AstAtom* atom) const;
+    size_t getEvaluationArity(const ast::Atom* atom) const;
 
     /**
      * assigns names to unnamed variables such that enclosing
      * constructs may be cloned without losing the variable-identity
      */
-    void nameUnnamedVariables(AstClause* clause);
+    void nameUnnamedVariables(ast::Clause* clause);
 
     /** converts the given relation identifier into a relation name */
-    std::string getRelationName(const AstQualifiedName& id) {
+    std::string getRelationName(const ast::QualifiedName& id) {
         return toString(join(id.getQualifiers(), "."));
     }
 
     /** translate AST directives to RAM directives */
     // TODO (b-scholz): revisit / refactor
-    void translateDirectives(std::map<std::string, std::string>& directives, const AstRelation* rel);
+    void translateDirectives(std::map<std::string, std::string>& directives, const ast::Relation* rel);
 
     // TODO (b-scholz): revisit / refactor so that only one directive is translated
-    std::vector<std::map<std::string, std::string>> getInputDirectives(const AstRelation* rel);
+    std::vector<std::map<std::string, std::string>> getInputDirectives(const ast::Relation* rel);
 
     // TODO (b-scholz): revisit / refactor so that only one directive is translated
-    std::vector<std::map<std::string, std::string>> getOutputDirectives(const AstRelation* rel);
+    std::vector<std::map<std::string, std::string>> getOutputDirectives(const ast::Relation* rel);
 
     /** create a reference to a RAM relation */
-    std::unique_ptr<RamRelationReference> createRelationReference(const std::string name);
+    Own<ram::RelationReference> createRelationReference(const std::string name);
 
     /** a utility to translate atoms to relations */
-    std::unique_ptr<RamRelationReference> translateRelation(const AstAtom* atom);
+    Own<ram::RelationReference> translateRelation(const ast::Atom* atom);
 
     /** translate an AST relation to a RAM relation */
-    std::unique_ptr<RamRelationReference> translateRelation(
-            const AstRelation* rel, const std::string relationNamePrefix = "");
+    Own<ram::RelationReference> translateRelation(
+            const ast::Relation* rel, const std::string relationNamePrefix = "");
 
     /** translate a temporary `delta` relation to a RAM relation for semi-naive evaluation */
-    std::unique_ptr<RamRelationReference> translateDeltaRelation(const AstRelation* rel);
+    Own<ram::RelationReference> translateDeltaRelation(const ast::Relation* rel);
 
     /** translate a temporary `new` relation to a RAM relation for semi-naive evaluation */
-    std::unique_ptr<RamRelationReference> translateNewRelation(const AstRelation* rel);
+    Own<ram::RelationReference> translateNewRelation(const ast::Relation* rel);
 
     /** translate an AST argument to a RAM value */
-    std::unique_ptr<RamExpression> translateValue(const AstArgument* arg, const ValueIndex& index);
+    Own<ram::Expression> translateValue(const ast::Argument* arg, const ValueIndex& index);
 
     /** translate an AST constraint to a RAM condition */
-    std::unique_ptr<RamCondition> translateConstraint(const AstLiteral* arg, const ValueIndex& index);
+    Own<ram::Condition> translateConstraint(const ast::Literal* arg, const ValueIndex& index);
 
     /** translate AST clause to RAM code */
     class ClauseTranslator {
         // index nested variables and records
-        using arg_list = std::vector<AstArgument*>;
+        using arg_list = std::vector<ast::Argument*>;
 
-        std::vector<const AstArgument*> generators;
+        std::vector<const ast::Argument*> generators;
 
         // the order of processed operations
-        std::vector<const AstNode*> op_nesting;
+        std::vector<const ast::Node*> op_nesting;
 
-        std::unique_ptr<AstClause> getReorderedClause(const AstClause& clause, const int version) const;
+        Own<ast::Clause> getReorderedClause(const ast::Clause& clause, const int version) const;
 
         arg_list* getArgList(
-                const AstNode* curNode, std::map<const AstNode*, std::unique_ptr<arg_list>>& nodeArgs) const;
+                const ast::Node* curNode, std::map<const ast::Node*, Own<arg_list>>& nodeArgs) const;
 
-        void indexValues(const AstNode* curNode,
-                std::map<const AstNode*, std::unique_ptr<arg_list>>& nodeArgs,
-                std::map<const arg_list*, int>& arg_level, RamRelationReference* relation);
+        void indexValues(const ast::Node* curNode, std::map<const ast::Node*, Own<arg_list>>& nodeArgs,
+                std::map<const arg_list*, int>& arg_level, ram::RelationReference* relation);
 
-        void createValueIndex(const AstClause& clause);
+        void createValueIndex(const ast::Clause& clause);
 
     protected:
         AstToRamTranslator& translator;
@@ -361,27 +358,27 @@ private:
         // current nesting level
         int level = 0;
 
-        virtual std::unique_ptr<RamOperation> createOperation(const AstClause& clause);
-        virtual std::unique_ptr<RamCondition> createCondition(const AstClause& originalClause);
+        virtual Own<ram::Operation> createOperation(const ast::Clause& clause);
+        virtual Own<ram::Condition> createCondition(const ast::Clause& originalClause);
 
         /** translate RAM code for a constant value */
-        std::unique_ptr<RamOperation> filterByConstraints(size_t level, const std::vector<AstArgument*>& args,
-                std::unique_ptr<RamOperation> op, bool constrainByFunctors = true);
+        Own<ram::Operation> filterByConstraints(size_t level, const std::vector<ast::Argument*>& args,
+                Own<ram::Operation> op, bool constrainByFunctors = true);
 
-        const AuxiliaryArity* auxArityAnalysis;
+        const ast::analysis::AuxiliaryArityAnalysis* auxArityAnalysis;
 
     public:
         ClauseTranslator(AstToRamTranslator& translator)
                 : translator(translator), auxArityAnalysis(translator.auxArityAnalysis) {}
 
-        std::unique_ptr<RamStatement> translateClause(
-                const AstClause& clause, const AstClause& originalClause, const int version = 0);
+        Own<ram::Statement> translateClause(
+                const ast::Clause& clause, const ast::Clause& originalClause, const int version = 0);
     };
 
     class ProvenanceClauseTranslator : public ClauseTranslator {
     protected:
-        std::unique_ptr<RamOperation> createOperation(const AstClause& clause) override;
-        std::unique_ptr<RamCondition> createCondition(const AstClause& originalClause) override;
+        Own<ram::Operation> createOperation(const ast::Clause& clause) override;
+        Own<ram::Condition> createCondition(const ast::Clause& originalClause) override;
 
     public:
         ProvenanceClauseTranslator(AstToRamTranslator& translator) : ClauseTranslator(translator) {}
@@ -395,19 +392,19 @@ private:
     /**
      *  Get ram representation of constant.
      */
-    RamDomain getConstantRamRepresentation(const AstConstant& constant) {
-        if (auto strConstant = dynamic_cast<const AstStringConstant*>(&constant)) {
+    RamDomain getConstantRamRepresentation(const ast::Constant& constant) {
+        if (auto strConstant = dynamic_cast<const ast::StringConstant*>(&constant)) {
             return getSymbolTable().lookup(strConstant->getConstant());
-        } else if (isA<AstNilConstant>(&constant)) {
+        } else if (isA<ast::NilConstant>(&constant)) {
             return 0;
-        } else if (auto* numConstant = dynamic_cast<const AstNumericConstant*>(&constant)) {
+        } else if (auto* numConstant = dynamic_cast<const ast::NumericConstant*>(&constant)) {
             assert(numConstant->getType().has_value());
             switch (*numConstant->getType()) {
-                case AstNumericConstant::Type::Int:
+                case ast::NumericConstant::Type::Int:
                     return RamSignedFromString(numConstant->getConstant(), nullptr, 0);
-                case AstNumericConstant::Type::Uint:
+                case ast::NumericConstant::Type::Uint:
                     return RamUnsignedFromString(numConstant->getConstant(), nullptr, 0);
-                case AstNumericConstant::Type::Float: return RamFloatFromString(numConstant->getConstant());
+                case ast::NumericConstant::Type::Float: return RamFloatFromString(numConstant->getConstant());
             }
         }
 
@@ -415,31 +412,31 @@ private:
     }
 
     /** translate RAM code for a constant value */
-    std::unique_ptr<RamExpression> translateConstant(AstConstant const& c);
+    Own<ram::Expression> translateConstant(ast::Constant const& c);
 
     /**
      * translate RAM code for the non-recursive clauses of the given relation.
      *
      * @return a corresponding statement or null if there are no non-recursive clauses.
      */
-    std::unique_ptr<RamStatement> translateNonRecursiveRelation(
-            const AstRelation& rel, const RecursiveClausesAnalysis* recursiveClauses);
+    Own<ram::Statement> translateNonRecursiveRelation(
+            const ast::Relation& rel, const ast::analysis::RecursiveClausesAnalysis* recursiveClauses);
 
     /** translate RAM code for recursive relations in a strongly-connected component */
-    std::unique_ptr<RamStatement> translateRecursiveRelation(
-            const std::set<const AstRelation*>& scc, const RecursiveClausesAnalysis* recursiveClauses);
+    Own<ram::Statement> translateRecursiveRelation(const std::set<const ast::Relation*>& scc,
+            const ast::analysis::RecursiveClausesAnalysis* recursiveClauses);
 
     /** translate RAM code for subroutine to get subproofs */
-    std::unique_ptr<RamStatement> makeSubproofSubroutine(const AstClause& clause);
+    Own<ram::Statement> makeSubproofSubroutine(const ast::Clause& clause);
 
     /** translate RAM code for subroutine to get subproofs */
-    std::unique_ptr<RamStatement> makeSubproofSubroutineOpt(const AstClause& clause);
+    Own<ram::Statement> makeSubproofSubroutineOpt(const ast::Clause& clause);
 
     /** translate RAM code for subroutine to get subproofs for non-existence of a tuple */
-    std::unique_ptr<RamStatement> makeNegationSubproofSubroutine(const AstClause& clause);
+    Own<ram::Statement> makeNegationSubproofSubroutine(const ast::Clause& clause);
 
     /** translate AST to RAM Program */
-    void translateProgram(const AstTranslationUnit& translationUnit);
+    void translateProgram(const ast::TranslationUnit& translationUnit);
 };
 
 }  // end of namespace souffle

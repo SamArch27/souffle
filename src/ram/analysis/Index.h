@@ -16,19 +16,21 @@
 
 #pragma once
 
-#include "Global.h"
+#include "ram/AbstractExistenceCheck.h"
+#include "ram/ExistenceCheck.h"
+#include "ram/IndexOperation.h"
+#include "ram/ProvenanceExistenceCheck.h"
 #include "ram/Relation.h"
+#include "ram/TranslationUnit.h"
 #include "ram/analysis/Analysis.h"
 #include "souffle/utility/MiscUtil.h"
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <cstdlib>
-#include <functional>
 #include <iostream>
 #include <list>
 #include <map>
 #include <memory>
-#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -39,14 +41,7 @@
 // define if enable unit tests
 #define M_UNIT_TEST
 
-namespace souffle {
-
-class RamAbstractExistenceCheck;
-class RamExistenceCheck;
-class RamIndexOperation;
-class RamProvenanceExistenceCheck;
-class RamRelation;
-class RamTranslationUnit;
+namespace souffle::ram::analysis {
 
 enum class AttributeConstraint { None, Equal, Inequal };
 
@@ -301,7 +296,7 @@ public:
     }
     /** Return the attribute position for each indexed operation that should be discharged.
      */
-    AttributeSet getAttributesToDischarge(const SearchSignature& s, const RamRelation& rel);
+    AttributeSet getAttributesToDischarge(const SearchSignature& s, const Relation& rel);
 
 protected:
     SignatureIndexMap signatureToIndexA;  // mapping of a SearchSignature on A to its unique index
@@ -389,13 +384,13 @@ protected:
  * @class RamIndexAnalyis
  * @Brief Analysis pass computing the index sets of RAM relations
  */
-class RamIndexAnalysis : public RamAnalysis {
+class IndexAnalysis : public Analysis {
 public:
-    RamIndexAnalysis(const char* id) : RamAnalysis(id) {}
+    IndexAnalysis(const char* id) : Analysis(id) {}
 
     static constexpr const char* name = "index-analysis";
 
-    void run(const RamTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     void print(std::ostream& os) const override;
 
@@ -404,7 +399,7 @@ public:
      * @param relation
      * @result set of indexes of the minimal index cover
      */
-    MinIndexSelection& getIndexes(const RamRelation& rel);
+    MinIndexSelection& getIndexes(const Relation& rel);
 
     /**
      * @Brief get the minimal index cover for a relation
@@ -418,28 +413,28 @@ public:
      * @param  Index-relation-search operation
      * @result Index signature of operation
      */
-    SearchSignature getSearchSignature(const RamIndexOperation* search) const;
+    SearchSignature getSearchSignature(const IndexOperation* search) const;
 
     /**
      * @Brief Get the index signature for an existence check
      * @param Existence check
      * @result index signature of existence check
      */
-    SearchSignature getSearchSignature(const RamExistenceCheck* existCheck) const;
+    SearchSignature getSearchSignature(const ExistenceCheck* existCheck) const;
 
     /**
      * @Brief Get the index signature for a provenance existence check
      * @param Provenance-existence check
      * @result index signature of provenance-existence check
      */
-    SearchSignature getSearchSignature(const RamProvenanceExistenceCheck* existCheck) const;
+    SearchSignature getSearchSignature(const ProvenanceExistenceCheck* existCheck) const;
 
     /**
      * @Brief Get the default index signature for a relation (the total-order index)
      * @param ramRel RAM-relation
      * @result total full-signature of the relation
      */
-    SearchSignature getSearchSignature(const RamRelation* ramRel) const;
+    SearchSignature getSearchSignature(const Relation* ramRel) const;
 
     /**
      * @Brief index signature of existence check resembles a total index
@@ -448,13 +443,13 @@ public:
      * isTotalSignature returns true if all elements of a tuple are used for the
      * the existence check.
      */
-    bool isTotalSignature(const RamAbstractExistenceCheck* existCheck) const;
+    bool isTotalSignature(const AbstractExistenceCheck* existCheck) const;
 
 private:
     /**
      * minimal index cover for relations, i.e., maps a relation to a set of indexes
      */
-    std::map<const RamRelation*, MinIndexSelection> minIndexCover;
+    std::map<const Relation*, MinIndexSelection> minIndexCover;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::analysis

@@ -19,18 +19,18 @@
 #include "ram/Expression.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamUndefValue
+ * @class UndefValue
  * @brief An undefined expression
  *
  * Output is ⊥
  */
-class RamUndefValue : public RamExpression {
+class UndefValue : public Expression {
 public:
-    RamUndefValue* clone() const override {
-        return new RamUndefValue();
+    UndefValue* clone() const override {
+        return new UndefValue();
     }
 
 protected:
@@ -39,4 +39,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

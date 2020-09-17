@@ -26,7 +26,7 @@
 #include <set>
 #include <string>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
 int TopologicallySortedSCCGraphAnalysis::topologicalOrderingCost(
         const std::vector<size_t>& permutationOfSCCs) const {
@@ -124,7 +124,7 @@ void TopologicallySortedSCCGraphAnalysis::computeTopologicalOrdering(size_t scc,
     }
 }
 
-void TopologicallySortedSCCGraphAnalysis::run(const AstTranslationUnit& translationUnit) {
+void TopologicallySortedSCCGraphAnalysis::run(const TranslationUnit& translationUnit) {
     // obtain the scc graph
     sccGraph = translationUnit.getAnalysis<SCCGraphAnalysis>();
     // clear the list of ordered sccs
@@ -166,7 +166,7 @@ void TopologicallySortedSCCGraphAnalysis::print(std::ostream& os) const {
     for (size_t i = 0; i < sccOrder.size(); i++) {
         os << i << ": [";
         os << join(sccGraph->getInternalRelations(sccOrder[i]), ", ",
-                [](std::ostream& out, const AstRelation* rel) { out << rel->getQualifiedName(); });
+                [](std::ostream& out, const Relation* rel) { out << rel->getQualifiedName(); });
         os << "]" << std::endl;
     }
     os << std::endl;
@@ -174,4 +174,4 @@ void TopologicallySortedSCCGraphAnalysis::print(std::ostream& os) const {
     os << "cost: " << topologicalOrderingCost(sccOrder) << std::endl;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

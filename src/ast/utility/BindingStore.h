@@ -17,20 +17,20 @@
 
 #pragma once
 
+#include "ast/Argument.h"
+#include "ast/Atom.h"
+#include "ast/Clause.h"
 #include "souffle/utility/ContainerUtil.h"
+#include <cstddef>
 #include <map>
 #include <set>
 #include <string>
 
-namespace souffle {
-
-class AstArgument;
-class AstAtom;
-class AstClause;
+namespace souffle::ast {
 
 class BindingStore {
 public:
-    BindingStore(const AstClause* clause);
+    BindingStore(const Clause* clause);
 
     /**
      * Mark the given variable as strongly bound.
@@ -59,10 +59,10 @@ public:
     }
 
     /** Check if an argument is bound */
-    bool isBound(const AstArgument* arg) const;
+    bool isBound(const Argument* arg) const;
 
     /** Counts the number of bound arguments in the given atom */
-    size_t numBoundArguments(const AstAtom* atom) const;
+    size_t numBoundArguments(const Atom* atom) const;
 
 private:
     // Helper types to represent a disjunction of several dependency sets
@@ -85,10 +85,10 @@ private:
     }
 
     /** Add binding dependencies formed on lhs by a <lhs> = <rhs> equality constraint. */
-    void processEqualityBindings(const AstArgument* lhs, const AstArgument* rhs);
+    void processEqualityBindings(const Argument* lhs, const Argument* rhs);
 
     /** Generate all binding dependencies implied by the constraints within a given clause. */
-    void generateBindingDependencies(const AstClause* clause);
+    void generateBindingDependencies(const Clause* clause);
 
     /** Reduce a conjunctive set of dependencies based on the current bound variable set. */
     ConjBindingSet reduceDependency(const ConjBindingSet& origDependency);
@@ -100,4 +100,4 @@ private:
     bool reduceDependencies();
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast

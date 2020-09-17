@@ -23,19 +23,20 @@
 #include "souffle/utility/FunctionalUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
-#include <cassert>
+#include "souffle/utility/tinyformat.h"
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-// forward declaration
 class TypeEnvironment;
 
 /**
@@ -47,7 +48,7 @@ public:
 
     virtual ~Type() = default;
 
-    const AstQualifiedName& getName() const {
+    const QualifiedName& getName() const {
         return name;
     }
 
@@ -76,13 +77,13 @@ public:
     }
 
 protected:
-    Type(const TypeEnvironment& environment, AstQualifiedName name)
+    Type(const TypeEnvironment& environment, QualifiedName name)
             : environment(environment), name(std::move(name)) {}
 
     /** A reference to the type environment this type is associated to. */
     const TypeEnvironment& environment;
 
-    AstQualifiedName name;
+    QualifiedName name;
 };
 
 /**
@@ -90,8 +91,7 @@ protected:
  * ConstantType = NumberConstant/UnsignedConstant/FloatConstant/SymbolConstant
  */
 class ConstantType : public Type {
-    ConstantType(const TypeEnvironment& environment, const AstQualifiedName& name)
-            : Type(environment, name) {}
+    ConstantType(const TypeEnvironment& environment, const QualifiedName& name) : Type(environment, name) {}
 
     friend class TypeEnvironment;
 };
@@ -108,7 +108,7 @@ public:
     }
 
 protected:
-    SubsetType(const TypeEnvironment& environment, const AstQualifiedName& name, const Type& base)
+    SubsetType(const TypeEnvironment& environment, const QualifiedName& name, const Type& base)
             : Type(environment, name), baseType(base){};
 
 private:
@@ -128,7 +128,7 @@ public:
     }
 
 private:
-    PrimitiveType(const TypeEnvironment& environment, const AstQualifiedName& name, const ConstantType& base)
+    PrimitiveType(const TypeEnvironment& environment, const QualifiedName& name, const ConstantType& base)
             : Type(environment, name), SubsetType(environment, name, base) {}
 
     friend class TypeEnvironment;
@@ -153,7 +153,7 @@ protected:
     friend class TypeEnvironment;
     std::vector<const Type*> elementTypes;
 
-    UnionType(const TypeEnvironment& environment, const AstQualifiedName& name,
+    UnionType(const TypeEnvironment& environment, const QualifiedName& name,
             std::vector<const Type*> elementTypes = {})
             : Type(environment, name), elementTypes(std::move(elementTypes)) {}
 };
@@ -178,7 +178,7 @@ protected:
 
     std::vector<const Type*> fields;
 
-    RecordType(const TypeEnvironment& environment, const AstQualifiedName& name,
+    RecordType(const TypeEnvironment& environment, const QualifiedName& name,
             const std::vector<const Type*> fields = {})
             : Type(environment, name), fields(fields) {}
 };
@@ -196,7 +196,7 @@ protected:
     friend class TypeEnvironment;
 
     SubsetRecordType(
-            const TypeEnvironment& environment, const AstQualifiedName& name, const RecordType& baseType)
+            const TypeEnvironment& environment, const QualifiedName& name, const RecordType& baseType)
             : Type(environment, name), SubsetType(environment, name, baseType),
               RecordType(environment, name, baseType.getFields()) {
         // Update fields, replacing each occurrence of base with derived.
@@ -250,7 +250,7 @@ public:
     }
 
 private:
-    AlgebraicDataType(const TypeEnvironment& env, AstQualifiedName name) : Type(env, std::move(name)) {}
+    AlgebraicDataType(const TypeEnvironment& env, QualifiedName name) : Type(env, std::move(name)) {}
 
     friend class TypeEnvironment;
 
@@ -425,18 +425,18 @@ public:
 
     /** create type in this environment */
     template <typename T, typename... Args>
-    T& createType(const AstQualifiedName& name, Args&&... args) {
+    T& createType(const QualifiedName& name, Args&&... args) {
         assert(types.find(name) == types.end() && "Error: registering present type!");
         auto* newType = new T(*this, name, std::forward<Args>(args)...);
-        types[name] = std::unique_ptr<Type>(newType);
+        types[name] = Own<Type>(newType);
         return *newType;
     }
 
-    bool isType(const AstQualifiedName&) const;
+    bool isType(const QualifiedName&) const;
     bool isType(const Type& type) const;
 
-    const Type& getType(const AstQualifiedName&) const;
-    const Type& getType(const AstType&) const;
+    const Type& getType(const QualifiedName&) const;
+    const Type& getType(const ast::Type&) const;
 
     const Type& getConstantType(TypeAttribute type) const {
         switch (type) {
@@ -451,7 +451,7 @@ public:
         fatal("There is no constant record type");
     }
 
-    bool isPrimitiveType(const AstQualifiedName& identifier) const {
+    bool isPrimitiveType(const QualifiedName& identifier) const {
         if (isType(identifier)) {
             return isPrimitiveType(getType(identifier));
         }
@@ -494,7 +494,7 @@ private:
     TypeSet initializeConstantTypes();
 
     /** The list of covered types. */
-    std::map<AstQualifiedName, std::unique_ptr<Type>> types;
+    std::map<QualifiedName, Own<Type>> types;
 
     const TypeSet constantTypes = initializeConstantTypes();
     const TypeSet constantNumericTypes =
@@ -571,4 +571,4 @@ bool haveCommonSupertype(const Type& a, const Type& b);
  */
 bool areEquivalentTypes(const Type& a, const Type& b);
 
-}  // end namespace souffle
+}  // namespace souffle::ast::analysis

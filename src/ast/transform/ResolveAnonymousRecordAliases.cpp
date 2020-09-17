@@ -35,20 +35,20 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-std::map<std::string, const AstRecordInit*> ResolveAnonymousRecordAliases::findVariablesRecordMapping(
-        AstTranslationUnit& tu, const AstClause& clause) {
-    std::map<std::string, const AstRecordInit*> variableRecordMap;
+std::map<std::string, const RecordInit*> ResolveAnonymousRecordAliasesTransformer::findVariablesRecordMapping(
+        TranslationUnit& tu, const Clause& clause) {
+    std::map<std::string, const RecordInit*> variableRecordMap;
 
-    auto isVariable = [](AstNode* node) -> bool { return isA<AstVariable>(node); };
-    auto isRecord = [](AstNode* node) -> bool { return isA<AstRecordInit>(node); };
+    auto isVariable = [](Node* node) -> bool { return isA<ast::Variable>(node); };
+    auto isRecord = [](Node* node) -> bool { return isA<RecordInit>(node); };
 
-    auto& typeAnalysis = *tu.getAnalysis<TypeAnalysis>();
-    auto groundedTerms = getGroundedTerms(tu, clause);
+    auto& typeAnalysis = *tu.getAnalysis<analysis::TypeAnalysis>();
+    auto groundedTerms = analysis::getGroundedTerms(tu, clause);
 
     for (auto* literal : clause.getBodyLiterals()) {
-        if (auto constraint = dynamic_cast<AstBinaryConstraint*>(literal)) {
+        if (auto constraint = dynamic_cast<BinaryConstraint*>(literal)) {
             if (!isEqConstraint(constraint->getOperator())) {
                 continue;
             }
@@ -71,7 +71,7 @@ std::map<std::string, const AstRecordInit*> ResolveAnonymousRecordAliases::findV
                 continue;
             }
 
-            auto* variable = static_cast<AstVariable*>(isVariable(left) ? left : right);
+            auto* variable = static_cast<ast::Variable*>(isVariable(left) ? left : right);
             const auto& variableName = variable->getName();
 
             if (!groundedTerms.find(variable)->second) {
@@ -83,7 +83,7 @@ std::map<std::string, const AstRecordInit*> ResolveAnonymousRecordAliases::findV
                 continue;
             }
 
-            auto* record = static_cast<AstRecordInit*>(isRecord(left) ? left : right);
+            auto* record = static_cast<RecordInit*>(isRecord(left) ? left : right);
 
             variableRecordMap.insert({variableName, record});
         }
@@ -92,15 +92,15 @@ std::map<std::string, const AstRecordInit*> ResolveAnonymousRecordAliases::findV
     return variableRecordMap;
 }
 
-bool ResolveAnonymousRecordAliases::replaceNamedVariables(AstTranslationUnit& tu, AstClause& clause) {
-    struct ReplaceVariables : public AstNodeMapper {
-        std::map<std::string, const AstRecordInit*> varToRecordMap;
+bool ResolveAnonymousRecordAliasesTransformer::replaceNamedVariables(TranslationUnit& tu, Clause& clause) {
+    struct ReplaceVariables : public NodeMapper {
+        std::map<std::string, const RecordInit*> varToRecordMap;
 
-        ReplaceVariables(std::map<std::string, const AstRecordInit*> varToRecordMap)
+        ReplaceVariables(std::map<std::string, const RecordInit*> varToRecordMap)
                 : varToRecordMap(std::move(varToRecordMap)){};
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            if (auto variable = dynamic_cast<AstVariable*>(node.get())) {
+        Own<Node> operator()(Own<Node> node) const override {
+            if (auto variable = dynamic_cast<ast::Variable*>(node.get())) {
                 auto iteratorToRecord = varToRecordMap.find(variable->getName());
                 if (iteratorToRecord != varToRecordMap.end()) {
                     return souffle::clone(iteratorToRecord->second);
@@ -122,23 +122,23 @@ bool ResolveAnonymousRecordAliases::replaceNamedVariables(AstTranslationUnit& tu
     return changed;
 }
 
-bool ResolveAnonymousRecordAliases::replaceUnnamedVariable(AstClause& clause) {
-    struct ReplaceUnnamed : public AstNodeMapper {
+bool ResolveAnonymousRecordAliasesTransformer::replaceUnnamedVariable(Clause& clause) {
+    struct ReplaceUnnamed : public NodeMapper {
         mutable bool changed{false};
         ReplaceUnnamed() = default;
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            auto isUnnamed = [](AstNode* node) -> bool { return isA<AstUnnamedVariable>(node); };
-            auto isRecord = [](AstNode* node) -> bool { return isA<AstRecordInit>(node); };
+        Own<Node> operator()(Own<Node> node) const override {
+            auto isUnnamed = [](Node* node) -> bool { return isA<UnnamedVariable>(node); };
+            auto isRecord = [](Node* node) -> bool { return isA<RecordInit>(node); };
 
-            if (auto constraint = dynamic_cast<AstBinaryConstraint*>(node.get())) {
+            if (auto constraint = dynamic_cast<BinaryConstraint*>(node.get())) {
                 auto left = constraint->getLHS();
                 auto right = constraint->getRHS();
                 bool hasUnnamed = isUnnamed(left) || isUnnamed(right);
                 bool hasRecord = isRecord(left) || isRecord(right);
                 auto op = constraint->getOperator();
                 if (hasUnnamed && hasRecord && isEqConstraint(op)) {
-                    return std::make_unique<AstBooleanConstraint>(true);
+                    return mk<BooleanConstraint>(true);
                 }
             }
 
@@ -154,7 +154,7 @@ bool ResolveAnonymousRecordAliases::replaceUnnamedVariable(AstClause& clause) {
     return update.changed;
 }
 
-bool ResolveAnonymousRecordAliases::transform(AstTranslationUnit& translationUnit) {
+bool ResolveAnonymousRecordAliasesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
     for (auto* clause : translationUnit.getProgram()->getClauses()) {
         changed |= replaceNamedVariables(translationUnit, *clause);
@@ -164,4 +164,4 @@ bool ResolveAnonymousRecordAliases::transform(AstTranslationUnit& translationUni
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

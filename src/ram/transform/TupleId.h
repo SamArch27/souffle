@@ -14,20 +14,19 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class TupleIdTransformer
- * @brief Ordering tupleIds in RamTupleOperation operations correctly
+ * @brief Ordering tupleIds in TupleOperation operations correctly
  *
  * Transformations, like MakeIndex and IfConversion do not
- * ensure that RamTupleOperations maintain an appropriate order
+ * ensure that TupleOperations maintain an appropriate order
  * with respect to their tupleId's
  *
  * For example:
@@ -43,7 +42,7 @@ class RamProgram;
  * 			...
  *
  */
-class TupleIdTransformer : public RamTransformer {
+class TupleIdTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "TupleIdTransformer";
@@ -54,14 +53,14 @@ public:
      * @param RAM program
      * @result A flag indicating whether the RAM program has been changed.
      *
-     * Search for RamTupleOperations and RamTupleElements and rewrite their tupleIds
+     * Search for TupleOperations and TupleElements and rewrite their tupleIds
      */
-    bool reorderOperations(RamProgram& program);
+    bool reorderOperations(Program& program);
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         return reorderOperations(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

@@ -18,17 +18,17 @@
 
 #include "ast/Literal.h"
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstConstraint
+ * @class Constraint
  * @brief Abstract class for AST constraints
  */
-class AstConstraint : public AstLiteral {
+class Constraint : public Literal {
 public:
-    using AstLiteral::AstLiteral;
+    using Literal::Literal;
 
-    AstConstraint* clone() const override = 0;
+    Constraint* clone() const override = 0;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

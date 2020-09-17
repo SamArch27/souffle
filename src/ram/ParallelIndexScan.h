@@ -19,6 +19,7 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/IndexOperation.h"
+#include "ram/IndexScan.h"
 #include "ram/NestedOperation.h"
 #include "ram/Node.h"
 #include "ram/NodeMapper.h"
@@ -36,10 +37,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamParallelIndexScan
+ * @class ParallelIndexScan
  * @brief Search for tuples of a relation matching a criteria
  *
  * For example:
@@ -50,13 +51,13 @@ namespace souffle {
  *	     ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamParallelIndexScan : public RamIndexScan, public RamAbstractParallel {
+class ParallelIndexScan : public IndexScan, public AbstractParallel {
 public:
-    RamParallelIndexScan(std::unique_ptr<RamRelationReference> rel, int ident, RamPattern queryPattern,
-            std::unique_ptr<RamOperation> nested, std::string profileText = "")
-            : RamIndexScan(std::move(rel), ident, std::move(queryPattern), std::move(nested), profileText) {}
+    ParallelIndexScan(Own<RelationReference> rel, int ident, RamPattern queryPattern, Own<Operation> nested,
+            std::string profileText = "")
+            : IndexScan(std::move(rel), ident, std::move(queryPattern), std::move(nested), profileText) {}
 
-    RamParallelIndexScan* clone() const override {
+    ParallelIndexScan* clone() const override {
         RamPattern resQueryPattern;
         for (const auto& i : queryPattern.first) {
             resQueryPattern.first.emplace_back(i->clone());
@@ -64,20 +65,20 @@ public:
         for (const auto& i : queryPattern.second) {
             resQueryPattern.second.emplace_back(i->clone());
         }
-        return new RamParallelIndexScan(souffle::clone(relationRef), getTupleId(), std::move(resQueryPattern),
+        return new ParallelIndexScan(souffle::clone(relationRef), getTupleId(), std::move(resQueryPattern),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        const RamRelation& rel = getRelation();
+        const Relation& rel = getRelation();
         os << times(" ", tabpos);
         os << "PARALLEL FOR t" << getTupleId() << " IN ";
         os << rel.getName();
         printIndex(os);
         os << std::endl;
-        RamIndexOperation::print(os, tabpos + 1);
+        IndexOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

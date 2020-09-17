@@ -20,10 +20,10 @@
 #include "souffle/RamTypes.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamFloatConstant
+ * @class FloatConstant
  * @brief Represents a float constant
  *
  * For example:
@@ -31,9 +31,9 @@ namespace souffle {
  * float(3.3)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamFloatConstant : public RamConstant {
+class FloatConstant : public Constant {
 public:
-    explicit RamFloatConstant(RamFloat val) : RamConstant(ramBitCast(val)) {}
+    explicit FloatConstant(RamFloat val) : Constant(ramBitCast(val)) {}
 
     /** @brief Get value of the constant. */
     RamFloat getValue() const {
@@ -41,8 +41,8 @@ public:
     }
 
     /** Create clone */
-    RamFloatConstant* clone() const override {
-        return new RamFloatConstant(getValue());
+    FloatConstant* clone() const override {
+        return new FloatConstant(getValue());
     }
 
 protected:
@@ -51,4 +51,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

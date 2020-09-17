@@ -16,25 +16,24 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <set>
 #include <string>
 #include <vector>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformer that coordinates other sub-transformations
  */
-class MetaTransformer : public AstTransformer {
+class MetaTransformer : public Transformer {
 protected:
     bool verbose = false;
 
 public:
     /* Get subtransformers */
-    virtual std::vector<AstTransformer*> getSubtransformers() const = 0;
+    virtual std::vector<Transformer*> getSubtransformers() const = 0;
 
     /* Enable the debug-report for all sub-transformations */
     virtual void setDebugReport() = 0;
@@ -46,9 +45,9 @@ public:
     virtual void disableTransformers(const std::set<std::string>& transforms) = 0;
 
     /* Apply a nested transformer */
-    bool applySubtransformer(AstTranslationUnit& translationUnit, AstTransformer* transformer);
+    bool applySubtransformer(TranslationUnit& translationUnit, Transformer* transformer);
 
     MetaTransformer* clone() const override = 0;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

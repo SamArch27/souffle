@@ -10,11 +10,12 @@
 
 #include "souffle/profile/Rule.h"
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <vector>
+#include <utility>
 
 namespace souffle {
 namespace profile {

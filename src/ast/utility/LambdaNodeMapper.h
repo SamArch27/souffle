@@ -20,22 +20,21 @@
 #include <memory>
 #include <utility>
 
-namespace souffle {
-class AstNode;
+namespace souffle::ast {
 
 namespace detail {
 
 /**
- * A special AstNodeMapper wrapping a lambda conducting node transformations.
+ * A special NodeMapper wrapping a lambda conducting node transformations.
  */
 template <typename Lambda>
-class LambdaNodeMapper : public AstNodeMapper {
+class LambdaNodeMapper : public NodeMapper {
     const Lambda& lambda;
 
 public:
     LambdaNodeMapper(const Lambda& lambda) : lambda(lambda) {}
 
-    Own<AstNode> operator()(Own<AstNode> node) const override {
+    Own<Node> operator()(Own<Node> node) const override {
         return lambda(std::move(node));
     }
 };
@@ -49,4 +48,4 @@ detail::LambdaNodeMapper<Lambda> makeLambdaAstMapper(const Lambda& lambda) {
     return detail::LambdaNodeMapper<Lambda>(lambda);
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

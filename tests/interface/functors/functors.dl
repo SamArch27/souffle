@@ -8,7 +8,6 @@
 .functor goo(symbol, number):number
 .functor hoo():symbol
 .functor ioo(number):symbol
-.functor mycat(symbol, symbol):symbol stateful
 
 .functor factorial(unsigned):unsigned
 .functor rnd(float):number
@@ -52,8 +51,30 @@ R(@rnd(0.7)) :- true.
 R(@rnd(0.2)) :- true.
 .output R
 
-// test stateful functors
+// Testing stateful functors
 
+// Testing symbol table
+
+.functor mycat(symbol, symbol):symbol stateful
 .decl S(x:symbol)
 S(@mycat("A","B")) :- true.
 .output S
+
+
+// Testing record table
+
+// note that functors can only have primitive types as arguments and return values
+// hence explicit casts are required for converting the record types to numbers
+// for arguments and casts for converting numbers to record types for the
+// return value.
+// To ease readability of the code, we suggest defining a macro for casting as shown
+// below.
+
+.functor _myappend(number):number stateful
+#define myappend(a) as(@_myappend(as(a,number)),List)
+
+.type List = [x:number, y:List]
+.decl L(x:List)
+L([1,nil]).
+L(myappend(l)) :- L(l), l = [x, _l1], x < 10.
+.output L

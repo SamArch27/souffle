@@ -23,68 +23,69 @@
 #include "parser/SrcLocation.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstTypeCast
+ * @class TypeCast
  * @brief Defines a type cast class for expressions
  */
 
-class AstTypeCast : public AstArgument {
+class TypeCast : public Argument {
 public:
-    AstTypeCast(Own<AstArgument> value, AstQualifiedName type, SrcLocation loc = {})
-            : AstArgument(std::move(loc)), value(std::move(value)), type(std::move(type)) {}
+    TypeCast(Own<Argument> value, QualifiedName type, SrcLocation loc = {})
+            : Argument(std::move(loc)), value(std::move(value)), type(std::move(type)) {}
 
     /** Return value */
-    AstArgument* getValue() const {
+    Argument* getValue() const {
         return value.get();
     }
 
     /** Return cast type */
-    const AstQualifiedName& getType() const {
+    const QualifiedName& getType() const {
         return type;
     }
 
     /** Set cast type */
-    void setType(const AstQualifiedName& type) {
+    void setType(const QualifiedName& type) {
         this->type = type;
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        auto res = AstArgument::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = Argument::getChildNodes();
         res.push_back(value.get());
         return res;
     }
 
-    AstTypeCast* clone() const override {
-        return new AstTypeCast(souffle::clone(value), type, getSrcLoc());
+    TypeCast* clone() const override {
+        return new TypeCast(souffle::clone(value), type, getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         value = map(std::move(value));
     }
 
 protected:
     void print(std::ostream& os) const override {
-        os << "as(" << *value << "," << type << ")";
+        os << tfm::format("as(%s, %s)", *value, type);
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstTypeCast&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const TypeCast&>(node);
         return type == other.type && equal_ptr(value, other.value);
     }
 
     /** Casted value */
-    Own<AstArgument> value;
+    Own<Argument> value;
 
     /** Cast type */
-    AstQualifiedName type;
+    QualifiedName type;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

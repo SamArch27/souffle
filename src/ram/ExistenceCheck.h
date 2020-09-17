@@ -25,10 +25,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamExistenceCheck
+ * @class ExistenceCheck
  * @brief Existence check for a tuple(-pattern) in a relation
  *
  * Returns true if the tuple is in the relation
@@ -39,19 +39,18 @@ namespace souffle {
  * t0.1 IN A
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamExistenceCheck : public RamAbstractExistenceCheck {
+class ExistenceCheck : public AbstractExistenceCheck {
 public:
-    RamExistenceCheck(
-            std::unique_ptr<RamRelationReference> relRef, std::vector<std::unique_ptr<RamExpression>> vals)
-            : RamAbstractExistenceCheck(std::move(relRef), std::move(vals)) {}
+    ExistenceCheck(Own<RelationReference> relRef, VecOwn<Expression> vals)
+            : AbstractExistenceCheck(std::move(relRef), std::move(vals)) {}
 
-    RamExistenceCheck* clone() const override {
-        std::vector<std::unique_ptr<RamExpression>> newValues;
+    ExistenceCheck* clone() const override {
+        VecOwn<Expression> newValues;
         for (auto& cur : values) {
             newValues.emplace_back(cur->clone());
         }
-        return new RamExistenceCheck(souffle::clone(relationRef), std::move(newValues));
+        return new ExistenceCheck(souffle::clone(relationRef), std::move(newValues));
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

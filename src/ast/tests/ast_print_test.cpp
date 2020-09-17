@@ -17,13 +17,19 @@
 #include "tests/test.h"
 
 #include "AggregateOp.h"
+#include "ast/Aggregator.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
 #include "ast/Clause.h"
+#include "ast/Counter.h"
 #include "ast/Literal.h"
+#include "ast/NilConstant.h"
 #include "ast/Node.h"
+#include "ast/NumericConstant.h"
 #include "ast/Program.h"
+#include "ast/StringConstant.h"
 #include "ast/TranslationUnit.h"
+#include "ast/UnnamedVariable.h"
 #include "ast/Variable.h"
 #include "parser/ParserDriver.h"
 #include "reports/DebugReport.h"
@@ -35,30 +41,30 @@
 #include <utility>
 #include <vector>
 
-namespace souffle::test {
+namespace souffle::ast::test {
 
-inline std::unique_ptr<AstTranslationUnit> makeATU(std::string program = ".decl A,B,C(x:number)") {
+inline Own<TranslationUnit> makeATU(std::string program = ".decl A,B,C(x:number)") {
     ErrorReport e;
     DebugReport d;
     return ParserDriver::parseTranslationUnit(program, e, d);
 }
 
-inline std::unique_ptr<AstTranslationUnit> makePrintedATU(std::unique_ptr<AstTranslationUnit>& tu) {
+inline Own<TranslationUnit> makePrintedATU(Own<TranslationUnit>& tu) {
     std::stringstream ss;
     ss << *tu->getProgram();
     return makeATU(ss.str());
 }
 
-inline std::unique_ptr<AstClause> makeClauseA(std::unique_ptr<AstArgument> headArgument) {
-    auto headAtom = std::make_unique<AstAtom>("A");
+inline Own<Clause> makeClauseA(Own<Argument> headArgument) {
+    auto headAtom = mk<Atom>("A");
     headAtom->addArgument(std::move(headArgument));
-    auto clause = std::make_unique<AstClause>();
+    auto clause = mk<Clause>();
     clause->setHead(std::move(headAtom));
     return clause;
 }
 
 TEST(AstPrint, NilConstant) {
-    auto testArgument = std::make_unique<AstNilConstant>();
+    auto testArgument = mk<NilConstant>();
 
     auto tu1 = makeATU();
     tu1->getProgram()->addClause(makeClauseA(std::move(testArgument)));
@@ -67,7 +73,7 @@ TEST(AstPrint, NilConstant) {
 }
 
 TEST(AstPrint, NumberConstant) {
-    auto testArgument = std::make_unique<AstNumericConstant>("2");
+    auto testArgument = mk<NumericConstant>("2");
 
     EXPECT_EQ(testArgument, testArgument);
 
@@ -80,7 +86,7 @@ TEST(AstPrint, NumberConstant) {
 TEST(AstPrint, StringConstant) {
     ErrorReport e;
     DebugReport d;
-    auto testArgument = std::make_unique<AstStringConstant>("test string");
+    auto testArgument = mk<StringConstant>("test string");
 
     auto tu1 = ParserDriver::parseTranslationUnit(".decl A,B,C(x:number)", e, d);
     tu1->getProgram()->addClause(makeClauseA(std::move(testArgument)));
@@ -89,7 +95,7 @@ TEST(AstPrint, StringConstant) {
 }
 
 TEST(AstPrint, Variable) {
-    auto testArgument = std::make_unique<AstVariable>("testVar");
+    auto testArgument = mk<Variable>("testVar");
 
     auto tu1 = makeATU();
     tu1->getProgram()->addClause(makeClauseA(std::move(testArgument)));
@@ -98,7 +104,7 @@ TEST(AstPrint, Variable) {
 }
 
 TEST(AstPrint, UnnamedVariable) {
-    auto testArgument = std::make_unique<AstUnnamedVariable>();
+    auto testArgument = mk<UnnamedVariable>();
 
     auto tu1 = makeATU();
     tu1->getProgram()->addClause(makeClauseA(std::move(testArgument)));
@@ -107,7 +113,7 @@ TEST(AstPrint, UnnamedVariable) {
 }
 
 TEST(AstPrint, Counter) {
-    auto testArgument = std::make_unique<AstCounter>();
+    auto testArgument = mk<Counter>();
 
     auto tu1 = makeATU();
     tu1->getProgram()->addClause(makeClauseA(std::move(testArgument)));
@@ -116,12 +122,12 @@ TEST(AstPrint, Counter) {
 }
 
 TEST(AstPrint, AggregatorMin) {
-    auto atom = std::make_unique<AstAtom>("B");
-    atom->addArgument(std::make_unique<AstVariable>("x"));
-    auto min = std::make_unique<AstAggregator>(AggregateOp::MIN, std::make_unique<AstVariable>("x"));
+    auto atom = mk<Atom>("B");
+    atom->addArgument(mk<Variable>("x"));
+    auto min = mk<Aggregator>(AggregateOp::MIN, mk<Variable>("x"));
 
-    std::vector<std::unique_ptr<AstLiteral>> body;
-    body.push_back(std::make_unique<AstAtom>("B"));
+    VecOwn<Literal> body;
+    body.push_back(mk<Atom>("B"));
 
     min->setBody(std::move(body));
 
@@ -133,11 +139,11 @@ TEST(AstPrint, AggregatorMin) {
 }
 
 TEST(AstPrint, AggregatorMax) {
-    auto atom = std::make_unique<AstAtom>("B");
-    atom->addArgument(std::make_unique<AstVariable>("x"));
-    auto max = std::make_unique<AstAggregator>(AggregateOp::MAX, std::make_unique<AstVariable>("x"));
+    auto atom = mk<Atom>("B");
+    atom->addArgument(mk<Variable>("x"));
+    auto max = mk<Aggregator>(AggregateOp::MAX, mk<Variable>("x"));
 
-    std::vector<std::unique_ptr<AstLiteral>> body;
+    VecOwn<Literal> body;
     body.push_back(std::move(atom));
     max->setBody(std::move(body));
 
@@ -149,11 +155,11 @@ TEST(AstPrint, AggregatorMax) {
 }
 
 TEST(AstPrint, AggregatorCount) {
-    auto atom = std::make_unique<AstAtom>("B");
-    atom->addArgument(std::make_unique<AstVariable>("x"));
-    auto count = std::make_unique<AstAggregator>(AggregateOp::COUNT);
+    auto atom = mk<Atom>("B");
+    atom->addArgument(mk<Variable>("x"));
+    auto count = mk<Aggregator>(AggregateOp::COUNT);
 
-    std::vector<std::unique_ptr<AstLiteral>> body;
+    VecOwn<Literal> body;
     body.push_back(std::move(atom));
     count->setBody(std::move(body));
 
@@ -165,11 +171,11 @@ TEST(AstPrint, AggregatorCount) {
 }
 
 TEST(AstPrint, AggregatorSum) {
-    auto atom = std::make_unique<AstAtom>("B");
-    atom->addArgument(std::make_unique<AstVariable>("x"));
-    auto sum = std::make_unique<AstAggregator>(AggregateOp::SUM, std::make_unique<AstVariable>("x"));
+    auto atom = mk<Atom>("B");
+    atom->addArgument(mk<Variable>("x"));
+    auto sum = mk<Aggregator>(AggregateOp::SUM, mk<Variable>("x"));
 
-    std::vector<std::unique_ptr<AstLiteral>> body;
+    VecOwn<Literal> body;
     body.push_back(std::move(atom));
     sum->setBody(std::move(body));
 
@@ -180,4 +186,4 @@ TEST(AstPrint, AggregatorSum) {
     EXPECT_EQ(*tu1->getProgram(), *tu2->getProgram());
 }
 
-}  // end namespace souffle::test
+}  // namespace souffle::ast::test

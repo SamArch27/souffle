@@ -57,7 +57,7 @@ public:
     }
 
     /* Configuration variables */
-    std::unique_ptr<std::ostream> outputStream = nullptr;
+    Own<std::ostream> outputStream = nullptr;
     bool json = false;
     int depthLimit = 4;
 
@@ -183,7 +183,7 @@ public:
         } else if (command[0] == "output") {
             if (command.size() == 2) {
                 // assign a new filestream, the old one is deleted by unique_ptr
-                ExplainConfig::getExplainConfig().outputStream = std::make_unique<std::ofstream>(command[1]);
+                ExplainConfig::getExplainConfig().outputStream = mk<std::ofstream>(command[1]);
             } else if (command.size() == 1) {
                 ExplainConfig::getExplainConfig().outputStream = nullptr;
             } else {
@@ -283,7 +283,7 @@ private:
     virtual void printPrompt(const std::string& prompt) = 0;
 
     /* Print a tree */
-    virtual void printTree(std::unique_ptr<TreeNode> tree) = 0;
+    virtual void printTree(Own<TreeNode> tree) = 0;
 
     /* Print any other information, disabled for non-terminal outputs */
     virtual void printInfo(const std::string& info) = 0;
@@ -417,7 +417,7 @@ private:
     }
 
     /* Print a tree */
-    void printTree(std::unique_ptr<TreeNode> tree) override {
+    void printTree(Own<TreeNode> tree) override {
         if (!tree) {
             return;
         }
@@ -523,7 +523,7 @@ private:
     }
 
     /* Print a tree */
-    void printTree(std::unique_ptr<TreeNode> tree) override {
+    void printTree(Own<TreeNode> tree) override {
         if (!tree) {
             return;
         }

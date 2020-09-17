@@ -28,10 +28,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstUnionType
+ * @class UnionType
  * @brief The union type class
  *
  * Example:
@@ -41,28 +41,28 @@ namespace souffle {
  * Each of the enumerated types become a sub-type of the new
  * union type.
  */
-class AstUnionType : public AstType {
+class UnionType : public Type {
 public:
-    AstUnionType(AstQualifiedName name, std::vector<AstQualifiedName> types, SrcLocation loc = {})
-            : AstType(std::move(name), std::move(loc)), types(std::move(types)) {}
+    UnionType(QualifiedName name, std::vector<QualifiedName> types, SrcLocation loc = {})
+            : Type(std::move(name), std::move(loc)), types(std::move(types)) {}
 
     /** Return list of unioned types */
-    const std::vector<AstQualifiedName>& getTypes() const {
+    const std::vector<QualifiedName>& getTypes() const {
         return types;
     }
 
     /** Add another unioned type */
-    void add(AstQualifiedName type) {
+    void add(QualifiedName type) {
         types.push_back(std::move(type));
     }
 
     /** Set type */
-    void setType(size_t idx, AstQualifiedName type) {
+    void setType(size_t idx, QualifiedName type) {
         types.at(idx) = std::move(type);
     }
 
-    AstUnionType* clone() const override {
-        return new AstUnionType(getQualifiedName(), types, getSrcLoc());
+    UnionType* clone() const override {
+        return new UnionType(getQualifiedName(), types, getSrcLoc());
     }
 
 protected:
@@ -70,14 +70,14 @@ protected:
         os << ".type " << getQualifiedName() << " = " << join(types, " | ");
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstUnionType&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const UnionType&>(node);
         return getQualifiedName() == other.getQualifiedName() && types == other.types;
     }
 
 private:
     /** List of unioned types */
-    std::vector<AstQualifiedName> types;
+    std::vector<QualifiedName> types;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

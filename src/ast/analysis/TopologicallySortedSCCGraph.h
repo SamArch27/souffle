@@ -22,27 +22,29 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <iostream>
 #include <iterator>
 #include <set>
 #include <string>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
-class AstTranslationUnit;
+class TranslationUnit;
+
+namespace analysis {
+
 class SCCGraphAnalysis;
 
 /**
  * Analysis pass computing a topologically sorted strongly connected component (SCC) graph.
  */
-class TopologicallySortedSCCGraphAnalysis : public AstAnalysis {
+class TopologicallySortedSCCGraphAnalysis : public Analysis {
 public:
     static constexpr const char* name = "topological-scc-graph";
 
-    TopologicallySortedSCCGraphAnalysis() : AstAnalysis(name) {}
+    TopologicallySortedSCCGraphAnalysis() : Analysis(name) {}
 
-    void run(const AstTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     const std::vector<size_t>& order() const {
         return sccOrder;
@@ -84,4 +86,5 @@ private:
     void computeTopologicalOrdering(size_t scc, std::vector<bool>& visited);
 };
 
-}  // end of namespace souffle
+}  // namespace analysis
+}  // namespace souffle::ast

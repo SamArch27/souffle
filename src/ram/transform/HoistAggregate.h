@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class HoistAggregatesTransformer
@@ -32,7 +31,7 @@ class RamProgram;
  * operations
  *
  */
-class HoistAggregateTransformer : public RamTransformer {
+class HoistAggregateTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "HoistAggregateTransformer";
@@ -45,14 +44,14 @@ public:
      *
      * Pushes an Aggregate up the loop nest if possible
      */
-    bool hoistAggregate(RamProgram& program);
+    bool hoistAggregate(Program& program);
 
 protected:
-    RamLevelAnalysis* rla{nullptr};
-    bool transform(RamTranslationUnit& translationUnit) override {
-        rla = translationUnit.getAnalysis<RamLevelAnalysis>();
+    analysis::LevelAnalysis* rla{nullptr};
+    bool transform(TranslationUnit& translationUnit) override {
+        rla = translationUnit.getAnalysis<analysis::LevelAnalysis>();
         return hoistAggregate(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

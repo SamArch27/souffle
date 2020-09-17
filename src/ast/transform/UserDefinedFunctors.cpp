@@ -19,29 +19,28 @@
 #include "ast/TranslationUnit.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/utility/NodeMapper.h"
-#include "ast/utility/Utils.h"
 #include "reports/ErrorReport.h"
-#include "souffle/RamTypes.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <memory>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool AstUserDefinedFunctorsTransformer::transform(AstTranslationUnit& translationUnit) {
-    struct UserFunctorRewriter : public AstNodeMapper {
+bool UserDefinedFunctorsTransformer::transform(TranslationUnit& translationUnit) {
+    struct UserFunctorRewriter : public NodeMapper {
         mutable bool changed{false};
-        const AstProgram& program;
+        const Program& program;
         ErrorReport& report;
 
-        UserFunctorRewriter(const AstProgram& program, ErrorReport& report)
-                : program(program), report(report){};
+        UserFunctorRewriter(const Program& program, ErrorReport& report) : program(program), report(report){};
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+        Own<Node> operator()(Own<Node> node) const override {
             node->apply(*this);
 
-            if (auto* userFunctor = dynamic_cast<AstUserDefinedFunctor*>(node.get())) {
-                const AstFunctorDeclaration* functorDeclaration =
-                        getIf(program.getFunctorDeclarations(), [&](const AstFunctorDeclaration* current) {
+            if (auto* userFunctor = dynamic_cast<UserDefinedFunctor*>(node.get())) {
+                const FunctorDeclaration* functorDeclaration =
+                        getIf(program.getFunctorDeclarations(), [&](const FunctorDeclaration* current) {
                             return current->getName() == userFunctor->getName();
                         });
 
@@ -71,4 +70,4 @@ bool AstUserDefinedFunctorsTransformer::transform(AstTranslationUnit& translatio
     return update.changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

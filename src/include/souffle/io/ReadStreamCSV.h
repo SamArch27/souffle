@@ -62,12 +62,12 @@ protected:
      * Returns nullptr if no tuple was readable.
      * @return
      */
-    std::unique_ptr<RamDomain[]> readNextTuple() override {
+    Own<RamDomain[]> readNextTuple() override {
         if (file.eof()) {
             return nullptr;
         }
         std::string line;
-        std::unique_ptr<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
+        Own<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
 
         if (!getline(file, line)) {
             return nullptr;
@@ -263,7 +263,7 @@ public:
      * Returns nullptr if no tuple was readable.
      * @return
      */
-    std::unique_ptr<RamDomain[]> readNextTuple() override {
+    Own<RamDomain[]> readNextTuple() override {
         try {
             return ReadStreamCSV::readNextTuple();
         } catch (std::exception& e) {
@@ -302,9 +302,9 @@ protected:
 
 class ReadCinCSVFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
-            SymbolTable& symbolTable, RecordTable& recordTable) override {
-        return std::make_unique<ReadStreamCSV>(std::cin, rwOperation, symbolTable, recordTable);
+    Own<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable) override {
+        return mk<ReadStreamCSV>(std::cin, rwOperation, symbolTable, recordTable);
     }
 
     const std::string& getName() const override {
@@ -316,9 +316,9 @@ public:
 
 class ReadFileCSVFactory : public ReadStreamFactory {
 public:
-    std::unique_ptr<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation,
-            SymbolTable& symbolTable, RecordTable& recordTable) override {
-        return std::make_unique<ReadFileCSV>(rwOperation, symbolTable, recordTable);
+    Own<ReadStream> getReader(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
+            RecordTable& recordTable) override {
+        return mk<ReadFileCSV>(rwOperation, symbolTable, recordTable);
     }
 
     const std::string& getName() const override {

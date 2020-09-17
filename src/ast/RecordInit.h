@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "ast/Argument.h"
 #include "ast/Node.h"
 #include "ast/Term.h"
 #include "parser/SrcLocation.h"
@@ -26,19 +27,19 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstRecordInit
+ * @class RecordInit
  * @brief Defines a record initialization class
  */
-class AstRecordInit : public AstTerm {
+class RecordInit : public Term {
 public:
-    AstRecordInit(VecOwn<AstArgument> operands = {}, SrcLocation loc = {})
-            : AstTerm(std::move(operands), std::move(loc)) {}
+    RecordInit(VecOwn<Argument> operands = {}, SrcLocation loc = {})
+            : Term(std::move(operands), std::move(loc)) {}
 
-    AstRecordInit* clone() const override {
-        return new AstRecordInit(souffle::clone(args), getSrcLoc());
+    RecordInit* clone() const override {
+        return new RecordInit(souffle::clone(args), getSrcLoc());
     }
 
 protected:
@@ -47,4 +48,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

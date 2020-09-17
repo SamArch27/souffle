@@ -8,56 +8,56 @@
 
 /************************************************************************
  *
- * @file InterpreterPreamble.h
+ * @file InterpreterViewContext.h
  *
- * Declares the InterpreterPreamble class.
- * Each query operation has an InterpreterPreamble associated with it.
- * The preamble contains information about view creation.
+ * Declares the InterpreterViewContext class.
+ * Each Query operation has an InterpreterViewContext assoicated with it.
+ * The view context contains information about views creation during execution.
  ***********************************************************************/
 
 #pragma once
 
+#include "interpreter/InterpreterNode.h"
 #include <array>
 #include <memory>
 #include <vector>
 
 namespace souffle {
 
-class InterpreterNode;
-
 /**
- * @class InterpreterPreamble
- * @brief This class contains information for views (Hints) creation for RamQuery and RamParallel operation.
+ * @class InterpreterViewContext
+ * @brief This class contains information for views (Hints) creation for ram::Query and ram::Parallel
+ * operation.
  */
-class InterpreterPreamble {
+class InterpreterViewContext {
 public:
     /** @brief Add outer-most filter operation which requires a view.  */
-    void addViewOperationForFilter(std::unique_ptr<InterpreterNode> node) {
+    void addViewOperationForFilter(Own<InterpreterNode> node) {
         outerFilterViewOps.push_back(std::move(node));
     }
 
     /** @brief Add outer-most filter operation which does not require a view.  */
-    void addViewFreeOperationForFilter(std::unique_ptr<InterpreterNode> node) {
+    void addViewFreeOperationForFilter(Own<InterpreterNode> node) {
         outerFilterViewFreeOps.push_back(std::move(node));
     }
 
     /** @brief Add nested operation which require a View (Hints).  */
-    void addViewOperationForNested(std::unique_ptr<InterpreterNode> op) {
+    void addViewOperationForNested(Own<InterpreterNode> op) {
         nestedViewOps.push_back(std::move(op));
     }
 
     /** @brief Return outer-most filter operations.  */
-    const std::vector<std::unique_ptr<InterpreterNode>>& getOuterFilterViewOps() {
+    const VecOwn<InterpreterNode>& getOuterFilterViewOps() {
         return outerFilterViewOps;
     }
 
     /** @brief Return views for outer-most filter operations.  */
-    const std::vector<std::unique_ptr<InterpreterNode>>& getOuterFilterViewFreeOps() {
+    const VecOwn<InterpreterNode>& getOuterFilterViewFreeOps() {
         return outerFilterViewFreeOps;
     }
 
     /** @brief Return nested operations */
-    std::vector<std::unique_ptr<InterpreterNode>>& getViewsInNestedOperation() {
+    VecOwn<InterpreterNode>& getViewsInNestedOperation() {
         return nestedViewOps;
     }
 
@@ -81,16 +81,16 @@ public:
         viewInfoForNested.push_back({relId, indexPos, viewPos});
     }
 
-    /** If this preamble contains parallel operation.  */
+    /** If this context has information for parallel operation.  */
     bool isParallel = false;
 
 private:
     /** Vector of filter operation, views required */
-    std::vector<std::unique_ptr<InterpreterNode>> outerFilterViewOps;
+    VecOwn<InterpreterNode> outerFilterViewOps;
     /** Vector of filter operations, no views required. */
-    std::vector<std::unique_ptr<InterpreterNode>> outerFilterViewFreeOps;
+    VecOwn<InterpreterNode> outerFilterViewFreeOps;
     /** Vector of nested operations */
-    std::vector<std::unique_ptr<InterpreterNode>> nestedViewOps;
+    VecOwn<InterpreterNode> nestedViewOps;
     /** Vector of View information in filter operations */
     std::vector<std::array<size_t, 3>> viewInfoForFilter;
     /** Vector of View information in nested operations */

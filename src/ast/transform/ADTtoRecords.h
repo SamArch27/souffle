@@ -12,18 +12,23 @@
  *
  * Defines the desugaring of ADTs to records.
  *
- * Each record has a form [branch_id, [arguments]].
+ * Each record has one of two possible forms:
+ * - [branch_id, argument]    if a branch takes a single argument.
+ * - [branch_id, [arguments]] otherwise
+ *
  * Branch ID is given by a lexicographical ordering of branches within an ADT.
  *
  ***********************************************************************/
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
+#include <string>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-class ADTtoRecordsTransformer : public AstTransformer {
+class ADTtoRecordsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ADTtoRecords";
@@ -34,7 +39,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

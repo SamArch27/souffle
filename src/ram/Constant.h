@@ -20,14 +20,14 @@
 #include "ram/Node.h"
 #include "souffle/RamTypes.h"
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamConstant
+ * @class Constant
  * @brief Represents a Ram Constant
  *
  */
-class RamConstant : public RamExpression {
+class Constant : public Expression {
 public:
     /** @brief Get constant */
     RamDomain getConstant() const {
@@ -35,10 +35,10 @@ public:
     }
 
 protected:
-    explicit RamConstant(RamDomain constant) : constant(constant) {}
+    explicit Constant(RamDomain constant) : constant(constant) {}
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamConstant&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Constant&>(node);
         return constant == other.constant;
     }
 
@@ -46,4 +46,4 @@ protected:
     const RamDomain constant;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

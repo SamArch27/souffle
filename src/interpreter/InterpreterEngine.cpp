@@ -21,8 +21,8 @@
 #include "interpreter/InterpreterGenerator.h"
 #include "interpreter/InterpreterIndex.h"
 #include "interpreter/InterpreterNode.h"
-#include "interpreter/InterpreterPreamble.h"
 #include "interpreter/InterpreterRelation.h"
+#include "interpreter/InterpreterViewContext.h"
 #include "ram/Aggregate.h"
 #include "ram/AutoIncrement.h"
 #include "ram/Break.h"
@@ -82,6 +82,7 @@
 #include "souffle/RecordTable.h"
 #include "souffle/SignalHandler.h"
 #include "souffle/SymbolTable.h"
+#include "souffle/TypeAttribute.h"
 #include "souffle/io/IOSystem.h"
 #include "souffle/io/ReadStream.h"
 #include "souffle/io/WriteStream.h"
@@ -91,12 +92,10 @@
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/ParallelUtil.h"
 #include "souffle/utility/StringUtil.h"
-#include "souffle/utility/tinyformat.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
 #include <cassert>
-#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -115,6 +114,8 @@
 #include <ffi.h>
 
 namespace souffle {
+
+using namespace ram;
 
 // Handle difference in dynamic libraries suffixes.
 #ifdef __APPLE__
@@ -162,7 +163,7 @@ RecordTable& InterpreterEngine::getRecordTable() {
     return recordTable;
 }
 
-RamTranslationUnit& InterpreterEngine::getTranslationUnit() {
+TranslationUnit& InterpreterEngine::getTranslationUnit() {
     return tUnit;
 }
 
@@ -177,7 +178,7 @@ void* InterpreterEngine::getMethodHandle(const std::string& method) {
     return nullptr;
 }
 
-std::vector<std::unique_ptr<InterpreterEngine::RelationHandle>>& InterpreterEngine::getRelationMap() {
+VecOwn<InterpreterEngine::RelationHandle>& InterpreterEngine::getRelationMap() {
     return generator.getRelations();
 }
 
@@ -253,8 +254,8 @@ void InterpreterEngine::executeMain() {
     } else {
         ProfileEventSingleton::instance().setOutputFile(Global::config().get("profile"));
         // Prepare the frequency table for threaded use
-        const RamProgram& program = tUnit.getProgram();
-        visitDepthFirst(program, [&](const RamTupleOperation& node) {
+        const Program& program = tUnit.getProgram();
+        visitDepthFirst(program, [&](const TupleOperation& node) {
             if (!node.getProfileText().empty()) {
                 frequencies.emplace(node.getProfileText(), std::deque<std::atomic<size_t>>());
                 frequencies[node.getProfileText()].emplace_back(0);
@@ -279,7 +280,7 @@ void InterpreterEngine::executeMain() {
 
         // Store count of rules
         size_t ruleCount = 0;
-        visitDepthFirst(program, [&](const RamQuery&) { ++ruleCount; });
+        visitDepthFirst(program, [&](const Query&) { ++ruleCount; });
         ProfileEventSingleton::instance().makeConfigRecord("ruleCount", std::to_string(ruleCount));
 
         InterpreterContext ctxt;
@@ -299,7 +300,7 @@ void InterpreterEngine::executeMain() {
 }
 
 void InterpreterEngine::generateIR() {
-    const RamProgram& program = tUnit.getProgram();
+    const Program& program = tUnit.getProgram();
     if (subroutine.empty()) {
         for (const auto& sub : program.getSubroutines()) {
             subroutine.push_back(generator.generateTree(*sub.second, program));
@@ -316,7 +317,7 @@ void InterpreterEngine::executeSubroutine(
     ctxt.setReturnValues(ret);
     ctxt.setArguments(args);
     generateIR();
-    const RamProgram& program = tUnit.getProgram();
+    const Program& program = tUnit.getProgram();
     auto subs = program.getSubroutines();
     size_t i = distance(subs.begin(), subs.find(name));
     execute(subroutine[i].get(), ctxt);
@@ -332,7 +333,7 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
     case (I_##Kind): { \
         return [&]() -> RamDomain { \
             [[maybe_unused]] const auto& shadow = *static_cast<const Interpreter##Kind*>(node); \
-            [[maybe_unused]] const auto& cur = *static_cast<const Ram##Kind*>(node->getShadow());
+            [[maybe_unused]] const auto& cur = *static_cast<const Kind*>(node->getShadow());
 #define ESAC(Kind) \
     }              \
     ();            \
@@ -544,7 +545,7 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
                 case FunctorOp::RANGE:
                 case FunctorOp::URANGE:
                 case FunctorOp::FRANGE:
-                    fatal("ICE: functor `%s` must map onto `RamNestedIntrinsicOperator`", cur.getOperator());
+                    fatal("ICE: functor `%s` must map onto `NestedIntrinsicOperator`", cur.getOperator());
             }
 
             { UNREACHABLE_BAD_CASE_ANALYSIS }
@@ -576,9 +577,9 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
             true
 
             switch (cur.getFunction()) {
-                case RamNestedIntrinsicOp::RANGE: return RUN_RANGE(RamSigned);
-                case RamNestedIntrinsicOp::URANGE: return RUN_RANGE(RamUnsigned);
-                case RamNestedIntrinsicOp::FRANGE: return RUN_RANGE(RamFloat);
+                case NestedIntrinsicOp::RANGE: return RUN_RANGE(RamSigned);
+                case NestedIntrinsicOp::URANGE: return RUN_RANGE(RamUnsigned);
+                case NestedIntrinsicOp::FRANGE: return RUN_RANGE(RamFloat);
             }
 
             { UNREACHABLE_BAD_CASE_ANALYSIS }
@@ -934,14 +935,14 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(Scan)
 
         CASE(ParallelScan)
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
             auto& rel = *node->getRelation();
 
             auto pStream = rel.partitionScan(numOfThreads);
 
             PARALLEL_START
                 InterpreterContext newCtxt(ctxt);
-                auto viewInfo = preamble->getViewInfoForNested();
+                auto viewInfo = viewContext->getViewInfoForNested();
                 for (const auto& info : viewInfo) {
                     newCtxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
                 }
@@ -978,7 +979,7 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(IndexScan)
 
         CASE(ParallelIndexScan)
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
             auto& rel = *node->getRelation();
 
             // create pattern tuple for range query
@@ -994,7 +995,7 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
 
             PARALLEL_START
                 InterpreterContext newCtxt(ctxt);
-                auto viewInfo = preamble->getViewInfoForNested();
+                auto viewInfo = viewContext->getViewInfoForNested();
                 for (const auto& info : viewInfo) {
                     newCtxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
                 }
@@ -1027,11 +1028,11 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(Choice)
 
         CASE(ParallelChoice)
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
             auto& rel = *node->getRelation();
 
             auto pStream = rel.partitionScan(numOfThreads);
-            auto viewInfo = preamble->getViewInfoForNested();
+            auto viewInfo = viewContext->getViewInfoForNested();
             PARALLEL_START
                 InterpreterContext newCtxt(ctxt);
                 for (const auto& info : viewInfo) {
@@ -1073,10 +1074,10 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(IndexChoice)
 
         CASE(ParallelIndexChoice)
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
             auto& rel = *node->getRelation();
 
-            auto viewInfo = preamble->getViewInfoForNested();
+            auto viewInfo = viewContext->getViewInfoForNested();
 
             // create pattern tuple for range query
             size_t arity = rel.getArity();
@@ -1129,10 +1130,10 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
 
         CASE(ParallelAggregate)
             // TODO (rdowavic): make parallel
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
 
             InterpreterContext newCtxt(ctxt);
-            auto viewInfo = preamble->getViewInfoForNested();
+            auto viewInfo = viewContext->getViewInfoForNested();
             for (const auto& info : viewInfo) {
                 newCtxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
             }
@@ -1147,10 +1148,10 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
 
         CASE(ParallelIndexAggregate)
             // TODO (rdowavic): make parallel
-            auto preamble = shadow.getPreamble();
+            auto viewContext = shadow.getViewContext();
 
             InterpreterContext newCtxt(ctxt);
-            auto viewInfo = preamble->getViewInfoForNested();
+            auto viewInfo = viewContext->getViewInfoForNested();
             for (const auto& info : viewInfo) {
                 newCtxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
             }
@@ -1337,10 +1338,10 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
         ESAC(IO)
 
         CASE(Query)
-            InterpreterPreamble* preamble = shadow.getPreamble();
+            InterpreterViewContext* viewContext = shadow.getViewContext();
 
             // Execute view-free operations in outer filter if any.
-            auto& viewFreeOps = preamble->getOuterFilterViewFreeOps();
+            auto& viewFreeOps = viewContext->getOuterFilterViewFreeOps();
             for (auto& op : viewFreeOps) {
                 if (!execute(op.get(), ctxt)) {
                     return true;
@@ -1348,24 +1349,24 @@ RamDomain InterpreterEngine::execute(const InterpreterNode* node, InterpreterCon
             }
 
             // Create Views for outer filter operation if any.
-            auto& viewsForOuter = preamble->getViewInfoForFilter();
+            auto& viewsForOuter = viewContext->getViewInfoForFilter();
             for (auto& info : viewsForOuter) {
                 ctxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
             }
 
             // Execute outer filter operation.
-            auto& viewOps = preamble->getOuterFilterViewOps();
+            auto& viewOps = viewContext->getOuterFilterViewOps();
             for (auto& op : viewOps) {
                 if (!execute(op.get(), ctxt)) {
                     return true;
                 }
             }
 
-            if (preamble->isParallel) {
+            if (viewContext->isParallel) {
                 // If Parallel is true, holds views creation unitl parallel instructions.
             } else {
                 // Issue views for nested operation.
-                auto& viewsForNested = preamble->getViewInfoForNested();
+                auto& viewsForNested = viewContext->getViewInfoForNested();
                 for (auto& info : viewsForNested) {
                     ctxt.createView(*getRelationHandle(info[0]), info[1], info[2]);
                 }

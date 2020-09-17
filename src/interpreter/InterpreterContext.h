@@ -31,7 +31,7 @@ namespace souffle {
  * Evaluation context for Interpreter operations
  */
 class InterpreterContext {
-    using ViewPtr = std::unique_ptr<IndexView>;
+    using ViewPtr = Own<IndexView>;
 
     /** @brief Run-time value */
     std::vector<const RamDomain*> data;
@@ -40,9 +40,9 @@ class InterpreterContext {
     /** @brief Subroutine arguments */
     const std::vector<RamDomain>* args = nullptr;
     /** @bref Allocated data */
-    std::vector<std::unique_ptr<RamDomain[]>> allocatedDataContainer;
+    VecOwn<RamDomain[]> allocatedDataContainer;
     /** @brief Views */
-    std::vector<std::unique_ptr<IndexView>> views;
+    VecOwn<IndexView> views;
 
 public:
     InterpreterContext(size_t size = 0) : data(size) {}
@@ -66,7 +66,7 @@ public:
     /** @brief Allocate a tuple.
      *  allocatedDataContainer has the ownership of those tuples. */
     RamDomain* allocateNewTuple(size_t size) {
-        std::unique_ptr<RamDomain[]> newTuple(new RamDomain[size]);
+        Own<RamDomain[]> newTuple(new RamDomain[size]);
         allocatedDataContainer.push_back(std::move(newTuple));
 
         // Return the reference as raw pointer.

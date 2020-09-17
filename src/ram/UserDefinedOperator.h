@@ -28,17 +28,17 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamUserDefinedOperator
+ * @class UserDefinedOperator
  * @brief Operator that represents an extrinsic (user-defined) functor
  */
-class RamUserDefinedOperator : public RamAbstractOperator {
+class UserDefinedOperator : public AbstractOperator {
 public:
-    RamUserDefinedOperator(std::string n, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
-            bool stateful, std::vector<std::unique_ptr<RamExpression>> args)
-            : RamAbstractOperator(std::move(args)), name(std::move(n)), argsTypes(std::move(argsTypes)),
+    UserDefinedOperator(std::string n, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
+            bool stateful, VecOwn<Expression> args)
+            : AbstractOperator(std::move(args)), name(std::move(n)), argsTypes(std::move(argsTypes)),
               returnType(returnType), stateful(stateful) {
         assert(argsTypes.size() == args.size());
     }
@@ -63,10 +63,10 @@ public:
         return stateful;
     }
 
-    RamUserDefinedOperator* clone() const override {
-        auto* res = new RamUserDefinedOperator(name, argsTypes, returnType, stateful, {});
+    UserDefinedOperator* clone() const override {
+        auto* res = new UserDefinedOperator(name, argsTypes, returnType, stateful, {});
         for (auto& cur : arguments) {
-            RamExpression* arg = cur->clone();
+            Expression* arg = cur->clone();
             res->arguments.emplace_back(arg);
         }
         return res;
@@ -79,14 +79,13 @@ protected:
         if (stateful) {
             os << "_stateful";
         }
-        os << "(" << join(arguments, ",", [](std::ostream& out, const std::unique_ptr<RamExpression>& arg) {
-            out << *arg;
-        }) << ")";
+        os << "(" << join(arguments, ",", [](std::ostream& out, const Own<Expression>& arg) { out << *arg; })
+           << ")";
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamUserDefinedOperator&>(node);
-        return RamAbstractOperator::equal(node) && name == other.name && argsTypes == other.argsTypes &&
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const UserDefinedOperator&>(node);
+        return AbstractOperator::equal(node) && name == other.name && argsTypes == other.argsTypes &&
                returnType == other.returnType && stateful == other.stateful;
     }
 
@@ -102,4 +101,4 @@ protected:
     /** Stateful */
     const bool stateful;
 };
-}  // end of namespace souffle
+}  // namespace souffle::ram

@@ -22,18 +22,18 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamTupleOperation
+ * @class TupleOperation
  * @brief Abstract class for relation searches and lookups
  */
-class RamTupleOperation : public RamNestedOperation {
+class TupleOperation : public NestedOperation {
 public:
-    RamTupleOperation(int ident, std::unique_ptr<RamOperation> nested, std::string profileText = "")
-            : RamNestedOperation(std::move(nested), std::move(profileText)), identifier(ident) {}
+    TupleOperation(int ident, Own<Operation> nested, std::string profileText = "")
+            : NestedOperation(std::move(nested), std::move(profileText)), identifier(ident) {}
 
-    RamTupleOperation* clone() const override = 0;
+    TupleOperation* clone() const override = 0;
 
     /** @brief Get identifier */
     int getTupleId() const {
@@ -45,14 +45,14 @@ public:
         identifier = id;
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        return RamNestedOperation::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        return NestedOperation::getChildNodes();
     }
 
 protected:
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamTupleOperation&>(node);
-        return RamNestedOperation::equal(other) && identifier == other.identifier;
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const TupleOperation&>(node);
+        return NestedOperation::equal(other) && identifier == other.identifier;
     }
 
     /**
@@ -62,4 +62,4 @@ protected:
     int identifier;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram
