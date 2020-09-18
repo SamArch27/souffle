@@ -1376,11 +1376,11 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "using box = bg::model::box<point>;\n";
     out << "using value = point;\n";
 
-    // each leaf node element stores a point and a bounding box which is (sizeof(point) + sizeof(box)) bytes
+    // each leaf node element stores a point and uses that point as the Minimum Bounding Rectangle (MBR) bytes
     // the Boost R-Tree stores 1 extra element per node
     // therefore the formula below calculates the correct MaxElements to cap a node size at 256 bytes
     out << "static constexpr size_t node_bytes = 256;\n";
-    out << "static constexpr size_t element_size = sizeof(point) + sizeof(box);\n";
+    out << "static constexpr size_t element_size = sizeof(point);\n";
     out << "static constexpr size_t max_elements = std::max(static_cast<long int>(node_bytes/element_size) - "
            "1, 1L);\n";
 
