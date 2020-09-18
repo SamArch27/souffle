@@ -1361,7 +1361,6 @@ std::string RtreeRelation::getTypeName() {
 /** Generate type struct of a direct indexed relation */
 void RtreeRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
-
     // abbreviate boost namespace
     out << "namespace bg = boost::geometry;\n";
     out << "namespace bgi = boost::geometry::index;\n";
@@ -1376,7 +1375,15 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "using point = bg::model::point<RamDomain, " << arity << " , bg::cs::cartesian>;\n";
     out << "using box = bg::model::box<point>;\n";
     out << "using value = point;\n";
-    out << "using t_ind = bgi::rtree<value, bgi::linear<16>>;\n";
+
+    // each leaf node element stores a point and a bounding box which is (sizeof(point) + sizeof(box)) bytes
+    // the Boost R-Tree stores 1 extra element per node
+    // therefore the formula below calculates the correct MaxElements to cap a node size at 256 bytes
+    out << "static constexpr size_t node_bytes = 256;\n";
+    out << "static constexpr size_t element_size = sizeof(point) + sizeof(box);\n";
+    out << "static constexpr size_t max_elements = std::max(static_cast<long int>(node_bytes/element_size) - "
+           "1, 1L);\n";
+    out << "using t_ind = bgi::rtree<value, bgi::linear<max_elements>>;\n";
     out << "using const_query_iterator = t_ind::const_query_iterator;\n";
 
     // need to transform a boost geometry point back into a tuple
