@@ -254,6 +254,7 @@ int main(int argc, char** argv) {
                         "[ parse-errors | precedence-graph | scc-graph | transformed-datalog | "
                         "transformed-ram | type-analysis ]",
                         "", false, "Print selected program information."},
+                {"splitting-algorithm", 's', "sa", "linear", false, "Specify r-tree splitting algorithm."},
                 {"parse-errors", '\5', "", "", false, "Show parsing errors, if any, then exit."},
                 {"help", 'h', "", "", false, "Display this help message."},
                 {"legacy", '\6', "", "", false, "Enable legacy support."}};

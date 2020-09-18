@@ -1383,7 +1383,13 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "static constexpr size_t element_size = sizeof(point) + sizeof(box);\n";
     out << "static constexpr size_t max_elements = std::max(static_cast<long int>(node_bytes/element_size) - "
            "1, 1L);\n";
-    out << "using t_ind = bgi::rtree<value, bgi::linear<max_elements>>;\n";
+
+    // get splitting algorithm from config where default is linear
+    std::string split = Global::config().get("splitting-algorithm");
+    std::unordered_set<std::string> splits = {"linear", "quadratic", "rstar"};
+    assert(splits.find(split) != splits.end());
+
+    out << "using t_ind = bgi::rtree<value, bgi::" << split << "<max_elements>>;\n";
     out << "using const_query_iterator = t_ind::const_query_iterator;\n";
 
     // need to transform a boost geometry point back into a tuple
