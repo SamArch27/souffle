@@ -225,6 +225,7 @@ int main(int argc, char** argv) {
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
                         "<FILE>. If <FILE> is `-` then stdout is used."},
+                {"inequalities", 'J', "INEQ", "on", false, "Specify whether inequalities are indexed."},
                 {"swig", 's', "LANG", "", false,
                         "Generate SWIG interface for given language. The values <LANG> accepts is java and "
                         "python. "},

@@ -498,7 +498,10 @@ MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
         return inequalitiesNotSigned;
     }
 
-    return dischargedMap[s];
+    if (Global::config().get("inequalities") == "on") {
+        return dischargedMap[s];
+    }
+    return allInequalities;
 }
 
 void IndexAnalysis::run(const TranslationUnit& translationUnit) {
