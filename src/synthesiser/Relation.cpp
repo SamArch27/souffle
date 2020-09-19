@@ -1508,6 +1508,18 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
         out << "}\n";
     }
 
+    // empty lowerUpperRange method
+    out << "souffle::range<iterator> lowerUpperRange_" << SearchSignature(arity)
+        << "(const t_tuple& lower, const t_tuple& upper, context& h) const "
+           "{\n";
+    out << "return souffle::make_range(begin(),end());\n";
+    out << "}\n";
+
+    out << "souffle::range<iterator> lowerUpperRange_" << SearchSignature(arity)
+        << "(const t_tuple& lower, const t_tuple& upper) const {\n";
+    out << "return souffle::make_range(begin(), end());\n";
+    out << "}\n";
+
     // empty method
     out << "bool empty() const {\n";
     out << "return ind.empty();\n";

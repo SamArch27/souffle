@@ -52,7 +52,9 @@ bool IndexedInequalityTransformer::transformIndexToFilter(Program& program) {
             if (const IndexOperation* indexOperation = dynamic_cast<IndexOperation*>(node.get())) {
                 auto indexSelection = idxAnalysis->getIndexes(indexOperation->getRelation());
                 auto attributesToDischarge = indexSelection.getAttributesToDischarge(
-                        idxAnalysis->getSearchSignature(indexOperation), indexOperation->getRelation());
+                        ram::analysis::SearchSignature::getFixed(
+                                idxAnalysis->getSearchSignature(indexOperation)),
+                        indexOperation->getRelation());
                 auto pattern = indexOperation->getRangePattern();
                 Own<Condition> condition;
                 RamPattern updatedPattern;

@@ -43,7 +43,7 @@
 
 namespace souffle::ram::analysis {
 
-enum class AttributeConstraint { None, Equal, Inequal };
+enum class AttributeConstraint { None, Equal, Inequal, Lower, Upper };
 
 /** search signature of a RAM operation; each bit represents an attribute of a relation.
  * A one represents that the attribute has an assigned value; a zero represents that
@@ -70,6 +70,7 @@ public:
     static SearchSignature getDelta(const SearchSignature& lhs, const SearchSignature& rhs);
     static SearchSignature getFullSearchSignature(size_t arity);
     static SearchSignature getDischarged(const SearchSignature& signature);
+    static SearchSignature getFixed(const SearchSignature& signature);
 
     friend std::ostream& operator<<(std::ostream& out, const SearchSignature& signature);
 
@@ -233,11 +234,10 @@ public:
     // hashes
 
     /** @Brief Add new key to an Index Set */
-    inline void addSearch(SearchSignature cols) {
-        if (!cols.empty()) {
-            searches.insert(cols);
-        }
-    }
+    inline void addSearch(SearchSignature cols);
+
+    /** @Brief Get all spatial primitive searches for statistics purposes */
+    const std::vector<SearchSignature>& getAllSpatialSearches() const;
 
     MinIndexSelection() = default;
     ~MinIndexSelection() = default;
@@ -249,13 +249,13 @@ public:
 
     /** @Brief Get index for a search */
     const LexOrder& getLexOrder(SearchSignature cols) const {
-        int idx = map(cols);
+        int idx = map(SearchSignature::getFixed(cols));
         return orders[idx];
     }
 
     /** @Brief Get index for a search */
     int getLexOrderNum(SearchSignature cols) const {
-        return map(cols);
+        return map(SearchSignature::getFixed(cols));
     }
 
     /** @Brief Get all indexes */
@@ -307,6 +307,7 @@ protected:
     OrderCollection orders;               // collection of lexicographical orders
     ChainOrderMap chainToOrder;           // maps order index to set of searches covered by chain
     MaxMatching matching;                 // matching problem for finding minimal number of orders
+    std::vector<SearchSignature> spatialSearches;  // all spatial primitive searches for statistics purposes
 
     /** @Brief count the number of constraints in key */
     static size_t card(SearchSignature cols) {

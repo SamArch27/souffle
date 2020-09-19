@@ -592,7 +592,8 @@ private:
     template <class RamNode>
     size_t encodeIndexPos(RamNode& node) {
         const ram::analysis::MinIndexSelection& orderSet = isa->getIndexes(node.getRelation());
-        ram::analysis::SearchSignature signature = isa->getSearchSignature(&node);
+        ram::analysis::SearchSignature signature =
+                ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&node));
         // A zero signature is equivalent as a full order signature.
         if (signature.empty()) {
             signature = ram::analysis::SearchSignature::getFullSearchSignature(signature.arity());

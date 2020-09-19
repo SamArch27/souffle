@@ -148,6 +148,19 @@ SearchSignature SearchSignature::getDischarged(const SearchSignature& signature)
     return res;
 }
 
+SearchSignature SearchSignature::getFixed(const SearchSignature& signature) {
+    SearchSignature res = signature;  // copy original
+    for (size_t i = 0; i < res.arity(); ++i) {
+        if (res[i] == AttributeConstraint::Lower) {
+            res[i] = AttributeConstraint::Inequal;
+        }
+        if (res[i] == AttributeConstraint::Upper) {
+            res[i] = AttributeConstraint::Inequal;
+        }
+    }
+    return res;
+}
+
 std::ostream& operator<<(std::ostream& out, const SearchSignature& signature) {
     size_t len = signature.constraints.size();
     for (size_t i = 0; i < len; ++i) {
@@ -155,6 +168,8 @@ std::ostream& operator<<(std::ostream& out, const SearchSignature& signature) {
             case AttributeConstraint::None: out << 0; break;
             case AttributeConstraint::Equal: out << 1; break;
             case AttributeConstraint::Inequal: out << 2; break;
+            case AttributeConstraint::Lower: out << 3; break;
+            case AttributeConstraint::Upper: out << 4; break;
         }
     }
     return out;
@@ -251,6 +266,17 @@ const MaxMatching::Matchings& MaxMatching::solve() {
         }
     }
     return match;
+}
+
+void MinIndexSelection::addSearch(SearchSignature cols) {
+    if (!cols.empty()) {
+        spatialSearches.push_back(cols);  // stats
+        searches.insert(SearchSignature::getFixed(cols));
+    }
+}
+
+const std::vector<SearchSignature>& MinIndexSelection::getAllSpatialSearches() const {
+    return spatialSearches;
 }
 
 void MinIndexSelection::solve() {
@@ -443,6 +469,12 @@ MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
         }
     }
 
+    // nothing discharge if we are using an rtree
+    if (rel.getRepresentation() == RelationRepresentation::RTREE ||
+            Global::config().get("default-datastructure") == "rtree") {
+        return {};
+    }
+
     // if we don't have a btree then we don't retain any inequalities
     if (rel.getRepresentation() != RelationRepresentation::BTREE &&
             rel.getRepresentation() != RelationRepresentation::DEFAULT) {
@@ -613,8 +645,12 @@ SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) 
             // if bounds are equal we have an equality
         } else if (*lower[i] == *upper[i]) {
             keys[i] = AttributeConstraint::Equal;
-        } else {
+        } else if (!isUndefValue(lower[i]) && !isUndefValue(upper[i])) {
             keys[i] = AttributeConstraint::Inequal;
+        } else if (!isUndefValue(lower[i]) && isUndefValue(upper[i])) {
+            keys[i] = AttributeConstraint::Lower;
+        } else if (isUndefValue(lower[i]) && !isUndefValue(upper[i])) {
+            keys[i] = AttributeConstraint::Upper;
         }
     }
     return keys;

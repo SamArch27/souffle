@@ -754,7 +754,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             const auto& rel = iscan.getRelation();
             auto relName = synthesiser.getRelationName(rel);
             auto identifier = iscan.getTupleId();
-            auto keys = isa->getSearchSignature(&iscan);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&iscan));
             auto arity = rel.getArity();
 
             const auto& rangePatternLower = iscan.getRangePattern().first;
@@ -781,7 +781,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             const auto& rel = piscan.getRelation();
             auto relName = synthesiser.getRelationName(rel);
             auto arity = rel.getArity();
-            auto keys = isa->getSearchSignature(&piscan);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&piscan));
 
             const auto& rangePatternLower = piscan.getRangePattern().first;
             const auto& rangePatternUpper = piscan.getRangePattern().second;
@@ -824,7 +824,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             auto arity = rel.getArity();
             const auto& rangePatternLower = ichoice.getRangePattern().first;
             const auto& rangePatternUpper = ichoice.getRangePattern().second;
-            auto keys = isa->getSearchSignature(&ichoice);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&ichoice));
 
             // check list of keys
             assert(arity > 0 && "AstToRamTranslator failed");
@@ -857,7 +857,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             auto arity = rel.getArity();
             const auto& rangePatternLower = pichoice.getRangePattern().first;
             const auto& rangePatternUpper = pichoice.getRangePattern().second;
-            auto keys = isa->getSearchSignature(&pichoice);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&pichoice));
 
             assert(pichoice.getTupleId() == 0 && "not outer-most loop");
 
@@ -943,7 +943,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
             // get range to aggregate
-            auto keys = isa->getSearchSignature(&aggregate);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&aggregate));
 
             // special case: counting number elements over an unrestricted predicate
             if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
@@ -1141,7 +1141,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
             // get range to aggregate
-            auto keys = isa->getSearchSignature(&aggregate);
+            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&aggregate));
 
             // special case: counting number elements over an unrestricted predicate
             if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
@@ -1777,7 +1777,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             // else we conduct a range query
             out << "!" << relName << "->"
                 << "lowerUpperRange";
-            out << "_" << isa->getSearchSignature(&exists);
+            out << "_" << ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&exists));
             out << "(" << rangeBounds.first.str() << "," << rangeBounds.second.str() << "," << ctxName
                 << ").empty()" << after;
             PRINT_END_COMMENT(out);
@@ -1797,7 +1797,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "[&]() -> bool {\n";
             out << "auto existenceCheck = " << relName << "->"
                 << "lowerUpperRange";
-            out << "_" << isa->getSearchSignature(&provExists);
+            out << "_" << ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&provExists));
 
             // parts refers to payload + rule number
             size_t parts = arity - auxiliaryArity + 1;
@@ -2307,6 +2307,13 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         bool isProvInfo = rel->getRepresentation() == RelationRepresentation::INFO;
         auto relationType = Relation::getSynthesiserRelation(
                 *rel, idxAnalysis->getIndexes(*rel), Global::config().has("provenance") && !isProvInfo);
+
+        // Print all the spatial primitive searches for a relation
+        const auto& spatialSearches = idxAnalysis->getIndexes(*rel).getAllSpatialSearches();
+        if (spatialSearches.empty()) {
+            continue;
+        }
+        std::cout << rel->getName() << " " << join(spatialSearches, ",") << "\n";
 
         generateRelationTypeStruct(os, std::move(relationType));
     }

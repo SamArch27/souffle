@@ -197,7 +197,7 @@ dnl NOTE: This is the default configuration that can be overridden
 dnl using SOUFFLE_CONFS environment variable.
 
 m4_define([DEFAULT_CONFS], [[-j8],   dnl run interpreter in parallel
-    [-c -X rtree]                         dnl compile, then execute in parallel
+    [-c -X rtree]                    dnl compile, then execute in parallel
 ])                          
 
 dnl Store user-defined souffle flag configuration given by the SOUFFLE_CONFS env (if any)
