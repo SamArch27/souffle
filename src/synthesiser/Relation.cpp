@@ -202,6 +202,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     size_t numIndexes = inds.size();
     std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
 
+    bool hintsOff = Global::config().get("hints") != "on";
     // struct definition
     out << "struct " << getTypeName() << " {\n";
 
@@ -345,11 +346,18 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";  // end of insert(t_tuple&)
 
     out << "bool insert(const t_tuple& t, context& h) {\n";
-    out << "if (ind_" << masterIndex << ".insert(t, h.hints_" << masterIndex << "_lower"
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+    out << "if (ind_" << masterIndex << ".insert(t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower"
         << ")) {\n";
     for (size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
-            out << "ind_" << i << ".insert(t, h.hints_" << i << "_lower"
+            out << "ind_" << i << ".insert(t, ";
+            out << (hintsOff ? "g" : "h");
+            out << ".hints_" << i << "_lower"
                 << ");\n";
         }
     }
@@ -378,7 +386,12 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // contains methods
     out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(t, h.hints_" << masterIndex << "_lower"
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+    out << "return ind_" << masterIndex << ".contains(t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower"
         << ");\n";
     out << "}\n";
 
@@ -394,7 +407,12 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // find methods
     out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(t, h.hints_" << masterIndex << "_lower"
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+    out << "return ind_" << masterIndex << ".find(t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower"
         << ");\n";
     out << "}\n";
 
@@ -433,6 +451,10 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
             }
         }
 
+        if (hintsOff) {
+            out << "context g;\n";
+        }
+
         out << "t_comparator_" << indNum << " comparator;\n";
         out << "int cmp = comparator(lower, upper);\n";
 
@@ -440,7 +462,10 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         if (eqSize == arity) {
             // use the more efficient find() method if lower == upper
             out << "if (cmp == 0) {\n";
-            out << "    auto pos = ind_" << indNum << ".find(lower, h.hints_" << indNum << "_lower);\n";
+
+            out << "    auto pos = ind_" << indNum << ".find(lower,";
+            out << (hintsOff ? "g" : "h");
+            out << ".hints_" << indNum << "_lower);\n";
             out << "    auto fin = ind_" << indNum << ".end();\n";
             out << "    if (pos != fin) {fin = pos; ++fin;}\n";
             out << "    return make_range(pos, fin);\n";
@@ -451,8 +476,12 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         out << "    return make_range(ind_" << indNum << ".end(), ind_" << indNum << ".end());\n";
         out << "}\n";
         // otherwise use the general method
-        out << "return make_range(ind_" << indNum << ".lower_bound(lower, h.hints_" << indNum << "_lower"
-            << "), ind_" << indNum << ".upper_bound(upper, h.hints_" << indNum << "_upper"
+        out << "return make_range(ind_" << indNum << ".lower_bound(lower, ";
+        out << (hintsOff ? "g" : "h");
+        out << ".hints_" << indNum << "_lower"
+            << "), ind_" << indNum << ".upper_bound(upper, ";
+        out << (hintsOff ? "g" : "h");
+        out << ".hints_" << indNum << "_upper"
             << "));\n";
 
         out << "}\n";
@@ -569,6 +598,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     const auto& inds = getIndices();
     size_t numIndexes = inds.size();
     std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
+    bool hintsOff = Global::config().get("hints") != "on";
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
@@ -666,14 +696,25 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "bool insert(const t_tuple& t, context& h) {\n";
     out << "const t_tuple* masterCopy = nullptr;\n";
     out << "{\n";
+
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+
     out << "auto lease = insert_lock.acquire();\n";
-    out << "if (contains(t, h)) return false;\n";
+    out << "if (contains(t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ") return false;\n";
     out << "masterCopy = &dataTable.insert(t);\n";
-    out << "ind_" << masterIndex << ".insert(masterCopy, h.hints_" << masterIndex << "_lower);\n";
+    out << "ind_" << masterIndex << ".insert(masterCopy, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower);\n";
     out << "}\n";
     for (size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex) {
-            out << "ind_" << i << ".insert(masterCopy, h.hints_" << i << "_lower"
+            out << "ind_" << i << ".insert(masterCopy, ";
+            out << (hintsOff ? "g" : "h");
+            out << ".hints_" << i << "_lower"
                 << ");\n";
         }
     }
@@ -701,7 +742,12 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // contains methods
     out << "bool contains(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".contains(&t, h.hints_" << masterIndex << "_lower"
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+    out << "return ind_" << masterIndex << ".contains(&t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower"
         << ");\n";
     out << "}\n";
 
@@ -717,7 +763,12 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // find methods
     out << "iterator find(const t_tuple& t, context& h) const {\n";
-    out << "return ind_" << masterIndex << ".find(&t, h.hints_" << masterIndex << "_lower"
+    if (hintsOff) {
+        out << "context g;\n";
+    }
+    out << "return ind_" << masterIndex << ".find(&t, ";
+    out << (hintsOff ? "g" : "h");
+    out << ".hints_" << masterIndex << "_lower"
         << ");\n";
     out << "}\n";
 
@@ -754,6 +805,9 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
             }
         }
 
+        if (hintsOff) {
+            out << "context g;\n";
+        }
         out << "t_comparator_" << indNum << " comparator;\n";
         out << "int cmp = comparator(&lower, &upper);\n";
 
@@ -761,7 +815,9 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         if (eqSize == arity) {
             // if lower == upper we can just do a find
             out << "if (cmp == 0) {\n";
-            out << "    auto pos = find(lower, h);\n";
+            out << "    auto pos = find(lower, ";
+            out << (hintsOff ? "g" : "h");
+            out << ");\n";
             out << "    auto fin = end();\n";
             out << "    if (pos != fin) {fin = pos; ++fin;}\n";
             out << "    return make_range(pos, fin);\n";
@@ -774,9 +830,12 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "}\n";
 
         // otherwise do the default method
-        out << "return range<iterator_" << indNum << ">(ind_" << indNum << ".lower_bound(&lower, h.hints_"
-            << indNum << "_lower"
-            << "), ind_" << indNum << ".upper_bound(&upper, h.hints_" << indNum << "_upper"
+        out << "return range<iterator_" << indNum << ">(ind_" << indNum << ".lower_bound(&lower, ";
+        out << (hintsOff ? "g" : "h");
+        out << ".hints_" << indNum << "_lower"
+            << "), ind_" << indNum << ".upper_bound(&upper, ";
+        out << (hintsOff ? "g" : "h");
+        out << ".hints_" << indNum << "_upper"
             << "));\n";
 
         out << "}\n";
