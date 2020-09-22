@@ -56,7 +56,7 @@ TEST(Transformers, GroundTermPropagation) {
             )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     // check types in clauses
     Clause* a = getClauses(program, "p")[0];
@@ -87,7 +87,7 @@ TEST(Transformers, GroundTermPropagation2) {
            )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     // check types in clauses
     Clause* a = getClauses(program, "p")[0];
@@ -114,7 +114,7 @@ TEST(Transformers, ResolveGroundedAliases) {
             )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     EXPECT_EQ("p(a,b) :- \n   p(x,y),\n   r = [x,y],\n   s = r,\n   s = [w,v],\n   [w,v] = [a,b].",
             toString(*getClauses(program, "p")[0]));
@@ -137,7 +137,7 @@ TEST(Transformers, ResolveAliasesWithTermsInAtoms) {
             )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     EXPECT_EQ("p(x,c) :- \n   p(x,b),\n   p(b,c),\n   c = (b+1),\n   x = (c+2).",
             toString(*getClauses(program, "p")[0]));
@@ -183,7 +183,7 @@ TEST(Transformers, RemoveRelationCopies) {
             )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     EXPECT_EQ(4, program.getRelations().size());
 
@@ -229,7 +229,7 @@ TEST(Transformers, RemoveRelationCopiesOutput) {
             )",
             errorReport, debugReport);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     EXPECT_EQ(4, program.getRelations().size());
 
@@ -263,7 +263,7 @@ TEST(Transformers, CheckClausalEquivalence) {
             )",
             errorReport, debugReport);
 
-    const auto& program = *tu->getProgram();
+    const auto& program = tu->getProgram();
 
     // Resolve aliases to remove trivial equalities
     mk<ResolveAliasesTransformer>()->apply(*tu);
@@ -363,7 +363,7 @@ TEST(Transformers, CheckAggregatorEquivalence) {
             )",
             errorReport, debugReport);
 
-    const auto& program = *tu->getProgram();
+    const auto& program = tu->getProgram();
     mk<MinimiseProgramTransformer>()->apply(*tu);
 
     // A, B, C, D should still be the relations
@@ -417,7 +417,7 @@ TEST(Transformers, RemoveClauseRedundancies) {
             )",
             errorReport, debugReport);
 
-    const auto& program = *tu->getProgram();
+    const auto& program = tu->getProgram();
 
     // Invoking the `RemoveRelationCopiesTransformer` to create some extra redundancy
     // In particular: The relation `c` will be replaced with `b` throughout, creating
@@ -491,7 +491,7 @@ TEST(Transformers, MagicSetComprehensive) {
             )",
             e, d);
 
-    auto& program = *tu->getProgram();
+    auto& program = tu->getProgram();
 
     // Test helpers
     auto mappifyRelations = [&](const Program& program) {

@@ -30,7 +30,8 @@ namespace souffle::ast::analysis {
 void SumTypeBranchesAnalysis::run(const TranslationUnit& tu) {
     const TypeEnvironment& env = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
-    visitDepthFirst(tu.getProgram()->getTypes(), [&](const ast::AlgebraicDataType& adt) {
+    Program& program = tu.getProgram();
+    visitDepthFirst(program.getTypes(), [&](const ast::AlgebraicDataType& adt) {
         auto typeName = adt.getQualifiedName();
         if (!env.isType(typeName)) return;
 

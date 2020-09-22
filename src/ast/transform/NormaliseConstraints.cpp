@@ -45,7 +45,7 @@ bool NormaliseConstraintsTransformer::transform(TranslationUnit& translationUnit
     // prepended by + to avoid conflict with user-defined variables
     static constexpr const char* boundPrefix = "+abdul";
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     /* Create a node mapper that recursively replaces all constants and underscores
      * with named variables.

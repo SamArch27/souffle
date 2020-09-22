@@ -753,12 +753,12 @@ public:
     /**
      * Output all the input relations in stdout, without generating any files. (for debug purposes).
      */
-    virtual void dumpInputs(std::ostream& out = std::cout) = 0;
+    virtual void dumpInputs() = 0;
 
     /**
      * Output all the output relations in stdout, without generating any files. (for debug purposes).
      */
-    virtual void dumpOutputs(std::ostream& out = std::cout) = 0;
+    virtual void dumpOutputs() = 0;
 
     /**
      * Set the number of threads to be used

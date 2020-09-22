@@ -42,7 +42,7 @@
 namespace souffle::ast::transform {
 
 bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Checks whether an atom is of the form a(_,_,...,_)
     auto isExistentialAtom = [&](const Atom& atom) {

@@ -60,7 +60,7 @@ typedef MagicSetTransformer::LabelDatabaseTransformer::PositiveLabellingTransfor
         PositiveLabellingTransformer;
 
 std::set<QualifiedName> MagicSetTransformer::getIgnoredRelations(const TranslationUnit& tu) {
-    const auto& program = *tu.getProgram();
+    Program& program = tu.getProgram();
     const auto& ioTypes = *tu.getAnalysis<analysis::IOTypeAnalysis>();
 
     std::set<QualifiedName> relationsToIgnore;
@@ -168,7 +168,7 @@ std::set<QualifiedName> MagicSetTransformer::getIgnoredRelations(const Translati
 }
 
 bool MagicSetTransformer::shouldRun(const TranslationUnit& tu) {
-    const auto& program = *tu.getProgram();
+    const Program& program = tu.getProgram();
     if (Global::config().has("magic-transform")) return true;
     for (const auto* rel : program.getRelations()) {
         if (rel->hasQualifier(RelationQualifier::MAGIC)) return true;
@@ -199,7 +199,7 @@ bool NormaliseDatabaseTransformer::transform(TranslationUnit& translationUnit) {
 }
 
 bool NormaliseDatabaseTransformer::partitionIO(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& ioTypes = *translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
 
     // Get all relations that are both input and output
@@ -267,7 +267,7 @@ bool NormaliseDatabaseTransformer::partitionIO(TranslationUnit& translationUnit)
 }
 
 bool NormaliseDatabaseTransformer::extractIDB(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& ioTypes = *translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
 
     // Helper method to check if an input relation has no associated rules
@@ -330,7 +330,7 @@ bool NormaliseDatabaseTransformer::extractIDB(TranslationUnit& translationUnit) 
 }
 
 bool NormaliseDatabaseTransformer::querifyOutputRelations(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Helper method to check if a relation is a single-rule output query
     auto isStrictlyOutput = [&](const Relation* rel) {
@@ -404,7 +404,7 @@ bool NormaliseDatabaseTransformer::querifyOutputRelations(TranslationUnit& trans
 }
 
 bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Replace all non-variable-arguments nested inside the node with named variables
     // Also, keeps track of constraints to add to keep the clause semantically equivalent
@@ -616,7 +616,7 @@ Own<Clause> AdornDatabaseTransformer::adornClause(const Clause* clause, const st
 }
 
 bool AdornDatabaseTransformer::transform(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& ioTypes = *translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
 
     relationsToIgnore = getIgnoredRelations(translationUnit);
@@ -689,7 +689,7 @@ bool LabelDatabaseTransformer::isNegativelyLabelled(const QualifiedName& name) {
 
 bool NegativeLabellingTransformer::transform(TranslationUnit& translationUnit) {
     const auto& sccGraph = *translationUnit.getAnalysis<analysis::SCCGraphAnalysis>();
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     std::set<QualifiedName> relationsToLabel;
     std::set<Own<Clause>> clausesToAdd;
@@ -754,7 +754,7 @@ bool NegativeLabellingTransformer::transform(TranslationUnit& translationUnit) {
 }
 
 bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& sccGraph = *translationUnit.getAnalysis<analysis::SCCGraphAnalysis>();
     const auto& precedenceGraph = translationUnit.getAnalysis<analysis::PrecedenceGraphAnalysis>()->graph();
     auto ignoredRelations = getIgnoredRelations(translationUnit);
@@ -1036,7 +1036,7 @@ std::vector<const BinaryConstraint*> MagicSetCoreTransformer::getBindingEquality
 }
 
 bool MagicSetCoreTransformer::transform(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     std::set<Own<Clause>> clausesToRemove;
     std::set<Own<Clause>> clausesToAdd;
 

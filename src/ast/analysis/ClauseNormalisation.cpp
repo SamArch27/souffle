@@ -158,7 +158,7 @@ std::string NormalisedClause::normaliseArgument(const Argument* arg) {
 }
 
 void ClauseNormalisationAnalysis::run(const TranslationUnit& translationUnit) {
-    const auto& program = *translationUnit.getProgram();
+    const auto& program = translationUnit.getProgram();
     for (const auto* clause : program.getClauses()) {
         assert(!contains(normalisations, clause) && "clause already processed");
         normalisations[clause] = NormalisedClause(clause);

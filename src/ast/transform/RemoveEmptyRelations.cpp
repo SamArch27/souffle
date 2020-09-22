@@ -34,7 +34,7 @@
 namespace souffle::ast::transform {
 
 bool RemoveEmptyRelationsTransformer::removeEmptyRelations(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     auto* ioTypes = translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
     std::set<QualifiedName> emptyRelations;
     bool changed = false;
@@ -70,7 +70,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelations(TranslationUnit& tran
 
 bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
         TranslationUnit& translationUnit, const QualifiedName& emptyRelationName) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     bool changed = false;
 
     //

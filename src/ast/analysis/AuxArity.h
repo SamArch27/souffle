@@ -36,7 +36,7 @@ public:
     AuxiliaryArityAnalysis() : Analysis(name) {}
 
     void run(const TranslationUnit& translationUnit) override {
-        program = translationUnit.getProgram();
+        program = &translationUnit.getProgram();
     }
 
     /**

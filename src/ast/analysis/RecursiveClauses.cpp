@@ -35,7 +35,8 @@
 namespace souffle::ast::analysis {
 
 void RecursiveClausesAnalysis::run(const TranslationUnit& translationUnit) {
-    visitDepthFirst(*translationUnit.getProgram(), [&](const Clause& clause) {
+    Program& program = translationUnit.getProgram();
+    visitDepthFirst(program, [&](const Clause& clause) {
         if (computeIsRecursive(clause, translationUnit)) {
             recursiveClauses.insert(&clause);
         }
@@ -49,7 +50,7 @@ void RecursiveClausesAnalysis::print(std::ostream& os) const {
 bool RecursiveClausesAnalysis::computeIsRecursive(
         const Clause& clause, const TranslationUnit& translationUnit) const {
     const auto& relationDetail = *translationUnit.getAnalysis<RelationDetailCacheAnalysis>();
-    const Program& program = *translationUnit.getProgram();
+    const Program& program = translationUnit.getProgram();
 
     // we want to reach the atom of the head through the body
     const Relation* trg = getHeadRelation(&clause, &program);

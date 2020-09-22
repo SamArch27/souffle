@@ -50,7 +50,7 @@ bool NameUnnamedVariablesTransformer::transform(TranslationUnit& translationUnit
         }
     };
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     for (Relation* rel : program.getRelations()) {
         for (Clause* clause : getClauses(program, *rel)) {
             nameVariables update;

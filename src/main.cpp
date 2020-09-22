@@ -561,7 +561,7 @@ int main(int argc, char** argv) {
     if (Global::config().has("show")) {
         // Output the transformed datalog and return
         if (Global::config().get("show") == "transformed-datalog") {
-            std::cout << *astTranslationUnit->getProgram() << std::endl;
+            std::cout << astTranslationUnit->getProgram() << std::endl;
             return 0;
         }
 

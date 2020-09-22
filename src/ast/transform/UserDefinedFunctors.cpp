@@ -65,8 +65,9 @@ bool UserDefinedFunctorsTransformer::transform(TranslationUnit& translationUnit)
             return node;
         }
     };
-    UserFunctorRewriter update(*translationUnit.getProgram(), translationUnit.getErrorReport());
-    translationUnit.getProgram()->apply(update);
+    Program& program = translationUnit.getProgram();
+    UserFunctorRewriter update(program, translationUnit.getErrorReport());
+    program.apply(update);
     return update.changed;
 }
 

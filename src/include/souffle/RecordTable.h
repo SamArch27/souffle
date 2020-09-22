@@ -70,7 +70,7 @@ public:
 #pragma omp critical(record_unpack)
                 {
                     indexToRecord.push_back(vector);
-                    index = indexToRecord.size() - 1;
+                    index = static_cast<RamDomain>(indexToRecord.size()) - 1;
                     recordToIndex[vector] = index;
 
                     // assert that new index is smaller than the range

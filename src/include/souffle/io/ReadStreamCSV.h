@@ -48,7 +48,7 @@ public:
             SymbolTable& symbolTable, RecordTable& recordTable)
             : ReadStream(rwOperation, symbolTable, recordTable),
               delimiter(getOr(rwOperation, "delimiter", "\t")), file(file), lineNumber(0),
-              inputMap(getInputColumnMap(rwOperation, arity)) {
+              inputMap(getInputColumnMap(rwOperation, static_cast<unsigned int>(arity))) {
         while (inputMap.size() < arity) {
             int size = static_cast<int>(inputMap.size());
             inputMap[size] = size;

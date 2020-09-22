@@ -34,7 +34,7 @@ namespace souffle::ast::transform {
 bool ReplaceSingletonVariablesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Node-mapper to replace a set of singletons with unnamed variables
     struct replaceSingletons : public NodeMapper {

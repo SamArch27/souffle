@@ -25,12 +25,12 @@
 namespace souffle::ast::analysis {
 
 void ComponentLookupAnalysis::run(const TranslationUnit& translationUnit) {
-    const Program* program = translationUnit.getProgram();
-    for (Component* component : program->getComponents()) {
+    Program& program = translationUnit.getProgram();
+    for (Component* component : program.getComponents()) {
         globalScopeComponents.insert(component);
         enclosingComponent[component] = nullptr;
     }
-    visitDepthFirst(*program, [&](const Component& cur) {
+    visitDepthFirst(program, [&](const Component& cur) {
         nestedComponents[&cur];
         for (Component* nestedComponent : cur.getComponents()) {
             nestedComponents[&cur].insert(nestedComponent);

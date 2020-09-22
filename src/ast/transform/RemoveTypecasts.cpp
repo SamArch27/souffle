@@ -44,7 +44,8 @@ bool RemoveTypecastsTransformer::transform(TranslationUnit& translationUnit) {
     };
 
     TypecastRemover update;
-    translationUnit.getProgram()->apply(update);
+    Program& program = translationUnit.getProgram();
+    program.apply(update);
 
     return update.changed;
 }

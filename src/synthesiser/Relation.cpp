@@ -423,14 +423,14 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // empty lowerUpperRange method
     out << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
-        << "(const t_tuple& lower, const t_tuple& upper, context& h) const "
+        << "(const t_tuple& /* lower */, const t_tuple& /* upper */, context& /* h */) const "
            "{\n";
 
     out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
     out << "}\n";
 
     out << "range<iterator> lowerUpperRange_" << SearchSignature(arity)
-        << "(const t_tuple& lower, const t_tuple& upper) const {\n";
+        << "(const t_tuple& /* lower */, const t_tuple& /* upper */) const {\n";
 
     out << "return range<iterator>(ind_" << masterIndex << ".begin(),ind_" << masterIndex << ".end());\n";
     out << "}\n";
@@ -596,6 +596,7 @@ std::string IndirectRelation::getTypeName() {
 void IndirectRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
     const auto& inds = getIndices();
+    auto types = relation.getAttributeTypes();
     size_t numIndexes = inds.size();
     std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
     bool hintsOff = Global::config().get("hints") != "on";
@@ -618,6 +619,17 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
             indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
         }
 
+        std::vector<std::string> typecasts;
+        typecasts.reserve(types.size());
+
+        for (auto type : types) {
+            switch (type[0]) {
+                case 'f': typecasts.push_back("ramBitCast<RamFloat>"); break;
+                case 'u': typecasts.push_back("ramBitCast<RamUnsigned>"); break;
+                default: typecasts.push_back("ramBitCast<RamSigned>");
+            }
+        }
+
         std::string comparator = "t_comparator_" + std::to_string(i);
 
         out << "struct " << comparator << "{\n";
@@ -625,8 +637,10 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "  return ";
         std::function<void(size_t)> gencmp = [&](size_t i) {
             size_t attrib = ind[i];
-            out << "((*a)[" << attrib << "] < (*b)[" << attrib << "]) ? -1 : (((*a)[" << attrib << "] > (*b)["
-                << attrib << "]) ? 1 :(";
+            const auto& typecast = typecasts[attrib];
+            out << "(" << typecast << "((*a)[" << attrib << "]) <" << typecast << " ((*b)[" << attrib
+                << "])) ? -1 : ((" << typecast << "((*a)[" << attrib << "]) > " << typecast << "((*b)["
+                << attrib << "])) ? 1 :(";
             if (i + 1 < ind.size()) {
                 gencmp(i + 1);
             } else {
@@ -640,9 +654,11 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "  return ";
         std::function<void(size_t)> genless = [&](size_t i) {
             size_t attrib = ind[i];
-            out << " (*a)[" << attrib << "] < (*b)[" << attrib << "]";
+            const auto& typecast = typecasts[attrib];
+            out << typecast << " ((*a)[" << attrib << "]) < " << typecast << "((*b)[" << attrib << "])";
             if (i + 1 < ind.size()) {
-                out << "|| ((*a)[" << attrib << "] == (*b)[" << attrib << "] && (";
+                out << "|| (" << typecast << "((*a)[" << attrib << "]) == " << typecast << "((*b)[" << attrib
+                    << "]) && (";
                 genless(i + 1);
                 out << "))";
             }
@@ -653,7 +669,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "return ";
         std::function<void(size_t)> geneq = [&](size_t i) {
             size_t attrib = ind[i];
-            out << "(*a)[" << attrib << "] == (*b)[" << attrib << "]";
+            const auto& typecast = typecasts[attrib];
+            out << typecast << "((*a)[" << attrib << "]) == " << typecast << "((*b)[" << attrib << "])";
             if (i + 1 < ind.size()) {
                 out << "&&";
                 geneq(i + 1);

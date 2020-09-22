@@ -95,18 +95,18 @@ public:
     Entry* writeEntry(Own<Entry> entry) {
         assert(entry != nullptr && "null entry");
         std::lock_guard<std::mutex> guard(lock);
-        const std::string& key = entry->getKey();
+        const std::string& keyToWrite = entry->getKey();
         // Don't rewrite an existing entry
-        if (entries.count(key) == 0) {
-            entries[key] = std::move(entry);
+        if (entries.count(keyToWrite) == 0) {
+            entries[keyToWrite] = std::move(entry);
         }
-        return entries[key].get();
+        return entries[keyToWrite].get();
     }
 
     // read entry
-    Entry* readEntry(const std::string& key) const {
+    Entry* readEntry(const std::string& keyToRead) const {
         std::lock_guard<std::mutex> guard(lock);
-        auto it = entries.find(key);
+        auto it = entries.find(keyToRead);
         if (it != entries.end()) {
             return (*it).second.get();
         } else {
@@ -115,8 +115,8 @@ public:
     }
 
     // read directory
-    DirectoryEntry* readDirectoryEntry(const std::string& key) const {
-        return dynamic_cast<DirectoryEntry*>(readEntry(key));
+    DirectoryEntry* readDirectoryEntry(const std::string& keyToRead) const {
+        return dynamic_cast<DirectoryEntry*>(readEntry(keyToRead));
     }
 
     // accept visitor

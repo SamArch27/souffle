@@ -36,8 +36,9 @@ void RedundantRelationsAnalysis::run(const TranslationUnit& translationUnit) {
     std::set<const Relation*> work;
     std::set<const Relation*> notRedundant;
     auto* ioType = translationUnit.getAnalysis<IOTypeAnalysis>();
+    Program& program = translationUnit.getProgram();
 
-    const std::vector<Relation*>& relations = translationUnit.getProgram()->getRelations();
+    const std::vector<Relation*>& relations = program.getRelations();
     /* Add all output relations to the work set */
     for (const Relation* r : relations) {
         if (ioType->isOutput(r)) {

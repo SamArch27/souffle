@@ -38,10 +38,11 @@ bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
     auto* recursiveClauses = translationUnit.getAnalysis<analysis::RecursiveClausesAnalysis>();
     auto&& report = translationUnit.getErrorReport();
 
+    Program& program = translationUnit.getProgram();
     for (const analysis::RelationScheduleAnalysisStep& step : relationSchedule->schedule()) {
         const std::set<const Relation*>& scc = step.computed();
         for (const Relation* rel : scc) {
-            for (const Clause* clause : getClauses(*translationUnit.getProgram(), *rel)) {
+            for (const Clause* clause : getClauses(program, *rel)) {
                 if (!recursiveClauses->recursive(clause)) {
                     continue;
                 }
@@ -50,7 +51,7 @@ bool ExecutionPlanChecker::transform(TranslationUnit& translationUnit) {
                 }
                 int version = 0;
                 for (const auto* atom : getBodyLiterals<Atom>(*clause)) {
-                    if (scc.count(getAtomRelation(atom, translationUnit.getProgram())) != 0u) {
+                    if (scc.count(getAtomRelation(atom, &program)) != 0u) {
                         version++;
                     }
                 }

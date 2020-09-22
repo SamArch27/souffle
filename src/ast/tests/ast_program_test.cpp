@@ -61,8 +61,8 @@ TEST(Program, Parse) {
     // check the empty program
     Own<TranslationUnit> empty = ParserDriver::parseTranslationUnit("", e, d);
 
-    EXPECT_TRUE(empty->getProgram()->getTypes().empty());
-    EXPECT_TRUE(empty->getProgram()->getRelations().empty());
+    EXPECT_TRUE(empty->getProgram().getTypes().empty());
+    EXPECT_TRUE(empty->getProgram().getRelations().empty());
 
     // check something simple
     Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
@@ -76,15 +76,15 @@ TEST(Program, Parse) {
             )",
             e, d);
 
-    auto* prog = tu->getProgram();
-    std::cout << *prog << "\n";
+    auto& prog = tu->getProgram();
+    std::cout << prog << "\n";
 
-    EXPECT_EQ(1, prog->getTypes().size());
-    EXPECT_EQ(2, prog->getRelations().size());
+    EXPECT_EQ(1, prog.getTypes().size());
+    EXPECT_EQ(2, prog.getRelations().size());
 
-    EXPECT_TRUE(getRelation(*prog, "e"));
-    EXPECT_TRUE(getRelation(*prog, "r"));
-    EXPECT_FALSE(getRelation(*prog, "n"));
+    EXPECT_TRUE(getRelation(prog, "e"));
+    EXPECT_TRUE(getRelation(prog, "r"));
+    EXPECT_FALSE(getRelation(prog, "n"));
 }
 
 #define TESTASTCLONEANDEQUAL(SUBTYPE, DL)                                       \
@@ -92,7 +92,7 @@ TEST(Program, Parse) {
         ErrorReport e;                                                          \
         DebugReport d;                                                          \
         Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(DL, e, d); \
-        Program& program = *tu->getProgram();                                   \
+        Program& program = tu->getProgram();                                    \
         EXPECT_EQ(program, program);                                            \
         Own<Program> clone(program.clone());                                    \
         EXPECT_NE(clone.get(), &program);                                       \
@@ -206,27 +206,27 @@ TEST(Program, RemoveClause) {
     auto tu1 = makeATU(".decl A,B(x:number) \n A(sum x : B(x)).");
     auto clause = makeClause("A", std::move(sum));
 
-    tu1->getProgram()->removeClause(clause.get());
+    tu1->getProgram().removeClause(clause.get());
     auto tu2 = makeATU(".decl A,B(x:number)");
-    EXPECT_EQ(*tu1->getProgram(), *tu2->getProgram());
+    EXPECT_EQ(tu1->getProgram(), tu2->getProgram());
 }
 
 TEST(Program, AppendRelation) {
     auto tu1 = makeATU(".decl A,B,C(x:number)");
-    auto* prog1 = tu1->getProgram();
+    auto& prog1 = tu1->getProgram();
     auto rel = mk<Relation>();
     rel->setQualifiedName("D");
     rel->addAttribute(mk<Attribute>("x", "number"));
-    prog1->addRelation(std::move(rel));
+    prog1.addRelation(std::move(rel));
     auto tu2 = makeATU(".decl A,B,C,D(x:number)");
-    EXPECT_EQ(*tu1->getProgram(), *tu2->getProgram());
+    EXPECT_EQ(tu1->getProgram(), tu2->getProgram());
 }
 
 TEST(Program, RemoveRelation) {
     auto tu1 = makeATU(".decl A,B,C(x:number)");
     removeRelation(*tu1, "B");
     auto tu2 = makeATU(".decl A,C(x:number)");
-    EXPECT_EQ(*tu1->getProgram(), *tu2->getProgram());
+    EXPECT_EQ(tu1->getProgram(), tu2->getProgram());
 }
 
 }  // namespace souffle::ast::test

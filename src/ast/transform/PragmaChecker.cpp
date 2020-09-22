@@ -26,10 +26,10 @@
 namespace souffle::ast::transform {
 bool PragmaChecker::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    Program* program = translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Take in pragma options from the datalog file
-    visitDepthFirst(*program, [&](const Pragma& pragma) {
+    visitDepthFirst(program, [&](const Pragma& pragma) {
         std::pair<std::string, std::string> kvp = pragma.getkvp();
 
         // Command line options take precedence

@@ -183,6 +183,8 @@ souffle_sources = \
         ast/utility/BindingStore.cpp                       \
         ast/utility/LambdaNodeMapper.h                     \
         ast/utility/NodeMapper.h                           \
+        ast/utility/SipsMetric.h                           \
+        ast/utility/SipsMetric.cpp                         \
         ast/utility/Utils.cpp                              \
         ast/utility/Utils.h                                \
         ast/utility/Visitor.h                              \

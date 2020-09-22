@@ -48,10 +48,10 @@ public:
     void print(std::ostream& os) const override;
 
     /** Check whether the relation size exists in profile */
-    bool hasRelationSize(const QualifiedName& rel);
+    bool hasRelationSize(const QualifiedName& rel) const;
 
     /** Return size of relation in the profile */
-    size_t getRelationSize(const QualifiedName& rel);
+    size_t getRelationSize(const QualifiedName& rel) const;
 
 private:
     /** performance model of profile run */

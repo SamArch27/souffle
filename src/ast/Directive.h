@@ -73,36 +73,36 @@ public:
     }
 
     /** Get parameter */
-    const std::string& getDirective(const std::string& key) const {
-        return directives.at(key);
+    const std::string& getParameter(const std::string& key) const {
+        return parameters.at(key);
     }
 
     /** Add new parameter */
-    void addDirective(const std::string& key, std::string value) {
-        directives[key] = std::move(value);
+    void addParameter(const std::string& key, std::string value) {
+        parameters[key] = std::move(value);
     }
 
     /** Check for a parameter */
-    bool hasDirective(const std::string& key) const {
-        return directives.find(key) != directives.end();
+    bool hasParameter(const std::string& key) const {
+        return parameters.find(key) != parameters.end();
     }
 
     /** Get parameters */
-    const std::map<std::string, std::string>& getDirectives() const {
-        return directives;
+    const std::map<std::string, std::string>& getParameters() const {
+        return parameters;
     }
 
     Directive* clone() const override {
         auto res = new Directive(type, name, getSrcLoc());
-        res->directives = directives;
+        res->parameters = parameters;
         return res;
     }
 
 protected:
     void print(std::ostream& os) const override {
         os << "." << type << " " << name;
-        if (!directives.empty()) {
-            os << "(" << join(directives, ",", [](std::ostream& out, const auto& arg) {
+        if (!parameters.empty()) {
+            os << "(" << join(parameters, ",", [](std::ostream& out, const auto& arg) {
                 out << arg.first << "=\"" << arg.second << "\"";
             }) << ")";
         }
@@ -110,7 +110,7 @@ protected:
 
     bool equal(const Node& node) const override {
         const auto& other = static_cast<const Directive&>(node);
-        return other.type == type && other.name == name && other.directives == directives;
+        return other.type == type && other.name == name && other.parameters == parameters;
     }
 
     /** Type of directive */
@@ -120,7 +120,7 @@ protected:
     QualifiedName name;
 
     /** Parameters of directive */
-    std::map<std::string, std::string> directives;
+    std::map<std::string, std::string> parameters;
 };
 
 }  // namespace souffle::ast

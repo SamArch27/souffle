@@ -159,7 +159,7 @@ void FoldAnonymousRecords::transformClause(const Clause& clause, VecOwn<Clause>&
 
 bool FoldAnonymousRecords::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     VecOwn<Clause> newClauses;
 

@@ -112,7 +112,7 @@ std::map<QualifiedName, std::set<QualifiedName>> analysePrimitiveTypesInUnion(
 }  // namespace
 
 void TypeEnvironmentAnalysis::run(const TranslationUnit& translationUnit) {
-    const Program& program = *translationUnit.getProgram();
+    const Program& program = translationUnit.getProgram();
 
     auto rawProgramTypes = program.getTypes();
     Graph<QualifiedName> typeDependencyGraph{createTypeDependencyGraph(rawProgramTypes)};

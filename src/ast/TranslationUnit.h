@@ -75,13 +75,9 @@ public:
     }
 
     /** Return the program */
-    Program* getProgram() {
-        return program.get();
-    }
-
-    /** Return the program */
-    const Program* getProgram() const {
-        return program.get();
+    Program& getProgram() const {
+        assert(program && "NULL program");
+        return *program.get();
     }
 
     /** Return error report */

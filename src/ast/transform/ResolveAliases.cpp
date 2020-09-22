@@ -458,7 +458,7 @@ Own<Clause> ResolveAliasesTransformer::removeComplexTermsInAtoms(const Clause& c
 
 bool ResolveAliasesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // get all clauses
     std::vector<const Clause*> clauses;

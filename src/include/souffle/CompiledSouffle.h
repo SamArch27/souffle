@@ -189,10 +189,16 @@ public:
     context createContext() {
         return context();
     }
-    class iterator : public std::iterator<std::forward_iterator_tag, RamDomain*> {
+    class iterator {
         bool value;
 
     public:
+        typedef std::forward_iterator_tag iterator_category;
+        typedef RamDomain* value_type;
+        typedef ptrdiff_t difference_type;
+        typedef value_type* pointer;
+        typedef value_type& reference;
+
         iterator(bool v = false) : value(v) {}
 
         const RamDomain* operator*() {

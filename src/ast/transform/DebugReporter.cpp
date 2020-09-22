@@ -25,7 +25,7 @@ namespace souffle::ast::transform {
 
 bool DebugReporter::transform(TranslationUnit& translationUnit) {
     translationUnit.getDebugReport().startSection();
-    auto datalogSpecOriginal = pprint(*translationUnit.getProgram());
+    auto datalogSpecOriginal = pprint(translationUnit.getProgram());
     auto start = std::chrono::high_resolution_clock::now();
     bool changed = applySubtransformer(translationUnit, wrappedTransformer.get());
     auto end = std::chrono::high_resolution_clock::now();
@@ -42,7 +42,7 @@ bool DebugReporter::transform(TranslationUnit& translationUnit) {
 
 void DebugReporter::generateDebugReport(TranslationUnit& tu, const std::string& preTransformDatalog) {
     tu.getDebugReport().addCodeSection(
-            "dl", "Datalog", "souffle", preTransformDatalog, pprint(*tu.getProgram()));
+            "dl", "Datalog", "souffle", preTransformDatalog, pprint(tu.getProgram()));
 }
 
 }  // namespace souffle::ast::transform

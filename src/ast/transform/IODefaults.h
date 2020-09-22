@@ -67,48 +67,48 @@ private:
      */
     bool setDefaults(TranslationUnit& translationUnit) {
         bool changed = false;
-        Program* program = translationUnit.getProgram();
-        for (Directive* io : program->getDirectives()) {
+        Program& program = translationUnit.getProgram();
+        for (Directive* io : program.getDirectives()) {
             // Don't do anything for a directive which
             // is not an I/O directive
             if (io->getType() == ast::DirectiveType::limitsize) continue;
 
             // Set a default IO of file
-            if (!io->hasDirective("IO")) {
-                io->addDirective("IO", "file");
+            if (!io->hasParameter("IO")) {
+                io->addParameter("IO", "file");
                 changed = true;
             }
 
             // Set the relation name
-            if (!io->hasDirective("name")) {
-                io->addDirective("name", getRelationName(io));
+            if (!io->hasParameter("name")) {
+                io->addParameter("name", getRelationName(io));
                 changed = true;
             }
 
             // Set the operation type (input/output/printsize)
-            if (!io->hasDirective("operation")) {
+            if (!io->hasParameter("operation")) {
                 if (io->getType() == ast::DirectiveType::input) {
-                    io->addDirective("operation", "input");
+                    io->addParameter("operation", "input");
                     changed = true;
                     // Configure input directory
                     if (Global::config().has("fact-dir")) {
-                        io->addDirective("fact-dir", Global::config().get("fact-dir"));
+                        io->addParameter("fact-dir", Global::config().get("fact-dir"));
                     }
                 } else if (io->getType() == ast::DirectiveType::output) {
-                    io->addDirective("operation", "output");
+                    io->addParameter("operation", "output");
                     changed = true;
                     // Configure output directory
                     if (Global::config().has("output-dir")) {
                         if (Global::config().has("output-dir", "-")) {
-                            io->addDirective("IO", "stdout");
-                            io->addDirective("headers", "true");
+                            io->addParameter("IO", "stdout");
+                            io->addParameter("headers", "true");
                         } else {
-                            io->addDirective("output-dir", Global::config().get("output-dir"));
+                            io->addParameter("output-dir", Global::config().get("output-dir"));
                         }
                     }
                 } else if (io->getType() == ast::DirectiveType::printsize) {
-                    io->addDirective("operation", "printsize");
-                    io->addDirective("IO", "stdoutprintsize");
+                    io->addParameter("operation", "printsize");
+                    io->addParameter("IO", "stdoutprintsize");
                     changed = true;
                 }
             }

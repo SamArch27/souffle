@@ -564,7 +564,7 @@ public:
 private:
     const TranslationUnit& tu;
     const TypeEnvironment& typeEnv = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
-    const Program& program = *tu.getProgram();
+    const Program& program = tu.getProgram();
     const SumTypeBranchesAnalysis& sumTypesBranches = *tu.getAnalysis<SumTypeBranchesAnalysis>();
 
     // Sinks = {head} ∪ {negated atoms}
@@ -821,7 +821,8 @@ void TypeAnalysis::run(const TranslationUnit& translationUnit) {
     }
 
     // Analyse types, clause by clause.
-    for (const Clause* clause : translationUnit.getProgram()->getClauses()) {
+    const Program& program = translationUnit.getProgram();
+    for (const Clause* clause : program.getClauses()) {
         auto clauseArgumentTypes = analyseTypes(translationUnit, *clause, debugStream);
         argumentTypes.insert(clauseArgumentTypes.begin(), clauseArgumentTypes.end());
 
