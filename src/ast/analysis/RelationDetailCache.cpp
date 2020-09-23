@@ -31,7 +31,7 @@
 namespace souffle::ast::analysis {
 
 void RelationDetailCacheAnalysis::run(const TranslationUnit& translationUnit) {
-    const auto& program = *translationUnit.getProgram();
+    const auto& program = translationUnit.getProgram();
     for (auto* rel : program.getRelations()) {
         nameToRelation[rel->getQualifiedName()] = rel;
         nameToClauses[rel->getQualifiedName()] = std::set<Clause*>();

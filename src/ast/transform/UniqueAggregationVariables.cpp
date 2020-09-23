@@ -30,7 +30,8 @@ bool UniqueAggregationVariablesTransformer::transform(TranslationUnit& translati
 
     // make variables in aggregates unique
     int aggNumber = 0;
-    visitDepthFirstPostOrder(*translationUnit.getProgram(), [&](const Aggregator& agg) {
+    Program& program = translationUnit.getProgram();
+    visitDepthFirstPostOrder(program, [&](const Aggregator& agg) {
         // only applicable for aggregates with target expression
         if (agg.getTargetExpression() == nullptr) {
             return;

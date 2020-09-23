@@ -43,7 +43,7 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(TranslationUnit& tran
 
     auto* ioType = translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // search for relations only defined by a single rule ..
     for (Relation* rel : program.getRelations()) {

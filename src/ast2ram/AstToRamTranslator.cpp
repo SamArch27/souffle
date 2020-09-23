@@ -52,6 +52,7 @@
 #include "ast/analysis/AuxArity.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/RecursiveClauses.h"
+#include "ast/analysis/RelationDetailCache.h"
 #include "ast/analysis/RelationSchedule.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/TopologicallySortedSCCGraph.h"
@@ -168,7 +169,7 @@ std::vector<std::map<std::string, std::string>> AstToRamTranslator::getInputDire
         }
 
         std::map<std::string, std::string> directives;
-        for (const auto& currentPair : load->getDirectives()) {
+        for (const auto& currentPair : load->getParameters()) {
             directives.insert(std::make_pair(currentPair.first, unescape(currentPair.second)));
         }
         inputDirectives.push_back(directives);
@@ -193,7 +194,7 @@ std::vector<std::map<std::string, std::string>> AstToRamTranslator::getOutputDir
         }
 
         std::map<std::string, std::string> directives;
-        for (const auto& currentPair : store->getDirectives()) {
+        for (const auto& currentPair : store->getParameters()) {
             directives.insert(std::make_pair(currentPair.first, unescape(currentPair.second)));
         }
         outputDirectives.push_back(directives);
@@ -411,9 +412,8 @@ Own<ast::Clause> AstToRamTranslator::ClauseTranslator::getReorderedClause(
     // check whether there is an imposed order constraint
     if (plan == nullptr) {
         // no plan, so reorder it according to the internal heuristic
-        auto sips = ast::transform::ReorderLiteralsTransformer::getSipsFunction("ast2ram");
-        if (auto* reorderedClause =
-                        ast::transform::ReorderLiteralsTransformer::reorderClauseWithSips(sips, &clause)) {
+        if (auto* reorderedClause = ast::transform::ReorderLiteralsTransformer::reorderClauseWithSips(
+                    *translator.sips, &clause)) {
             return Own<ast::Clause>(reorderedClause);
         }
         return nullptr;
@@ -1510,6 +1510,13 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
     // get auxiliary arity analysis
     auxArityAnalysis = translationUnit.getAnalysis<ast::analysis::AuxiliaryArityAnalysis>();
 
+    // determine the sips to use
+    std::string sipsChosen = "all-bound";
+    if (Global::config().has("RamSIPS")) {
+        sipsChosen = Global::config().get("RamSIPS");
+    }
+    sips = ast::SipsMetric::create(sipsChosen, translationUnit);
+
     // handle the case of an empty SCC graph
     if (sccGraph.getNumberOfSCCs() == 0) return;
 
@@ -1670,7 +1677,7 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
 
 Own<ram::TranslationUnit> AstToRamTranslator::translateUnit(ast::TranslationUnit& tu) {
     auto ram_start = std::chrono::high_resolution_clock::now();
-    program = tu.getProgram();
+    program = &tu.getProgram();
 
     translateProgram(tu);
     SymbolTable& symTab = getSymbolTable();

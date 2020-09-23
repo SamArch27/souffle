@@ -433,7 +433,7 @@ ComponentContent getInstantiatedContent(Program& program, const ComponentInit& c
 bool ComponentInstantiationTransformer::transform(TranslationUnit& translationUnit) {
     // TODO: Do this without being a friend class of Program
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     auto* componentLookup = translationUnit.getAnalysis<ComponentLookupAnalysis>();
 

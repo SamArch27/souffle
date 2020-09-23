@@ -44,14 +44,14 @@ void ProfileUseAnalysis::print(std::ostream&) const {}
 /**
  * Check whether relation size is defined in profile
  */
-bool ProfileUseAnalysis::hasRelationSize(const QualifiedName& rel) {
+bool ProfileUseAnalysis::hasRelationSize(const QualifiedName& rel) const {
     return programRun->getRelation(rel.toString()) != nullptr;
 }
 
 /**
  * Get relation size from profile
  */
-size_t ProfileUseAnalysis::getRelationSize(const QualifiedName& rel) {
+size_t ProfileUseAnalysis::getRelationSize(const QualifiedName& rel) const {
     if (const auto* profRel = programRun->getRelation(rel.toString())) {
         return profRel->size();
     } else {

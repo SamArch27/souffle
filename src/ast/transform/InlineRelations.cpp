@@ -991,7 +991,7 @@ std::vector<Clause*> getInlinedClause(Program& program, const Clause& clause) {
 
 bool InlineRelationsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // Replace constants in the head of inlined clauses with (constrained) variables.
     // This is done to simplify atom unification, particularly when negations are involved.

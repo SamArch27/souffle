@@ -30,7 +30,7 @@
 namespace souffle::ast::analysis {
 
 void IOTypeAnalysis::run(const TranslationUnit& translationUnit) {
-    const Program& program = *translationUnit.getProgram();
+    const Program& program = translationUnit.getProgram();
     visitDepthFirst(program, [&](const Directive& directive) {
         auto* relation = getRelation(program, directive.getQualifiedName());
         if (relation == nullptr) {
@@ -45,8 +45,8 @@ void IOTypeAnalysis::run(const TranslationUnit& translationUnit) {
                 break;
             case ast::DirectiveType::limitsize:
                 limitSizeRelations.insert(relation);
-                assert(directive.hasDirective("n") && "limitsize has no n directive");
-                limitSize[relation] = stoi(directive.getDirective("n"));
+                assert(directive.hasParameter("n") && "limitsize has no n directive");
+                limitSize[relation] = stoi(directive.getParameter("n"));
                 break;
         }
     });

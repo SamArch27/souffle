@@ -36,7 +36,7 @@ namespace souffle::ast::transform {
 
 bool PartitionBodyLiteralsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     /* Process:
      * Go through each clause and construct a variable dependency graph G.

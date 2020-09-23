@@ -68,7 +68,8 @@ bool RemoveRedundantSumsTransformer::transform(TranslationUnit& translationUnit)
     };
 
     ReplaceSumWithCount update;
-    translationUnit.getProgram()->apply(update);
+    Program& program = translationUnit.getProgram();
+    program.apply(update);
     return update.changed;
 }
 

@@ -235,7 +235,7 @@ bool MinimiseProgramTransformer::areBijectivelyEquivalent(
 }
 
 bool MinimiseProgramTransformer::reduceLocallyEquivalentClauses(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& normalisations = *translationUnit.getAnalysis<analysis::ClauseNormalisationAnalysis>();
 
     std::vector<Clause*> clausesToDelete;
@@ -280,7 +280,7 @@ bool MinimiseProgramTransformer::reduceLocallyEquivalentClauses(TranslationUnit&
 bool MinimiseProgramTransformer::reduceSingletonRelations(TranslationUnit& translationUnit) {
     // Note: This reduction is particularly useful in conjunction with the
     // body-partitioning transformation
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     const auto& ioTypes = *translationUnit.getAnalysis<analysis::IOTypeAnalysis>();
     const auto& normalisations = *translationUnit.getAnalysis<analysis::ClauseNormalisationAnalysis>();
 
@@ -361,7 +361,7 @@ bool MinimiseProgramTransformer::reduceSingletonRelations(TranslationUnit& trans
 }
 
 bool MinimiseProgramTransformer::removeRedundantClauses(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     auto isRedundant = [&](const Clause* clause) {
         const auto* head = clause->getHead();
         for (const auto* lit : clause->getBodyLiterals()) {
@@ -386,7 +386,7 @@ bool MinimiseProgramTransformer::removeRedundantClauses(TranslationUnit& transla
 }
 
 bool MinimiseProgramTransformer::reduceClauseBodies(TranslationUnit& translationUnit) {
-    auto& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     std::set<Own<Clause>> clausesToAdd;
     std::set<Own<Clause>> clausesToRemove;
 

@@ -149,7 +149,7 @@ bool PolymorphicObjectsTransformer::transform(TranslationUnit& translationUnit) 
     };
     const TypeAnalysis& typeAnalysis = *translationUnit.getAnalysis<analysis::TypeAnalysis>();
     TypeRewriter update(typeAnalysis, translationUnit.getErrorReport());
-    translationUnit.getProgram()->apply(update);
+    translationUnit.getProgram().apply(update);
     return update.changed;
 }
 

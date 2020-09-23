@@ -97,7 +97,7 @@ bool ADTtoRecordsTransformer::transform(TranslationUnit& tu) {
     };
 
     ADTsFuneral mapper(tu);
-    tu.getProgram()->apply(mapper);
+    tu.getProgram().apply(mapper);
     return mapper.changed;
 }
 

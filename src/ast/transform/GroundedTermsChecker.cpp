@@ -33,7 +33,7 @@
 namespace souffle::ast::transform {
 
 void GroundedTermsChecker::verify(TranslationUnit& translationUnit) {
-    auto&& program = *translationUnit.getProgram();
+    auto&& program = translationUnit.getProgram();
     auto&& report = translationUnit.getErrorReport();
 
     // -- check grounded variables and records --

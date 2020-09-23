@@ -39,7 +39,7 @@ namespace souffle::ast::transform {
 using namespace analysis;
 
 bool ComponentChecker::transform(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     ComponentLookupAnalysis& componentLookup = *translationUnit.getAnalysis<ComponentLookupAnalysis>();
     ErrorReport& report = translationUnit.getErrorReport();
     checkComponents(report, program, componentLookup);

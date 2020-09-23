@@ -187,7 +187,8 @@ Own<Relation> makeInfoRelation(
 
     // set clause head and add clause to info relation
     infoClause->setHead(Own<Atom>(infoClauseHead));
-    translationUnit.getProgram()->addClause(Own<Clause>(infoClause));
+    Program& program = translationUnit.getProgram();
+    program.addClause(Own<Clause>(infoClause));
 
     return Own<Relation>(infoRelation);
 }
@@ -264,32 +265,32 @@ Own<Argument> getNextLevelNumber(const std::vector<Argument*>& levels) {
 }  // namespace
 
 bool ProvenanceTransformer::transformMaxHeight(TranslationUnit& translationUnit) {
-    auto program = translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
-    for (auto relation : program->getRelations()) {
+    for (auto relation : program.getRelations()) {
         if (relation->getRepresentation() == RelationRepresentation::EQREL) {
             // Explicitly expand eqrel relation
-            transformEqrelRelation(*program, *relation);
+            transformEqrelRelation(program, *relation);
         }
     }
 
-    for (auto relation : program->getRelations()) {
+    for (auto relation : program.getRelations()) {
         // generate info relations for each clause
         // do this before all other transformations so that we record
         // the original rule without any instrumentation
-        for (auto clause : getClauses(*program, *relation)) {
+        for (auto clause : getClauses(program, *relation)) {
             if (!isFact(*clause)) {
                 // add info relation
-                program->addRelation(
-                        makeInfoRelation(*clause, getClauseNum(program, clause), translationUnit));
+                program.addRelation(
+                        makeInfoRelation(*clause, getClauseNum(&program, clause), translationUnit));
             }
         }
 
         relation->addAttribute(mk<Attribute>(std::string("@rule_number"), QualifiedName("number")));
         relation->addAttribute(mk<Attribute>(std::string("@level_number"), QualifiedName("number")));
 
-        for (auto clause : getClauses(*program, *relation)) {
-            size_t clauseNum = getClauseNum(program, clause);
+        for (auto clause : getClauses(program, *relation)) {
+            size_t clauseNum = getClauseNum(&program, clause);
 
             // mapper to add two provenance columns to atoms
             struct M : public NodeMapper {

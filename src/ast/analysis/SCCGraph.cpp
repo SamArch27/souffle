@@ -42,7 +42,8 @@ void SCCGraphAnalysis::run(const TranslationUnit& translationUnit) {
     successors.clear();
 
     /* Compute SCC */
-    std::vector<Relation*> relations = translationUnit.getProgram()->getRelations();
+    Program& program = translationUnit.getProgram();
+    std::vector<Relation*> relations = program.getRelations();
     size_t counter = 0;
     size_t numSCCs = 0;
     std::stack<const Relation*> S;

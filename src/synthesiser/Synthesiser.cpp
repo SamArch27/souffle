@@ -2496,13 +2496,13 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     os << "std::atomic<RamDomain> ctr{};\n\n";
     os << "std::atomic<size_t> iter{};\n";
 
-    os << "void runFunction(std::string inputDirectory = \"\", "
-          "std::string outputDirectory = \"\", bool performIO = false) "
+    os << "void runFunction(std::string inputDirectoryArg = \"\", "
+          "std::string outputDirectoryArg = \"\", bool performIOArg = false) "
           "{\n";
 
-    os << "this->inputDirectory = inputDirectory;\n";
-    os << "this->outputDirectory = outputDirectory;\n";
-    os << "this->performIO = performIO;\n";
+    os << "this->inputDirectory = inputDirectoryArg;\n";
+    os << "this->outputDirectory = outputDirectoryArg;\n";
+    os << "this->performIO = performIOArg;\n";
 
     os << "SignalHandler::instance()->set();\n";
     if (Global::config().has("verbose")) {
@@ -2562,19 +2562,19 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     // add methods to run with and without performing IO (mainly for the interface)
     os << "public:\nvoid run() override { runFunction(\"\", \"\", "
           "false); }\n";
-    os << "public:\nvoid runAll(std::string inputDirectory = \"\", std::string outputDirectory = \"\") "
+    os << "public:\nvoid runAll(std::string inputDirectoryArg = \"\", std::string outputDirectoryArg = \"\") "
           "override { ";
     if (Global::config().has("live-profile")) {
         os << "std::thread profiler([]() { profile::Tui().runProf(); });\n";
     }
-    os << "runFunction(inputDirectory, outputDirectory, true);\n";
+    os << "runFunction(inputDirectoryArg, outputDirectoryArg, true);\n";
     if (Global::config().has("live-profile")) {
         os << "if (profiler.joinable()) { profiler.join(); }\n";
     }
     os << "}\n";
     // issue printAll method
     os << "public:\n";
-    os << "void printAll(std::string outputDirectory = \"\") override {\n";
+    os << "void printAll(std::string outputDirectoryArg = \"\") override {\n";
 
     // print directives as C++ initializers
     auto printDirectives = [&](const std::map<std::string, std::string>& registry) {
@@ -2596,8 +2596,8 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         os << "std::map<std::string, std::string> directiveMap(";
         printDirectives(directive);
         os << ");\n";
-        os << R"_(if (!outputDirectory.empty()) {)_";
-        os << R"_(directiveMap["output-dir"] = outputDirectory;)_";
+        os << R"_(if (!outputDirectoryArg.empty()) {)_";
+        os << R"_(directiveMap["output-dir"] = outputDirectoryArg;)_";
         os << "}\n";
         os << "IOSystem::getInstance().getWriter(";
         os << "directiveMap, symTable, recordTable";
@@ -2609,15 +2609,15 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
     // issue loadAll method
     os << "public:\n";
-    os << "void loadAll(std::string inputDirectory = \"\") override {\n";
+    os << "void loadAll(std::string inputDirectoryArg = \"\") override {\n";
 
     for (auto load : loadIOs) {
         os << "try {";
         os << "std::map<std::string, std::string> directiveMap(";
         printDirectives(load->getDirectives());
         os << ");\n";
-        os << R"_(if (!inputDirectory.empty()) {)_";
-        os << R"_(directiveMap["fact-dir"] = inputDirectory;)_";
+        os << R"_(if (!inputDirectoryArg.empty()) {)_";
+        os << R"_(directiveMap["fact-dir"] = inputDirectoryArg;)_";
         os << "}\n";
         os << "IOSystem::getInstance().getReader(";
         os << "directiveMap, symTable, recordTable";
@@ -2655,7 +2655,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
     // dump inputs
     os << "public:\n";
-    os << "void dumpInputs(std::ostream& out = std::cout) override {\n";
+    os << "void dumpInputs() override {\n";
     for (auto load : loadIOs) {
         dumpRelation(load->getRelation());
     }
@@ -2663,7 +2663,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
     // dump outputs
     os << "public:\n";
-    os << "void dumpOutputs(std::ostream& out = std::cout) override {\n";
+    os << "void dumpOutputs() override {\n";
     for (auto store : storeIOs) {
         dumpRelation(store->getRelation());
     }
@@ -2694,6 +2694,11 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         // generate method for each subroutine
         subroutineNum = 0;
         for (auto& sub : prog.getSubroutines()) {
+            // silence unused argument warnings on MSVC
+            os << "#ifdef _MSC_VER\n";
+            os << "#pragma warning(disable: 4100)\n";
+            os << "#endif // _MSC_VER\n";
+
             // issue method header
             os << "void "
                << "subroutine_" << subroutineNum
@@ -2712,6 +2717,11 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
             // issue end of subroutine
             os << "}\n";
+
+            // restore unused argument warning
+            os << "#ifdef _MSC_VER\n";
+            os << "#pragma warning(default: 4100)\n";
+            os << "#endif // _MSC_VER\n";
             subroutineNum++;
         }
     }

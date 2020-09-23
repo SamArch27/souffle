@@ -10,8 +10,7 @@
  *
  * @file TranslationUnit.h
  *
- * Define a class that represents a Datalog translation unit, consisting
- * of a datalog program, error reports and cached analysis results.
+ * Define a RAM translation unit
  *
  ***********************************************************************/
 
@@ -21,6 +20,7 @@
 #include "ram/Program.h"
 #include "ram/analysis/Analysis.h"
 #include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
 #include "souffle/SymbolTable.h"
 #include <cassert>
 #include <iosfwd>
@@ -31,7 +31,6 @@
 #include <utility>
 
 namespace souffle {
-class ErrorReport;
 
 namespace ram {
 
@@ -39,7 +38,7 @@ namespace ram {
  * @class TranslationUnit
  * @brief Translating a RAM program
  *
- * Comprises the program, symbol table, error report and debug report
+ * Comprises the program, symbol table, error report, debug report, and analyses
  */
 class TranslationUnit {
 public:
@@ -50,7 +49,7 @@ public:
 
     virtual ~TranslationUnit() = default;
 
-    /** @brief templated method to compute/retrieve an analysis for a translation unit */
+    /** @brief Get an analysis */
     template <class Analysis>
     Analysis* getAnalysis() const {
         static const bool debug = Global::config().has("debug-report");
@@ -78,7 +77,7 @@ public:
         return dynamic_cast<Analysis*>(analyses[name].get());
     }
 
-    /** @brief get the set of alive analyses of the translation unit */
+    /** @brief Get all alive analyses */
     std::set<const analysis::Analysis*> getAliveAnalyses() const {
         std::set<const analysis::Analysis*> result;
         for (auto const& a : analyses) {
@@ -87,54 +86,39 @@ public:
         return result;
     }
 
-    /** @brief throw away all alive analyses of the translation unit */
+    /** @brief Invalidate all alive analyses of the translation unit */
     void invalidateAnalyses() {
         analyses.clear();
     }
 
-    /** @brief get the RAM Program of the translation unit  */
-    const Program& getProgram() const {
+    /** @brief Get the RAM Program of the translation unit  */
+    Program& getProgram() const {
         return *program;
     }
 
-    /** @brief get the RAM Program of the translation unit  */
-    Program& getProgram() {
-        return *program;
-    }
-
-    /** @brief get symbol table  */
+    /** @brief Obtain symbol table  */
     souffle::SymbolTable& getSymbolTable() {
         return symbolTable;
     }
 
-    /** @brief get error report */
+    /** @brief Obtain error report */
     ErrorReport& getErrorReport() {
         return errorReport;
     }
 
-    /** @brief get error report */
-    const ErrorReport& getErrorReport() const {
-        return errorReport;
-    }
-
-    /** @brief get debug report */
+    /** @brief Obtain debug report */
     DebugReport& getDebugReport() {
         return debugReport;
     }
 
-    /** @brief get const debug report */
-    const DebugReport& getDebugReport() const {
-        return debugReport;
-    }
-
 protected:
-    /* cached analyses */
+    /* Cached analyses */
     mutable std::map<std::string, Own<analysis::Analysis>> analyses;
 
-    /* Program RAM */
+    /* RAM program */
     Own<Program> program;
 
-    /* The table of symbols encountered in the input program */
+    /* Symbol table for the RAM program */
     souffle::SymbolTable symbolTable;
 
     /* Error report for raising errors and warnings */

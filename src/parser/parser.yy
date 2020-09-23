@@ -902,7 +902,7 @@ directive_list
         $$ = $relation_directive_list;
         for (auto&& kvp : $non_empty_key_value_pairs) {
             for (auto&& io : $$) {
-                io->addDirective(kvp.first, kvp.second);
+                io->addParameter(kvp.first, kvp.second);
             }
         }
     }

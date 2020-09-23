@@ -156,7 +156,8 @@ bool ResolveAnonymousRecordAliasesTransformer::replaceUnnamedVariable(Clause& cl
 
 bool ResolveAnonymousRecordAliasesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    for (auto* clause : translationUnit.getProgram()->getClauses()) {
+    Program& program = translationUnit.getProgram();
+    for (auto* clause : program.getClauses()) {
         changed |= replaceNamedVariables(translationUnit, *clause);
         changed |= replaceUnnamedVariable(*clause);
     }

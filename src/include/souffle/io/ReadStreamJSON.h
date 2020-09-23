@@ -127,7 +127,7 @@ protected:
                         break;
                     }
                     case 'f': {
-                        tuple[i] = jsonObj[i].number_value();
+                        tuple[i] = static_cast<RamDomain>(jsonObj[i].number_value());
                         break;
                     }
                     default: fatal("invalid type attribute: `%c`", ty[0]);
@@ -182,7 +182,7 @@ protected:
                     break;
                 }
                 case 'f': {
-                    recordValues[i] = source[i].number_value();
+                    recordValues[i] = static_cast<RamDomain>(source[i].number_value());
                     break;
                 }
                 default: fatal("invalid type attribute");
@@ -227,7 +227,7 @@ protected:
                         break;
                     }
                     case 'f': {
-                        tuple[i] = p.second.number_value();
+                        tuple[i] = static_cast<RamDomain>(p.second.number_value());
                         break;
                     }
                     default: fatal("invalid type attribute: `%c`", ty[0]);
@@ -292,7 +292,7 @@ protected:
                     break;
                 }
                 case 'f': {
-                    recordValues[i] = readParam.second.number_value();
+                    recordValues[i] = static_cast<RamDomain>(readParam.second.number_value());
                     break;
                 }
                 default: fatal("invalid type attribute: `%c`", type[0]);

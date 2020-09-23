@@ -36,7 +36,7 @@
 namespace souffle::ast::transform {
 
 bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // If any boolean constraints exist, they will be removed
     bool changed = false;

@@ -49,7 +49,7 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
         TranslationUnit& translationUnit) {
     bool changed = false;
 
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
 
     // if an aggregator has a body consisting of more than an atom => create new relation
     int counter = 0;

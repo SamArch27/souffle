@@ -63,7 +63,7 @@ std::string MaterializeSingletonAggregationTransformer::findUniqueAggregateRelat
 }
 
 bool MaterializeSingletonAggregationTransformer::transform(TranslationUnit& translationUnit) {
-    Program& program = *translationUnit.getProgram();
+    Program& program = translationUnit.getProgram();
     std::set<std::pair<Aggregator*, Clause*>> pairs;
     // collect references to clause / aggregate pairs
     visitDepthFirst(program, [&](const Clause& clause) {

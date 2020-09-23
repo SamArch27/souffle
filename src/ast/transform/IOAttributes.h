@@ -73,14 +73,14 @@ private:
 
     bool setAttributeParams(TranslationUnit& translationUnit) {
         bool changed = false;
-        Program* program = translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
 
-        for (Directive* io : program->getDirectives()) {
+        for (Directive* io : program.getDirectives()) {
             if (io->getType() == ast::DirectiveType::limitsize) {
                 continue;
             }
-            Relation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+            Relation* rel = getRelation(program, io->getQualifiedName());
             // Prepare type system information.
             std::vector<std::string> attributesParams;
 
@@ -98,7 +98,7 @@ private:
             json11::Json params = json11::Json::object{
                     {"relation", relJson}, {"records", getRecordsParams(translationUnit)}};
 
-            io->addDirective("params", params.dump());
+            io->addParameter("params", params.dump());
             changed = true;
         }
         return changed;
@@ -106,18 +106,18 @@ private:
 
     bool setAttributeNames(TranslationUnit& translationUnit) {
         bool changed = false;
-        Program* program = translationUnit.getProgram();
-        for (Directive* io : program->getDirectives()) {
+        Program& program = translationUnit.getProgram();
+        for (Directive* io : program.getDirectives()) {
             if (io->getType() == ast::DirectiveType::limitsize) {
                 continue;
             }
-            if (io->hasDirective("attributeNames")) {
+            if (io->hasParameter("attributeNames")) {
                 continue;
             }
-            Relation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+            Relation* rel = getRelation(program, io->getQualifiedName());
             std::string delimiter("\t");
-            if (io->hasDirective("delimiter")) {
-                delimiter = io->getDirective("delimiter");
+            if (io->hasParameter("delimiter")) {
+                delimiter = io->getParameter("delimiter");
             }
 
             std::vector<std::string> attributeNames;
@@ -129,9 +129,9 @@ private:
                 auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
                 std::vector<std::string> originalAttributeNames(
                         attributeNames.begin(), attributeNames.end() - auxArityAnalysis->getArity(rel));
-                io->addDirective("attributeNames", toString(join(originalAttributeNames, delimiter)));
+                io->addParameter("attributeNames", toString(join(originalAttributeNames, delimiter)));
             } else {
-                io->addDirective("attributeNames", toString(join(attributeNames, delimiter)));
+                io->addParameter("attributeNames", toString(join(attributeNames, delimiter)));
             }
             changed = true;
         }
@@ -140,13 +140,13 @@ private:
 
     bool setAttributeTypes(TranslationUnit& translationUnit) {
         bool changed = false;
-        Program* program = translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
         auto typeEnv =
                 &translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
-        for (Directive* io : program->getDirectives()) {
-            Relation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+        for (Directive* io : program.getDirectives()) {
+            Relation* rel = getRelation(program, io->getQualifiedName());
             // Prepare type system information.
             std::vector<std::string> attributesTypes;
 
@@ -167,7 +167,7 @@ private:
                     json11::Json::object{{"relation", relJson}, {"records", getRecordsTypes(translationUnit)},
                             {"ADTs", getAlgebraicDataTypes(translationUnit)}};
 
-            io->addDirective("types", types.dump());
+            io->addParameter("types", types.dump());
             changed = true;
         }
         return changed;
@@ -193,7 +193,7 @@ private:
             return sumTypesInfo;
         }
 
-        Program& program = *translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         auto& typeEnv =
                 translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
@@ -235,14 +235,14 @@ private:
             return ramRecordTypes;
         }
 
-        Program* program = translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         auto typeEnv =
                 &translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
         std::vector<std::string> elementTypes;
         std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
-        for (auto* astType : program->getTypes()) {
+        for (auto* astType : program.getTypes()) {
             const auto& type = typeEnv->getType(*astType);
             if (isA<analysis::RecordType>(type)) {
                 elementTypes.clear();
@@ -268,12 +268,12 @@ private:
             return ramRecordParams;
         }
 
-        Program* program = translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         std::vector<std::string> elementParams;
         std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
-        for (auto* astType : program->getTypes()) {
+        for (auto* astType : program.getTypes()) {
             if (isA<ast::RecordType>(astType)) {
                 elementParams.clear();
 

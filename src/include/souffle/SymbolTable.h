@@ -139,7 +139,7 @@ public:
     /** Find the index of a symbol in the table, inserting a new symbol if it does not exist there
      * already. */
     RamDomain unsafeLookup(const std::string& symbol) {
-        return newSymbolOfIndex(symbol);
+        return static_cast<RamDomain>(newSymbolOfIndex(symbol));
     }
 
     /** Find a symbol in the table by its index, note that this gives an error if the index is out of

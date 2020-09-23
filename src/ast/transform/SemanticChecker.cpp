@@ -109,7 +109,7 @@ private:
     const SumTypeBranchesAnalysis& sumTypesBranches = *tu.getAnalysis<SumTypeBranchesAnalysis>();
 
     const TypeEnvironment& typeEnv = typeEnvAnalysis.getTypeEnvironment();
-    const Program& program = *tu.getProgram();
+    const Program& program = tu.getProgram();
     ErrorReport& report = tu.getErrorReport();
 
     void checkAtom(const Atom& atom);
@@ -150,7 +150,8 @@ public:
 
     /** Analyse types, clause by clause */
     void run() {
-        for (auto* clause : tu.getProgram()->getClauses()) {
+        const Program& program = tu.getProgram();
+        for (auto* clause : program.getClauses()) {
             visitDepthFirstPreOrder(*clause, *this);
         }
     }
@@ -160,7 +161,7 @@ private:
     ErrorReport& report = tu.getErrorReport();
     const TypeAnalysis& typeAnalysis = *tu.getAnalysis<TypeAnalysis>();
     const TypeEnvironment& typeEnv = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
-    const Program& program = *tu.getProgram();
+    const Program& program = tu.getProgram();
 
     void visitAtom(const Atom& atom) override;
     void visitVariable(const ast::Variable& var) override;
@@ -402,7 +403,7 @@ bool SemanticCheckerImpl::isDependent(const Clause& agg1, const Clause& agg2) {
 
 void SemanticCheckerImpl::checkAggregator(const Aggregator& aggregator) {
     auto& report = tu.getErrorReport();
-    auto& program = *tu.getProgram();
+    const Program& program = tu.getProgram();
     Clause dummyClauseAggregator;
 
     visitDepthFirst(program, [&](const Literal& parentLiteral) {

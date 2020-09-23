@@ -96,22 +96,24 @@ Relation* getRelation(const Program& program, const QualifiedName& name) {
 }
 
 void removeRelation(TranslationUnit& tu, const QualifiedName& name) {
-    if (getRelation(*tu.getProgram(), name) != nullptr) {
+    Program& program = tu.getProgram();
+    if (getRelation(program, name) != nullptr) {
         removeRelationClauses(tu, name);
         removeRelationIOs(tu, name);
-        tu.getProgram()->removeRelationDecl(name);
+        program.removeRelationDecl(name);
     }
 }
 
 void removeRelationClauses(TranslationUnit& tu, const QualifiedName& name) {
+    Program& program = tu.getProgram();
     const auto& relDetail = *tu.getAnalysis<analysis::RelationDetailCacheAnalysis>();
     for (const auto* clause : relDetail.getClauses(name)) {
-        tu.getProgram()->removeClause(clause);
+        program.removeClause(clause);
     }
 }
 
 void removeRelationIOs(TranslationUnit& tu, const QualifiedName& name) {
-    auto& program = *tu.getProgram();
+    Program& program = tu.getProgram();
     for (const auto* directive : getDirectives(program, name)) {
         program.removeDirective(directive);
     }
@@ -234,6 +236,14 @@ bool isRule(const Clause& clause) {
 
 bool isProposition(const Atom* atom) {
     return atom->getArguments().empty();
+}
+
+bool isDeltaRelation(const QualifiedName& name) {
+    const auto& qualifiers = name.getQualifiers();
+    if (qualifiers.empty()) {
+        return false;
+    }
+    return isPrefix("@delta_", qualifiers[0]);
 }
 
 Clause* cloneHead(const Clause* clause) {

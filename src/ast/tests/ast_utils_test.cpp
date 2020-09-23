@@ -86,7 +86,7 @@ TEST(AstUtils, Grounded) {
     TranslationUnit tu{std::move(program), errReport, dbgReport};
 
     // obtain groundness
-    auto isGrounded = analysis::getGroundedTerms(tu, *tu.getProgram()->getClauses()[0]);
+    auto isGrounded = analysis::getGroundedTerms(tu, *tu.getProgram().getClauses()[0]);
 
     auto args = head->getArguments();
     // check selected sub-terms
@@ -111,7 +111,7 @@ TEST(AstUtils, GroundedRecords) {
             )",
             e, d);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
 
     Clause* clause = getClauses(program, "s")[0];
 
@@ -144,7 +144,7 @@ TEST(AstUtils, ReorderClauseAtoms) {
             )",
             e, d);
 
-    Program& program = *tu->getProgram();
+    Program& program = tu->getProgram();
     EXPECT_EQ(5, program.getRelations().size());
 
     Relation* a = getRelation(program, "a");
