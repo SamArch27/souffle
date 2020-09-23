@@ -243,6 +243,7 @@ int main(int argc, char** argv) {
                         "Generate C++ source code, written to <FILE>, and compile this to a "
                         "binary executable (without executing it)."},
                 {"live-profile", '\2', "", "", false, "Enable live profiling."},
+                {"max-size", 'Z', "MS", "12", false, "Specify maximum number of elements in R-Tree node"},
                 {"profile", 'p', "FILE", "", false, "Enable profiling, and write profile data to <FILE>."},
                 {"profile-use", 'u', "FILE", "", false,
                         "Use profile log-file <FILE> for profile-guided optimization."},

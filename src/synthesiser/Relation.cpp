@@ -1435,13 +1435,7 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "using box = bg::model::box<point>;\n";
     out << "using value = point;\n";
 
-    // each leaf node element stores a point and uses that point as the Minimum Bounding Rectangle (MBR) bytes
-    // the Boost R-Tree stores 1 extra element per node
-    // therefore the formula below calculates the correct MaxElements to cap a node size at 256 bytes
-    out << "static constexpr size_t node_bytes = 112;\n";
-    out << "static constexpr size_t element_size = sizeof(point);\n";
-    out << "static constexpr size_t max_elements = 12;\n";
-    // "std::max(static_cast<long int>((12*node_bytes)/element_size) - 1, 1L);\n";
+    out << "static constexpr size_t max_elements = " << Global::config().get("max-size") << ";\n";
 
     // get splitting algorithm from config where default is linear
     std::string split = Global::config().get("splitting-algorithm");
@@ -1556,8 +1550,11 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     for (auto& search : getMinIndexSelection().getSearches()) {
         out << "souffle::range<iterator> lowerUpperRange_" << search;
         out << "(const t_tuple& low, const t_tuple& high) const {\n";
-        out << "auto res = within_range(low,high);\n";
-        out << "return res;\n";
+        if (search == SearchSignature::getFullSearchSignature(search.arity())) {
+            out << "return souffle::make_range(find(low), end());\n";
+        } else {
+            out << "return within_range(low,high);\n";
+        }
         out << "}\n";
 
         // generate identical with hint
