@@ -15,6 +15,7 @@
 #include "ram/transform/IndexedInequality.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
+#include "ram/NestedIntrinsicOperator.h"
 #include "ram/Node.h"
 #include "ram/Operation.h"
 #include "ram/Program.h"
@@ -54,7 +55,8 @@ bool IndexedInequalityTransformer::transformIndexToFilter(Program& program) {
                 auto attributesToDischarge = indexSelection.getAttributesToDischarge(
                         ram::analysis::SearchSignature::getFixed(
                                 idxAnalysis->getSearchSignature(indexOperation)),
-                        indexOperation->getRelation());
+                        *const_cast<Relation*>(&indexOperation->getRelation()));
+
                 auto pattern = indexOperation->getRangePattern();
                 Own<Condition> condition;
                 RamPattern updatedPattern;
@@ -133,6 +135,27 @@ bool IndexedInequalityTransformer::transformIndexToFilter(Program& program) {
         const_cast<Query*>(&query)->apply(makeLambdaRamMapper(indexToFilterRewriter));
     });
 
+    // create a mapping from the name to the relation
+    std::map<std::string, Relation*> lookup;
+    for (auto* rel : program.getRelations()) {
+        lookup[rel->getName()] = rel;
+    }
+
+    for (auto* rel : program.getRelations()) {
+        if (rel->getName()[0] == '@') {
+            auto orig = rel->getName().substr(rel->getName().find("_") + 1, std::string::npos);
+            auto delta = std::string("@delta_") + orig;
+            auto newRel = std::string("@new_") + orig;
+
+            if (lookup[delta]->getRepresentation() == RelationRepresentation::RTREE ||
+                    lookup[newRel]->getRepresentation() == RelationRepresentation::RTREE) {
+                if (rel->getRepresentation() != RelationRepresentation::RTREE) {
+                    rel->setRepresentation(RelationRepresentation::RTREE);
+                }
+            }
+        }
+    }
+
     visitDepthFirst(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> removeEmptyIndexRewriter = [&](Own<Node> node) -> Own<Node> {
             // find an IndexOperation
@@ -181,6 +204,72 @@ bool IndexedInequalityTransformer::transformIndexToFilter(Program& program) {
         };
         const_cast<Query*>(&query)->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
     });
+    /*
+        visitDepthFirst(program, [&](const Query& query) {
+            std::function<Own<Node>(Own<Node>)> removeEmptyIndexRewriter = [&](Own<Node> node) -> Own<Node> {
+                // find an IndexOperation
+                if (const IndexOperation* indexOperation = dynamic_cast<IndexOperation*>(node.get())) {
+                    int outerId = indexOperation->getTupleId();
+
+                    // if the index operation has a nested intrinsic operator then we swap them
+                    if (const NestedIntrinsicOperator* op =
+                                    dynamic_cast<NestedIntrinsicOperator*>(&indexOperation->getOperation())) {
+                        int innerId = op->getTupleId();
+                        VecOwn<Expression> args;
+                        for (auto* arg : op->getArguments()) {
+                            args.push_back(Own<Expression>(clone(arg)));
+                        }
+
+                const Filter* filter = dynamic_cast<Filter*>(&op->getOperation());
+                        const Constraint* cond = dynamic_cast<const Constraint*>(&filter->getCondition());
+
+                // update the pattern to have the correct bounds
+                        RamPattern vecPattern;
+                        auto pattern = indexOperation->getRangePattern();
+                        for (auto* ptr : pattern.first) {
+                            vecPattern.first.emplace_back(clone(ptr));
+                        }
+                        for (auto* ptr : pattern.second) {
+                            vecPattern.second.emplace_back(clone(ptr));
+                        }
+
+                vecPattern.first[2] = Own<Expression>(clone(&cond->getRHS()));
+                vecPattern.second[2] = Own<Expression>(clone(&cond->getRHS()));
+
+                        Own<Operation> nestedOp(clone(&op->getOperation()));
+                        Own<IndexOperation> newNested;
+
+                        if (const IndexScan* iscan = dynamic_cast<IndexScan*>(node.get())) {
+                            newNested = mk<IndexScan>(mk<RelationReference>(&iscan->getRelation()),
+                                    outerId, std::move(vecPattern), std::move(nestedOp),
+                                    iscan->getProfileText());
+                        } else if (const ParallelIndexScan* pscan =
+                                           dynamic_cast<ParallelIndexScan*>(node.get())) {
+                            newNested = mk<ParallelIndexScan>(mk<RelationReference>(&pscan->getRelation()),
+                                    outerId, std::move(vecPattern), std::move(nestedOp),
+                    pscan->getProfileText());
+                        } else if (const IndexChoice* ichoice = dynamic_cast<IndexChoice*>(node.get())) {
+                            newNested = mk<IndexChoice>(mk<RelationReference>(&ichoice->getRelation()),
+                                    outerId, souffle::clone(&ichoice->getCondition()),
+                                    std::move(vecPattern), std::move(nestedOp), ichoice->getProfileText());
+                        } else if (const IndexAggregate* iagg = dynamic_cast<IndexAggregate*>(node.get())) {
+                            newNested = mk<IndexAggregate>(std::move(nestedOp), iagg->getFunction(),
+                                    mk<RelationReference>(&iagg->getRelation()),
+                                    souffle::clone(&iagg->getExpression()),
+                                    Own<Condition>(souffle::clone(&iagg->getCondition())),
+       std::move(vecPattern), outerId);
+                        }
+
+                        node = mk<NestedIntrinsicOperator>(
+                                op->getFunction(), std::move(args), std::move(newNested), innerId);
+                    }
+                }
+                node->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
+                return node;
+            };
+            const_cast<Query*>(&query)->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
+        });
+    */
     return changed;
 }
 

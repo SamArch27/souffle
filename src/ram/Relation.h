@@ -72,6 +72,11 @@ public:
         return representation;
     }
 
+    /** @Brief set Relation representation type */
+    void setRepresentation(RelationRepresentation r) {
+        representation = r;
+    }
+
     /** @brief Is temporary relation (for semi-naive evaluation) */
     bool isTemp() const {
         return name.at(0) == '@';
@@ -125,7 +130,7 @@ protected:
 
 protected:
     /** Data-structure representation */
-    const RelationRepresentation representation;
+    RelationRepresentation representation;
 
     /** Name of relation */
     const std::string name;

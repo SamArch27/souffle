@@ -77,9 +77,9 @@ bool SearchSignature::empty() const {
     return true;
 }
 
-bool SearchSignature::containsEquality() const {
+bool SearchSignature::containsInequality() const {
     for (size_t i = 0; i < constraints.size(); ++i) {
-        if (constraints[i] == AttributeConstraint::Equal) {
+        if (constraints[i] == AttributeConstraint::Inequal) {
             return true;
         }
     }
@@ -460,12 +460,25 @@ void MinIndexSelection::removeExtraInequalities() {
 }
 
 MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
-        const SearchSignature& s, const Relation& rel) {
+        const SearchSignature& s, Relation& rel) {
     // by default we have all attributes w/inequalities discharged
     AttributeSet allInequalities;
     for (size_t i = 0; i < s.arity(); ++i) {
         if (s[i] == AttributeConstraint::Inequal) {
             allInequalities.insert(i);
+        }
+    }
+
+    /*
+    // If contains multiple inequality then make it an R-Tree
+    if (!dischargedMap.empty()) {
+        rel.setRepresentation(RelationRepresentation::RTREE);
+    }*/
+
+    // if contains any inequality make it an R-Tree
+    for (auto& search : searches) {
+        if (search.containsInequality()) {
+            rel.setRepresentation(RelationRepresentation::RTREE);
         }
     }
 

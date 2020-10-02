@@ -63,7 +63,7 @@ public:
     bool operator!=(const SearchSignature& other) const;
 
     bool empty() const;
-    bool containsEquality() const;
+    bool containsInequality() const;
 
     static bool isComparable(const SearchSignature& lhs, const SearchSignature& rhs);
     static bool isSubset(const SearchSignature& lhs, const SearchSignature& rhs);
@@ -296,7 +296,7 @@ public:
     }
     /** Return the attribute position for each indexed operation that should be discharged.
      */
-    AttributeSet getAttributesToDischarge(const SearchSignature& s, const Relation& rel);
+    AttributeSet getAttributesToDischarge(const SearchSignature& s, Relation& rel);
 
 protected:
     SignatureIndexMap signatureToIndexA;  // mapping of a SearchSignature on A to its unique index
