@@ -37,7 +37,6 @@ Own<Operation> ChoiceConversionTransformer::rewriteScan(const Scan* scan) {
         // Check that the Filter uses the identifier in the Scan
         if (rla->getLevel(&filter->getCondition()) == scan->getTupleId()) {
             transformTuple = true;
-
             // Check that the filter is not referred to after
             const auto* nextNode = dynamic_cast<const Node*>(&filter->getOperation());
 
@@ -70,7 +69,6 @@ Own<Operation> ChoiceConversionTransformer::rewriteIndexScan(const IndexScan* in
         // Check that the Filter uses the identifier in the IndexScan
         if (rla->getLevel(&filter->getCondition()) == indexScan->getTupleId()) {
             transformTuple = true;
-
             // Check that the filter is not referred to after
             const auto* nextNode = dynamic_cast<const Node*>(&filter->getOperation());
 

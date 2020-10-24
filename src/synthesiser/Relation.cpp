@@ -71,6 +71,8 @@ Own<Relation> Relation::getSynthesiserRelation(
         } else {
             if (ds == "rtree") {
                 rel = new RtreeRelation(ramRel, indexSet, isProvenance);
+            } else if (ramRel.getArity() > 6) {
+                rel = new IndirectRelation(ramRel, indexSet, isProvenance);
             } else {
                 rel = new DirectRelation(ramRel, indexSet, isProvenance);
             }
@@ -721,7 +723,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "auto lease = insert_lock.acquire();\n";
     out << "if (contains(t, ";
     out << (hintsOff ? "g" : "h");
-    out << ") return false;\n";
+    out << ")) return false;\n";
     out << "masterCopy = &dataTable.insert(t);\n";
     out << "ind_" << masterIndex << ".insert(masterCopy, ";
     out << (hintsOff ? "g" : "h");
@@ -729,6 +731,9 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
     for (size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex) {
+            if (hintsOff) {
+                out << "context g;\n";
+            }
             out << "ind_" << i << ".insert(masterCopy, ";
             out << (hintsOff ? "g" : "h");
             out << ".hints_" << i << "_lower"

@@ -220,7 +220,6 @@ int main(int argc, char** argv) {
                 {"compile", 'c', "", "", false,
                         "Generate C++ source code, compile to a binary executable, then run this "
                         "executable."},
-
                 {"default-datastructure", 'X', "DS", ".", false, "Specify default data structure."},
                 {"generate", 'g', "FILE", "", false,
                         "Generate C++ source code for the given Datalog program and write it to "
@@ -598,6 +597,7 @@ int main(int argc, char** argv) {
     {
         using namespace ram::transform;
         Own<Transformer> ramTransform = mk<TransformerSequence>(
+
                 mk<LoopTransformer>(mk<TransformerSequence>(mk<ExpandFilterTransformer>(),
                         mk<HoistConditionsTransformer>(), mk<MakeIndexTransformer>())),
                 mk<LoopTransformer>(mk<IndexedInequalityTransformer>()), mk<IfConversionTransformer>(),

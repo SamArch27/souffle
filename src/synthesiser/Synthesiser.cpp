@@ -2309,14 +2309,25 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
                 *rel, idxAnalysis->getIndexes(*rel), Global::config().has("provenance") && !isProvInfo);
 
         // Print all the spatial primitive searches for a relation
-        const auto& spatialSearches = idxAnalysis->getIndexes(*rel).getAllSpatialSearches();
+        /*const auto& spatialSearches = idxAnalysis->getIndexes(*rel).getAllSpatialSearches();
         if (spatialSearches.empty()) {
             continue;
         }
         std::cout << rel->getName() << " " << join(spatialSearches, ",") << "\n";
+	*/
 
+	// Print number of B-Tree and R-Tree indexes
+	const auto& chains = idxAnalysis->getIndexes(*rel).getAllChains();
+	if (rel->getRepresentation() == RelationRepresentation::RTREE) {
+	    std::cout << "RTREE" << std::endl;
+	} else {
+	    for (size_t i = 0; i < chains.size(); ++i) {
+	        std::cout << "BTREE" << std::endl;
+	    }
+	}
         generateRelationTypeStruct(os, std::move(relationType));
     }
+    std::cout << "Relations ~ " << prog.getRelations().size() << std::endl;
     os << '\n';
 
     os << "class " << classname << " : public SouffleProgram {\n";
