@@ -16,31 +16,29 @@
 
 #pragma once
 
-#include "Constraints.h"
+#include "ConstraintSystem.h"
 #include "ast/Argument.h"
 #include "ast/Clause.h"
 #include "ast/Node.h"
 #include "ast/Variable.h"
-#include "ast/Visitor.h"
+#include "ast/utility/Visitor.h"
 #include <map>
 #include <memory>
 #include <ostream>
 #include <string>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
 /**
  * A variable type to be utilized by AST constraint analysis. Each such variable is
- * associated with an AstArgument which's property it is describing.
+ * associated with an Argument which's property it is describing.
  *
  * @tparam PropertySpace the property space associated to the analysis
  */
 template <typename PropertySpace>
-struct AstConstraintAnalysisVar : public Variable<const AstArgument*, PropertySpace> {
-    explicit AstConstraintAnalysisVar(const AstArgument* arg)
-            : Variable<const AstArgument*, PropertySpace>(arg) {}
-    explicit AstConstraintAnalysisVar(const AstArgument& arg)
-            : Variable<const AstArgument*, PropertySpace>(&arg) {}
+struct ConstraintAnalysisVar : public Variable<const Argument*, PropertySpace> {
+    explicit ConstraintAnalysisVar(const Argument* arg) : Variable<const Argument*, PropertySpace>(arg) {}
+    explicit ConstraintAnalysisVar(const Argument& arg) : Variable<const Argument*, PropertySpace>(&arg) {}
 
     /** adds print support */
     void print(std::ostream& out) const override {
@@ -49,7 +47,7 @@ struct AstConstraintAnalysisVar : public Variable<const AstArgument*, PropertySp
 };
 
 /**
- * A base class for AstConstraintAnalysis collecting constraints for an analysis
+ * A base class for ConstraintAnalysis collecting constraints for an analysis
  * by visiting every node of a given AST. The collected constraints are
  * then utilized to obtain the desired analysis result.
  *
@@ -57,13 +55,13 @@ struct AstConstraintAnalysisVar : public Variable<const AstArgument*, PropertySp
  *      to be utilized by this analysis.
  */
 template <typename AnalysisVar>
-class AstConstraintAnalysis : public AstVisitor<void> {
+class ConstraintAnalysis : public Visitor<void> {
 public:
     using value_type = typename AnalysisVar::property_space::value_type;
     using constraint_type = std::shared_ptr<Constraint<AnalysisVar>>;
-    using solution_type = std::map<const AstArgument*, value_type>;
+    using solution_type = std::map<const Argument*, value_type>;
 
-    virtual void collectConstraints(const AstClause& clause) {
+    virtual void collectConstraints(const Clause& clause) {
         visitDepthFirstPreOrder(clause, *this);
     }
 
@@ -74,7 +72,7 @@ public:
      * @param debug a flag enabling the printing of debug information
      * @return an assignment mapping a property to each argument in the given clause
      */
-    solution_type analyse(const AstClause& clause, std::ostream* debugOutput = nullptr) {
+    solution_type analyse(const Clause& clause, std::ostream* debugOutput = nullptr) {
         collectConstraints(clause);
 
         assignment = constraints.solve();
@@ -88,19 +86,19 @@ public:
 
         // convert assignment to result
         solution_type solution;
-        visitDepthFirst(clause, [&](const AstArgument& arg) { solution[&arg] = assignment[getVar(arg)]; });
+        visitDepthFirst(clause, [&](const Argument& arg) { solution[&arg] = assignment[getVar(arg)]; });
         return solution;
     }
 
 protected:
     /**
-     * A utility function mapping an AstArgument to its associated analysis variable.
+     * A utility function mapping an Argument to its associated analysis variable.
      *
      * @param arg the AST argument to be mapped
      * @return the analysis variable representing its associated value
      */
-    AnalysisVar getVar(const AstArgument& arg) {
-        const auto* var = dynamic_cast<const AstVariable*>(&arg);
+    AnalysisVar getVar(const Argument& arg) {
+        const auto* var = dynamic_cast<const ast::Variable*>(&arg);
         if (var == nullptr) {
             // no mapping required
             return AnalysisVar(arg);
@@ -112,12 +110,12 @@ protected:
     }
 
     /**
-     * A utility function mapping an AstArgument to its associated analysis variable.
+     * A utility function mapping an Argument to its associated analysis variable.
      *
      * @param arg the AST argument to be mapped
      * @return the analysis variable representing its associated value
      */
-    AnalysisVar getVar(const AstArgument* arg) {
+    AnalysisVar getVar(const Argument* arg) {
         return getVar(*arg);
     }
 
@@ -135,4 +133,4 @@ protected:
     std::map<std::string, AnalysisVar> variables;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

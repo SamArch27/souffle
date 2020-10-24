@@ -17,9 +17,9 @@
 
 #include "tests/test.h"
 
-#include "BTree.h"
-#include "LambdaBTree.h"
-#include "utility/StreamUtil.h"
+#include "souffle/datastructure/BTree.h"
+#include "souffle/datastructure/LambdaBTree.h"
+#include "souffle/utility/StreamUtil.h"
 #include <atomic>
 #include <cstddef>
 #include <functional>
@@ -33,8 +33,8 @@
 #include <omp.h>
 #endif
 
-#include "PiggyList.h"
-#include "UnionFind.h"
+#include "souffle/datastructure/PiggyList.h"
+#include "souffle/datastructure/UnionFind.h"
 
 namespace souffle {
 namespace test {
@@ -495,9 +495,8 @@ TEST(SparseDjTest, ParallelTest) {
 #endif  // ifdef _OPENMP
 
 typedef std::pair<size_t, size_t> TestPair;
-typedef souffle::LambdaBTreeSet<TestPair, std::function<TestPair::second_type(TestPair&)>,
-        souffle::EqrelMapComparator<TestPair>>
-        TestLambdaTree;
+using TestLambdaTree = souffle::LambdaBTreeSet<TestPair, std::function<TestPair::second_type(TestPair&)>,
+        souffle::EqrelMapComparator<TestPair>>;
 
 /** The LambdaBTree - essentially a ripoff to the Btree, but allows a function to be called on successful
  * insert. I just am gonna test a subset of it, because I can argue that BTree already tests the basic stuff

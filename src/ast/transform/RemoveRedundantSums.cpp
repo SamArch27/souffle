@@ -19,42 +19,41 @@
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
 #include "ast/NumericConstant.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
-#include "utility/MiscUtil.h"
+#include "ast/utility/NodeMapper.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool RemoveRedundantSumsTransformer::transform(AstTranslationUnit& translationUnit) {
-    struct ReplaceSumWithCount : public AstNodeMapper {
+bool RemoveRedundantSumsTransformer::transform(TranslationUnit& translationUnit) {
+    struct ReplaceSumWithCount : public NodeMapper {
         ReplaceSumWithCount() = default;
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+        Own<Node> operator()(Own<Node> node) const override {
             // Apply to all aggregates of the form
             // sum k : { .. } where k is a constant
-            if (auto* agg = dynamic_cast<AstAggregator*>(node.get())) {
+            if (auto* agg = dynamic_cast<Aggregator*>(node.get())) {
                 if (agg->getOperator() == AggregateOp::SUM) {
                     if (const auto* constant =
-                                    dynamic_cast<const AstNumericConstant*>(agg->getTargetExpression())) {
+                                    dynamic_cast<const NumericConstant*>(agg->getTargetExpression())) {
                         changed = true;
                         // Then construct the new thing to replace it with
-                        auto count = std::make_unique<AstAggregator>(AggregateOp::COUNT);
+                        auto count = mk<Aggregator>(AggregateOp::COUNT);
                         // Duplicate the body of the aggregate
-                        std::vector<std::unique_ptr<AstLiteral>> newBody;
+                        VecOwn<Literal> newBody;
                         for (const auto& lit : agg->getBodyLiterals()) {
                             newBody.push_back(souffle::clone(lit));
                         }
                         count->setBody(std::move(newBody));
                         auto number = souffle::clone(constant);
                         // Now it's constant * count : { ... }
-                        auto result = std::make_unique<AstIntrinsicFunctor>(
-                                "*", std::move(number), std::move(count));
+                        auto result = mk<IntrinsicFunctor>("*", std::move(number), std::move(count));
 
                         return result;
                     }
@@ -69,8 +68,9 @@ bool RemoveRedundantSumsTransformer::transform(AstTranslationUnit& translationUn
     };
 
     ReplaceSumWithCount update;
-    translationUnit.getProgram()->apply(update);
+    Program& program = translationUnit.getProgram();
+    program.apply(update);
     return update.changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

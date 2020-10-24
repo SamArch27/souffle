@@ -14,24 +14,22 @@
  *
  ***********************************************************************/
 
-#include "AstToRamTranslator.h"
-#include "DebugReport.h"
-#include "ErrorReport.h"
-#include "Explain.h"
 #include "Global.h"
-#include "RamTypes.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/Type.h"
+#include "ast/transform/ADTtoRecords.h"
+#include "ast/transform/AddNullariesToAtomlessAggregates.h"
 #include "ast/transform/ComponentChecker.h"
 #include "ast/transform/ComponentInstantiation.h"
 #include "ast/transform/Conditional.h"
 #include "ast/transform/ExecutionPlanChecker.h"
 #include "ast/transform/Fixpoint.h"
 #include "ast/transform/FoldAnonymousRecords.h"
+#include "ast/transform/GroundWitnesses.h"
 #include "ast/transform/GroundedTermsChecker.h"
 #include "ast/transform/IOAttributes.h"
 #include "ast/transform/IODefaults.h"
@@ -41,7 +39,7 @@
 #include "ast/transform/MaterializeSingletonAggregation.h"
 #include "ast/transform/MinimiseProgram.h"
 #include "ast/transform/NameUnnamedVariables.h"
-#include "ast/transform/NormaliseConstraints.h"
+#include "ast/transform/NormaliseMultiResultFunctors.h"
 #include "ast/transform/PartitionBodyLiterals.h"
 #include "ast/transform/Pipeline.h"
 #include "ast/transform/PolymorphicObjects.h"
@@ -59,13 +57,13 @@
 #include "ast/transform/ResolveAliases.h"
 #include "ast/transform/ResolveAnonymousRecordAliases.h"
 #include "ast/transform/SemanticChecker.h"
+#include "ast/transform/SimplifyAggregateTargetExpression.h"
 #include "ast/transform/UniqueAggregationVariables.h"
-#include "ast/transform/UserDefinedFunctors.h"
+#include "ast2ram/AstToRamTranslator.h"
 #include "config.h"
-#include "interpreter/InterpreterEngine.h"
-#include "interpreter/InterpreterProgInterface.h"
+#include "interpreter/Engine.h"
+#include "interpreter/ProgInterface.h"
 #include "parser/ParserDriver.h"
-#include "profile/Tui.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
 #include "ram/TranslationUnit.h"
@@ -85,17 +83,25 @@
 #include "ram/transform/ReorderFilterBreak.h"
 #include "ram/transform/ReportIndex.h"
 #include "ram/transform/Sequence.h"
+#include "ram/transform/Transformer.h"
 #include "ram/transform/TupleId.h"
+#include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
+#include "souffle/RamTypes.h"
+#include "souffle/profile/Tui.h"
+#include "souffle/provenance/Explain.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/FileUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include "synthesiser/Synthesiser.h"
-#include "utility/ContainerUtil.h"
-#include "utility/FileUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
 #include <cassert>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -108,6 +114,7 @@
 #include <vector>
 
 namespace souffle {
+
 /**
  * Executes a binary file.
  */
@@ -119,18 +126,24 @@ void executeBinary(const std::string& binaryFilename) {
         throw std::invalid_argument("Generated executable <" + binaryFilename + "> could not be found");
     }
 
+    std::string ldPath;
     // run the executable
     if (Global::config().has("library-dir")) {
-        std::string ldPath;
         for (const std::string& library : splitString(Global::config().get("library-dir"), ' ')) {
             ldPath += library + ':';
         }
         ldPath.pop_back();
         setenv("LD_LIBRARY_PATH", ldPath.c_str(), 1);
-        setenv("DYLD_LIBRARY_PATH", ldPath.c_str(), 1);
     }
 
-    int exitCode = system(binaryFilename.c_str());
+    std::string exePath;
+#ifdef __APPLE__
+    // OSX does not pass on the environment from setenv so add it to the command line
+    exePath = "DYLD_LIBRARY_PATH=\"" + ldPath + "\" ";
+#endif
+    exePath += binaryFilename;
+
+    int exitCode = system(exePath.c_str());
 
     if (Global::config().get("dl-program").empty()) {
         remove(binaryFilename.c_str());
@@ -405,7 +418,7 @@ int main(int argc, char** argv) {
     // parse file
     ErrorReport errReport(Global::config().has("no-warn"));
     DebugReport debugReport;
-    std::unique_ptr<AstTranslationUnit> astTranslationUnit =
+    Own<ast::TranslationUnit> astTranslationUnit =
             ParserDriver::parseTranslationUnit("<stdin>", in, errReport, debugReport);
 
     // close input pipe
@@ -433,68 +446,75 @@ int main(int argc, char** argv) {
     // ------- rewriting / optimizations -------------
 
     /* set up additional global options based on pragma declaratives */
-    (std::make_unique<AstPragmaChecker>())->apply(*astTranslationUnit);
+    (mk<ast::transform::PragmaChecker>())->apply(*astTranslationUnit);
 
     /* construct the transformation pipeline */
 
     // Equivalence pipeline
     auto equivalencePipeline =
-            std::make_unique<PipelineTransformer>(std::make_unique<NameUnnamedVariablesTransformer>(),
-                    std::make_unique<FixpointTransformer>(std::make_unique<MinimiseProgramTransformer>()),
-                    std::make_unique<ReplaceSingletonVariablesTransformer>(),
-                    std::make_unique<RemoveRelationCopiesTransformer>(),
-                    std::make_unique<RemoveEmptyRelationsTransformer>(),
-                    std::make_unique<RemoveRedundantRelationsTransformer>());
+            mk<ast::transform::PipelineTransformer>(mk<ast::transform::NameUnnamedVariablesTransformer>(),
+                    mk<ast::transform::FixpointTransformer>(mk<ast::transform::MinimiseProgramTransformer>()),
+                    mk<ast::transform::ReplaceSingletonVariablesTransformer>(),
+                    mk<ast::transform::RemoveRelationCopiesTransformer>(),
+                    mk<ast::transform::RemoveEmptyRelationsTransformer>(),
+                    mk<ast::transform::RemoveRedundantRelationsTransformer>());
 
     // Magic-Set pipeline
-    auto magicPipeline = std::make_unique<PipelineTransformer>(std::make_unique<MagicSetTransformer>(),
-            std::make_unique<ResolveAliasesTransformer>(),
-            std::make_unique<RemoveRelationCopiesTransformer>(),
-            std::make_unique<RemoveEmptyRelationsTransformer>(),
-            std::make_unique<RemoveRedundantRelationsTransformer>(), souffle::clone(equivalencePipeline));
+    auto magicPipeline = mk<ast::transform::PipelineTransformer>(mk<ast::transform::MagicSetTransformer>(),
+            mk<ast::transform::ResolveAliasesTransformer>(),
+            mk<ast::transform::RemoveRelationCopiesTransformer>(),
+            mk<ast::transform::RemoveEmptyRelationsTransformer>(),
+            mk<ast::transform::RemoveRedundantRelationsTransformer>(), souffle::clone(equivalencePipeline));
 
     // Partitioning pipeline
     auto partitionPipeline =
-            std::make_unique<PipelineTransformer>(std::make_unique<NameUnnamedVariablesTransformer>(),
-                    std::make_unique<PartitionBodyLiteralsTransformer>(),
-                    std::make_unique<ReplaceSingletonVariablesTransformer>());
+            mk<ast::transform::PipelineTransformer>(mk<ast::transform::NameUnnamedVariablesTransformer>(),
+                    mk<ast::transform::PartitionBodyLiteralsTransformer>(),
+                    mk<ast::transform::ReplaceSingletonVariablesTransformer>());
 
     // Provenance pipeline
-    auto provenancePipeline = mk<ConditionalTransformer>(Global::config().has("provenance"),
-            mk<PipelineTransformer>(mk<ProvenanceTransformer>(), mk<PolymorphicObjectsTransformer>()));
+    auto provenancePipeline = mk<ast::transform::ConditionalTransformer>(Global::config().has("provenance"),
+            mk<ast::transform::PipelineTransformer>(mk<ast::transform::ProvenanceTransformer>(),
+                    mk<ast::transform::PolymorphicObjectsTransformer>()));
 
     // Main pipeline
-    auto pipeline = std::make_unique<PipelineTransformer>(std::make_unique<AstComponentChecker>(),
-            std::make_unique<ComponentInstantiationTransformer>(), std::make_unique<IODefaultsTransformer>(),
-            std::make_unique<UniqueAggregationVariablesTransformer>(),
-            std::make_unique<AstUserDefinedFunctorsTransformer>(),
-            std::make_unique<FixpointTransformer>(
-                    std::make_unique<PipelineTransformer>(std::make_unique<ResolveAnonymousRecordAliases>(),
-                            std::make_unique<FoldAnonymousRecords>())),
-            std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<AstSemanticChecker>(),
-            std::make_unique<MaterializeSingletonAggregationTransformer>(),
-            std::make_unique<RemoveTypecastsTransformer>(),
-            std::make_unique<RemoveBooleanConstraintsTransformer>(),
-            std::make_unique<ResolveAliasesTransformer>(), std::make_unique<MinimiseProgramTransformer>(),
-            std::make_unique<InlineRelationsTransformer>(), std::make_unique<PolymorphicObjectsTransformer>(),
-            std::make_unique<GroundedTermsChecker>(), std::make_unique<ResolveAliasesTransformer>(),
-            std::make_unique<RemoveRedundantRelationsTransformer>(),
-            std::make_unique<RemoveRelationCopiesTransformer>(),
-            std::make_unique<RemoveEmptyRelationsTransformer>(),
-            std::make_unique<ReplaceSingletonVariablesTransformer>(),
-            std::make_unique<FixpointTransformer>(
-                    std::make_unique<PipelineTransformer>(std::make_unique<ReduceExistentialsTransformer>(),
-                            std::make_unique<RemoveRedundantRelationsTransformer>())),
-            std::make_unique<RemoveRelationCopiesTransformer>(), std::move(partitionPipeline),
-            std::make_unique<PipelineTransformer>(std::make_unique<ResolveAliasesTransformer>(),
-                    std::make_unique<MaterializeAggregationQueriesTransformer>()),
-            std::move(equivalencePipeline), std::make_unique<RemoveRelationCopiesTransformer>(),
-            std::move(magicPipeline), std::make_unique<ReorderLiteralsTransformer>(),
-            std::make_unique<RemoveRedundantSumsTransformer>(),
-            std::make_unique<RemoveEmptyRelationsTransformer>(),
-            std::make_unique<PolymorphicObjectsTransformer>(), std::make_unique<ReorderLiteralsTransformer>(),
-            std::make_unique<AstExecutionPlanChecker>(), std::move(provenancePipeline),
-            std::make_unique<IOAttributesTransformer>());
+    auto pipeline = mk<ast::transform::PipelineTransformer>(mk<ast::transform::ComponentChecker>(),
+            mk<ast::transform::ComponentInstantiationTransformer>(),
+            mk<ast::transform::IODefaultsTransformer>(),
+            mk<ast::transform::SimplifyAggregateTargetExpressionTransformer>(),
+            mk<ast::transform::UniqueAggregationVariablesTransformer>(),
+            mk<ast::transform::FixpointTransformer>(mk<ast::transform::PipelineTransformer>(
+                    mk<ast::transform::ResolveAnonymousRecordAliasesTransformer>(),
+                    mk<ast::transform::FoldAnonymousRecords>())),
+            mk<ast::transform::PolymorphicObjectsTransformer>(), mk<ast::transform::SemanticChecker>(),
+            mk<ast::transform::ADTtoRecordsTransformer>(), mk<ast::transform::GroundWitnessesTransformer>(),
+            mk<ast::transform::UniqueAggregationVariablesTransformer>(),
+            mk<ast::transform::NormaliseMultiResultFunctorsTransformer>(),
+            mk<ast::transform::MaterializeSingletonAggregationTransformer>(),
+            mk<ast::transform::FixpointTransformer>(
+                    mk<ast::transform::MaterializeAggregationQueriesTransformer>()),
+            mk<ast::transform::ResolveAliasesTransformer>(), mk<ast::transform::RemoveTypecastsTransformer>(),
+            mk<ast::transform::RemoveBooleanConstraintsTransformer>(),
+            mk<ast::transform::ResolveAliasesTransformer>(), mk<ast::transform::MinimiseProgramTransformer>(),
+            mk<ast::transform::InlineRelationsTransformer>(),
+            mk<ast::transform::PolymorphicObjectsTransformer>(), mk<ast::transform::GroundedTermsChecker>(),
+            mk<ast::transform::ResolveAliasesTransformer>(),
+            mk<ast::transform::RemoveRedundantRelationsTransformer>(),
+            mk<ast::transform::RemoveRelationCopiesTransformer>(),
+            mk<ast::transform::RemoveEmptyRelationsTransformer>(),
+            mk<ast::transform::ReplaceSingletonVariablesTransformer>(),
+            mk<ast::transform::FixpointTransformer>(mk<ast::transform::PipelineTransformer>(
+                    mk<ast::transform::ReduceExistentialsTransformer>(),
+                    mk<ast::transform::RemoveRedundantRelationsTransformer>())),
+            mk<ast::transform::RemoveRelationCopiesTransformer>(), std::move(partitionPipeline),
+            std::move(equivalencePipeline), mk<ast::transform::RemoveRelationCopiesTransformer>(),
+            std::move(magicPipeline), mk<ast::transform::ReorderLiteralsTransformer>(),
+            mk<ast::transform::RemoveRedundantSumsTransformer>(),
+            mk<ast::transform::RemoveEmptyRelationsTransformer>(),
+            mk<ast::transform::AddNullariesToAtomlessAggregatesTransformer>(),
+            mk<ast::transform::PolymorphicObjectsTransformer>(),
+            mk<ast::transform::ReorderLiteralsTransformer>(), mk<ast::transform::ExecutionPlanChecker>(),
+            std::move(provenancePipeline), mk<ast::transform::IOAttributesTransformer>());
 
     // Disable unwanted transformations
     if (Global::config().has("disable-transformers")) {
@@ -540,27 +560,27 @@ int main(int argc, char** argv) {
     if (Global::config().has("show")) {
         // Output the transformed datalog and return
         if (Global::config().get("show") == "transformed-datalog") {
-            std::cout << *astTranslationUnit->getProgram() << std::endl;
+            std::cout << astTranslationUnit->getProgram() << std::endl;
             return 0;
         }
 
         // Output the precedence graph in graphviz dot format and return
         if (Global::config().get("show") == "precedence-graph") {
-            astTranslationUnit->getAnalysis<PrecedenceGraphAnalysis>()->print(std::cout);
+            astTranslationUnit->getAnalysis<ast::analysis::PrecedenceGraphAnalysis>()->print(std::cout);
             std::cout << std::endl;
             return 0;
         }
 
         // Output the scc graph in graphviz dot format and return
         if (Global::config().get("show") == "scc-graph") {
-            astTranslationUnit->getAnalysis<SCCGraphAnalysis>()->print(std::cout);
+            astTranslationUnit->getAnalysis<ast::analysis::SCCGraphAnalysis>()->print(std::cout);
             std::cout << std::endl;
             return 0;
         }
 
         // Output the type analysis
         if (Global::config().get("show") == "type-analysis") {
-            astTranslationUnit->getAnalysis<TypeAnalysis>()->print(std::cout);
+            astTranslationUnit->getAnalysis<ast::analysis::TypeAnalysis>()->print(std::cout);
             std::cout << std::endl;
             return 0;
         }
@@ -569,33 +589,31 @@ int main(int argc, char** argv) {
     // ------- execution -------------
     /* translate AST to RAM */
     debugReport.startSection();
-    std::unique_ptr<RamTranslationUnit> ramTranslationUnit =
-            AstToRamTranslator().translateUnit(*astTranslationUnit);
+    auto ramTranslationUnit = ast2ram::AstToRamTranslator().translateUnit(*astTranslationUnit);
     debugReport.endSection("ast-to-ram", "Translate AST to RAM");
 
-    std::unique_ptr<RamTransformer> ramTransform = std::make_unique<RamTransformerSequence>(
-            std::make_unique<RamLoopTransformer>(std::make_unique<RamTransformerSequence>(
-                    std::make_unique<ExpandFilterTransformer>(),
-                    std::make_unique<HoistConditionsTransformer>(), std::make_unique<MakeIndexTransformer>()
-                    // not sure if I need to move out the filter transform
-                    )),
-            std::make_unique<RamLoopTransformer>(std::make_unique<IndexedInequalityTransformer>()),
-            std::make_unique<IfConversionTransformer>(), std::make_unique<ChoiceConversionTransformer>(),
-            std::make_unique<CollapseFiltersTransformer>(), std::make_unique<TupleIdTransformer>(),
-            std::make_unique<RamLoopTransformer>(std::make_unique<RamTransformerSequence>(
-                    std::make_unique<HoistAggregateTransformer>(), std::make_unique<TupleIdTransformer>())),
-            std::make_unique<ExpandFilterTransformer>(), std::make_unique<HoistConditionsTransformer>(),
-            std::make_unique<CollapseFiltersTransformer>(),
-            std::make_unique<EliminateDuplicatesTransformer>(),
-            std::make_unique<ReorderConditionsTransformer>(),
-            std::make_unique<RamLoopTransformer>(std::make_unique<ReorderFilterBreak>()),
-            std::make_unique<RamConditionalTransformer>(
-                    // job count of 0 means all cores are used.
-                    []() -> bool { return std::stoi(Global::config().get("jobs")) != 1; },
-                    std::make_unique<ParallelTransformer>()),
-            std::make_unique<ReportIndexTransformer>());
+    // Apply RAM transforms
+    {
+        using namespace ram::transform;
+        Own<Transformer> ramTransform = mk<TransformerSequence>(
+                mk<LoopTransformer>(mk<TransformerSequence>(mk<ExpandFilterTransformer>(),
+                        mk<HoistConditionsTransformer>(), mk<MakeIndexTransformer>())),
+                mk<LoopTransformer>(mk<IndexedInequalityTransformer>()), mk<IfConversionTransformer>(),
+                mk<ChoiceConversionTransformer>(), mk<CollapseFiltersTransformer>(), mk<TupleIdTransformer>(),
+                mk<LoopTransformer>(
+                        mk<TransformerSequence>(mk<HoistAggregateTransformer>(), mk<TupleIdTransformer>())),
+                mk<ExpandFilterTransformer>(), mk<HoistConditionsTransformer>(),
+                mk<CollapseFiltersTransformer>(), mk<EliminateDuplicatesTransformer>(),
+                mk<ReorderConditionsTransformer>(), mk<LoopTransformer>(mk<ReorderFilterBreak>()),
+                mk<ConditionalTransformer>(
+                        // job count of 0 means all cores are used.
+                        []() -> bool { return std::stoi(Global::config().get("jobs")) != 1; },
+                        mk<ParallelTransformer>()),
+                mk<ReportIndexTransformer>());
 
-    ramTransform->apply(*ramTranslationUnit);
+        ramTransform->apply(*ramTranslationUnit);
+    }
+
     if (ramTranslationUnit->getErrorReport().getNumIssues() != 0) {
         std::cerr << ramTranslationUnit->getErrorReport();
     }
@@ -618,8 +636,7 @@ int main(int argc, char** argv) {
             }
 
             // configure and execute interpreter
-            std::unique_ptr<InterpreterEngine> interpreter(
-                    std::make_unique<InterpreterEngine>(*ramTranslationUnit));
+            Own<interpreter::Engine> interpreter(mk<interpreter::Engine>(*ramTranslationUnit));
             interpreter->executeMain();
             // If the profiler was started, join back here once it exits.
             if (profiler.joinable()) {
@@ -627,7 +644,7 @@ int main(int argc, char** argv) {
             }
             if (Global::config().has("provenance")) {
                 // only run explain interface if interpreted
-                InterpreterProgInterface interface(*interpreter);
+                interpreter::ProgInterface interface(*interpreter);
                 if (Global::config().get("provenance") == "explain") {
                     explain(interface, false);
                 } else if (Global::config().get("provenance") == "explore") {
@@ -636,7 +653,7 @@ int main(int argc, char** argv) {
             }
         } else {
             // ------- compiler -------------
-            std::unique_ptr<Synthesiser> synthesiser = std::make_unique<Synthesiser>(*ramTranslationUnit);
+            auto synthesiser = mk<synthesiser::Synthesiser>(*ramTranslationUnit);
 
             // Find the base filename for code generation and execution
             std::string baseFilename;

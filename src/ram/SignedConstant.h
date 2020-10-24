@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "RamTypes.h"
 #include "ram/Constant.h"
+#include "souffle/RamTypes.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamSignedConstant
+ * @class SignedConstant
  * @brief Represents a signed constant
  *
  * For example:
@@ -31,9 +31,9 @@ namespace souffle {
  * number(5)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamSignedConstant : public RamConstant {
+class SignedConstant : public Constant {
 public:
-    explicit RamSignedConstant(RamDomain val) : RamConstant(val) {}
+    explicit SignedConstant(RamDomain val) : Constant(val) {}
 
     /** @brief Get value of the constant. */
     RamDomain getValue() const {
@@ -41,8 +41,8 @@ public:
     }
 
     /** Create clone */
-    RamSignedConstant* clone() const override {
-        return new RamSignedConstant(getValue());
+    SignedConstant* clone() const override {
+        return new SignedConstant(getValue());
     }
 
 protected:
@@ -51,4 +51,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

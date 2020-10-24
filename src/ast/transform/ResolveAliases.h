@@ -14,21 +14,21 @@
 
 #pragma once
 
+#include "ast/Clause.h"
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <memory>
 #include <string>
 
-namespace souffle {
-
-class AstClause;
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to eliminate grounded aliases.
  * e.g. resolve: a(r) , r = [x,y]       => a(x,y)
  * e.g. resolve: a(x) , !b(y) , y = x   => a(x) , !b(x)
  */
-class ResolveAliasesTransformer : public AstTransformer {
+class ResolveAliasesTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ResolveAliasesTransformer";
@@ -41,7 +41,7 @@ public:
      * @param clause the clause to be processed
      * @return a modified clone of the processed clause
      */
-    static std::unique_ptr<AstClause> resolveAliases(const AstClause& clause);
+    static Own<Clause> resolveAliases(const Clause& clause);
 
     /**
      * Removes trivial equalities of the form t = t from the given clause.
@@ -49,7 +49,7 @@ public:
      * @param clause the clause to be processed
      * @return a modified clone of the given clause
      */
-    static std::unique_ptr<AstClause> removeTrivialEquality(const AstClause& clause);
+    static Own<Clause> removeTrivialEquality(const Clause& clause);
 
     /**
      * Removes complex terms in atoms, replacing them with constrained variables.
@@ -57,14 +57,14 @@ public:
      * @param clause the clause to be processed
      * @return a modified clone of the processed clause
      */
-    static std::unique_ptr<AstClause> removeComplexTermsInAtoms(const AstClause& clause);
+    static Own<Clause> removeComplexTermsInAtoms(const Clause& clause);
 
     ResolveAliasesTransformer* clone() const override {
         return new ResolveAliasesTransformer();
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -1,6 +1,6 @@
 .deps
 
-souffle
+/souffle
 souffle-compile
 souffle-config
 souffle-profile
@@ -9,7 +9,6 @@ stack.hh
 parser.hh
 parser.cc
 scanner.cc
-libsouffle*
 *.output
 
 test-suite.log

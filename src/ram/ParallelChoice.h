@@ -21,8 +21,8 @@
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <cstddef>
 #include <iosfwd>
 #include <memory>
@@ -30,10 +30,10 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class ParallelRamChoice
+ * @class ParallelChoice
  * @brief Find a tuple in a relation such that a given condition holds in parallel.
  *
  * For example:
@@ -44,15 +44,14 @@ namespace souffle {
  *      ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamParallelChoice : public RamChoice, public RamAbstractParallel {
+class ParallelChoice : public Choice, public AbstractParallel {
 public:
-    RamParallelChoice(std::unique_ptr<RamRelationReference> rel, size_t ident,
-            std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested,
+    ParallelChoice(std::string rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
             std::string profileText = "")
-            : RamChoice(std::move(rel), ident, std::move(cond), std::move(nested), profileText) {}
+            : Choice(rel, ident, std::move(cond), std::move(nested), profileText) {}
 
-    RamParallelChoice* clone() const override {
-        return new RamParallelChoice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
+    ParallelChoice* clone() const override {
+        return new ParallelChoice(relation, getTupleId(), souffle::clone(condition),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
@@ -60,11 +59,11 @@ protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "PARALLEL CHOICE t" << getTupleId();
-        os << " IN " << getRelation().getName();
+        os << " IN " << relation;
         os << " WHERE " << getCondition();
         os << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        RelationOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

@@ -16,18 +16,17 @@
 
 #pragma once
 
+#include "ram/TranslationUnit.h"
 #include "ram/transform/Meta.h"
 #include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace souffle {
-
-class RamTranslationUnit;
+namespace souffle::ram::transform {
 
 /**
- * @Class RamTransformerSequence
+ * @Class TransformerSequence
  * @Brief Composite sequence transformer
  *
  * A sequence of transformations is applied to a translation unit
@@ -35,11 +34,11 @@ class RamTranslationUnit;
  * the code has been changed.
  *
  */
-class RamTransformerSequence : public RamMetaTransformer {
+class TransformerSequence : public MetaTransformer {
 public:
     template <typename... Tfs>
-    RamTransformerSequence(std::unique_ptr<Tfs>&&... tf) : RamTransformerSequence() {
-        std::unique_ptr<RamTransformer> tmp[] = {std::move(tf)...};
+    TransformerSequence(Own<Tfs>&&... tf) : TransformerSequence() {
+        Own<Transformer> tmp[] = {std::move(tf)...};
         for (auto& cur : tmp) {
             transformers.emplace_back(std::move(cur));
         }
@@ -48,11 +47,11 @@ public:
             assert(cur);
         }
     }
-    RamTransformerSequence() = default;
+    TransformerSequence() = default;
     std::string getName() const override {
-        return "RamTransformerSequence";
+        return "TransformerSequence";
     }
-    bool transform(RamTranslationUnit& tU) override {
+    bool transform(TranslationUnit& tU) override {
         bool changed = false;
         // The last transformer decides the status
         // of the change flag.
@@ -66,7 +65,7 @@ public:
 
 protected:
     /** sequence of transformers */
-    std::vector<std::unique_ptr<RamTransformer>> transformers;
+    VecOwn<Transformer> transformers;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

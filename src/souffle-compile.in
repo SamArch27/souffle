@@ -42,9 +42,6 @@ error() {
   fi
 }
 
-#Exit on error
-set -e
-
 # set by autoconf
 CXX="$(printenv CXX || true)"
 test -z "$CXX" && CXX="@CXX@"
@@ -58,10 +55,7 @@ WARNINGS=""
 SWIGLANG=""
 
 # find header files of souffle
-TEST_HEADER="souffle/CompiledSouffle.h"
-HEADER_DIR=$(dirname $0)/../include
-test -f "$HEADER_DIR/$TEST_HEADER"
-error "installation error: souffle header files cannot be found" $?
+HEADER_DIRS=" -I$(dirname $0)/../include -I$(dirname $0)/include "
 
 # Options processing via getopts builtin, it is very limiting but on OSX the
 # default getopt is an old BSD getopt, so need this for portability
@@ -117,18 +111,22 @@ cd "$(dirname $1)"
 dir="$PWD"
 cd "$OLDPWD"
 
-# Make temp folder and copy relavent files there
+# Make temp folder and copy relevant files there
 if [ -n "$SWIGLANG" ]
 then
   # set environment variables
   # directory where swig interface files are in souffle
-  SWIGDIR=$(dirname $0)/../include/souffle/swig
   TMP_DIR="$(mktemp -d)"
+  BASE_DIR="$(dirname $0)"
 
-  for file in `ls -1 "$SWIGDIR"`
-  do
-    cp "$SWIGDIR/$file" "$TMP_DIR"
-  done
+  if [ -d "$BASE_DIR/include/souffle/swig" ];
+  then
+    cp "$BASE_DIR/include/souffle/swig/SwigInterface.h" "$TMP_DIR"
+    cp "$BASE_DIR/include/souffle/swig/SwigInterface.i" "$TMP_DIR"
+  else
+    cp "$BASE_DIR/../include/souffle/swig/SwigInterface.h" "$TMP_DIR"
+    cp "$BASE_DIR/../include/souffle/swig/SwigInterface.i" "$TMP_DIR"
+  fi
 
   cd "$TMP_DIR"
   swig -c++ -"$SWIGLANG" "SwigInterface.i"
@@ -136,7 +134,7 @@ then
   # Checks input language and compiles files with local python3 config or local java_home config
   if [ "$SWIGLANG" = "python" ]
   then
-    $CXX -fPIC -c -D__EMBEDDED_SOUFFLE__ SwigInterface_wrap.cxx $dir/$exe.cpp $(python3-config --cflags) -I$HEADER_DIR 2>&1
+    $CXX -fPIC -c -D__EMBEDDED_SOUFFLE__ SwigInterface_wrap.cxx $dir/$exe.cpp $(python3-config --cflags) $HEADER_DIRS 2>&1
     $CXX -shared SwigInterface_wrap.o $exe.o $(python3-config --ldflags) -o _SwigInterface.so -lstdc++
   elif [ "$SWIGLANG" = "java" ]
   then
@@ -147,7 +145,7 @@ then
       error "JAVA_HOME environment variable has not been set"
     fi
 
-    $CXX -fPIC -c -D__EMBEDDED_SOUFFLE__ SwigInterface_wrap.cxx $dir/$exe.cpp -I$JAVADIR -I$JAVADIR/include -I$JAVADIR/include/linux  -I$JAVADIR/include/darwin -I/usr/lib/x86_64-linux-gnu/ -I$HEADER_DIR 2>&1
+    $CXX -fPIC -c -D__EMBEDDED_SOUFFLE__ SwigInterface_wrap.cxx $dir/$exe.cpp -I$JAVADIR -I$JAVADIR/include -I$JAVADIR/include/linux  -I$JAVADIR/include/darwin -I/usr/lib/x86_64-linux-gnu/ $HEADER_DIRS 2>&1
     $CXX -shared SwigInterface_wrap.o $exe.o -o libSwigInterface.so -lstdc++
   fi
 
@@ -165,19 +163,19 @@ fi
 rm -f $dir/$exe
 CCERR=$(mktemp)
 # HACK: don't exit if the compile fails, we need to report the error
-( $CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 -I$HEADER_DIR $OMP_FLAG $LDFLAGS $LIBS 2> $CCERR ) || true
+( $CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 $HEADER_DIRS $OMP_FLAG $LDFLAGS $LIBS 2> $CCERR ) || true
 
 if test -f $dir/$exe
 then
   if [ "$WARNINGS" = 1 ]
   then
-     echo "$CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 $LIBS -I$HEADER_DIR"
+     echo "$CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 $LIBS $HEADER_DIRS"
      cat $CCERR 1>&2
   fi
   rm $CCERR
 else
   echo "compiler error: cannot compile source file $1" 1>&2
-  echo "$CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 $LIBS -I$HEADER_DIR"
+  echo "$CXX $CXXFLAGS $CPPFLAGS -o$dir/$exe $1 $LIBS $HEADER_DIRS"
   cat $CCERR 1>&2
   rm -f $CCERR
   exit 1

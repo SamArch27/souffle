@@ -14,18 +14,17 @@
 
 #pragma once
 
+#include "ram/IndexScan.h"
+#include "ram/Operation.h"
+#include "ram/Program.h"
+#include "ram/Scan.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <memory>
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
-class RamIndexScan;
-class RamOperation;
-class RamScan;
+namespace souffle::ram::transform {
 
 /**
  * @class ChoiceConversionTransformer
@@ -59,7 +58,7 @@ class RamScan;
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  */
-class ChoiceConversionTransformer : public RamTransformer {
+class ChoiceConversionTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ChoiceConversionTransformer";
@@ -73,7 +72,7 @@ public:
      * Rewrites Scan/If pair to a Choice operation if value
      * is not used in a consecutive RAM operation
      */
-    std::unique_ptr<RamOperation> rewriteScan(const RamScan* scan);
+    Own<Operation> rewriteScan(const Scan* scan);
 
     /**
      * @brief Rewrite IndexScan operations
@@ -83,7 +82,7 @@ public:
      * Rewrites IndexScan/If pair to an IndexChoice operation if value
      * is not used in a consecutive RAM operation
      */
-    std::unique_ptr<RamOperation> rewriteIndexScan(const RamIndexScan* indexScan);
+    Own<Operation> rewriteIndexScan(const IndexScan* indexScan);
 
     /**
      * @brief Apply choice-conversion to the whole program
@@ -92,14 +91,14 @@ public:
      *
      * Search for queries and rewrite their Scan/IndexScan and If operations if possible.
      */
-    bool convertScans(RamProgram& program);
+    bool convertScans(Program& program);
 
 protected:
-    RamLevelAnalysis* rla{nullptr};
-    bool transform(RamTranslationUnit& translationUnit) override {
-        rla = translationUnit.getAnalysis<RamLevelAnalysis>();
+    analysis::LevelAnalysis* rla{nullptr};
+    bool transform(TranslationUnit& translationUnit) override {
+        rla = translationUnit.getAnalysis<analysis::LevelAnalysis>();
         return convertScans(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

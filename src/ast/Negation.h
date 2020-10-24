@@ -19,10 +19,10 @@
 #include "ast/Atom.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
+#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iostream>
 #include <memory>
@@ -30,10 +30,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstNegation
+ * @class Negation
  * @brief Negation of an atom negated atom
  *
  * Example:
@@ -41,25 +41,24 @@ namespace souffle {
  *
  * A negated atom can only occur in the body of a clause.
  */
-class AstNegation : public AstLiteral {
+class Negation : public Literal {
 public:
-    AstNegation(Own<AstAtom> atom, SrcLocation loc = {})
-            : AstLiteral(std::move(loc)), atom(std::move(atom)) {}
+    Negation(Own<Atom> atom, SrcLocation loc = {}) : Literal(std::move(loc)), atom(std::move(atom)) {}
 
     /** Get negated atom */
-    AstAtom* getAtom() const {
+    Atom* getAtom() const {
         return atom.get();
     }
 
-    AstNegation* clone() const override {
-        return new AstNegation(souffle::clone(atom), getSrcLoc());
+    Negation* clone() const override {
+        return new Negation(souffle::clone(atom), getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         atom = map(std::move(atom));
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {atom.get()};
     }
 
@@ -68,14 +67,14 @@ protected:
         os << "!" << *atom;
     }
 
-    bool equal(const AstNode& node) const override {
-        assert(nullptr != dynamic_cast<const AstNegation*>(&node));
-        const auto& other = static_cast<const AstNegation&>(node);
+    bool equal(const Node& node) const override {
+        assert(isA<Negation>(&node));
+        const auto& other = static_cast<const Negation&>(node);
         return equal_ptr(atom, other.atom);
     }
 
     /** Negated atom */
-    Own<AstAtom> atom;
+    Own<Atom> atom;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

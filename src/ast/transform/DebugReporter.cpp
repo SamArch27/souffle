@@ -15,17 +15,17 @@
  ***********************************************************************/
 
 #include "ast/transform/DebugReporter.h"
-#include "DebugReport.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
-#include "ast/Utils.h"
+#include "ast/utility/Utils.h"
+#include "reports/DebugReport.h"
 #include <chrono>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool DebugReporter::transform(AstTranslationUnit& translationUnit) {
+bool DebugReporter::transform(TranslationUnit& translationUnit) {
     translationUnit.getDebugReport().startSection();
-    auto datalogSpecOriginal = pprint(*translationUnit.getProgram());
+    auto datalogSpecOriginal = pprint(translationUnit.getProgram());
     auto start = std::chrono::high_resolution_clock::now();
     bool changed = applySubtransformer(translationUnit, wrappedTransformer.get());
     auto end = std::chrono::high_resolution_clock::now();
@@ -40,9 +40,9 @@ bool DebugReporter::transform(AstTranslationUnit& translationUnit) {
     return changed;
 }
 
-void DebugReporter::generateDebugReport(AstTranslationUnit& tu, const std::string& preTransformDatalog) {
+void DebugReporter::generateDebugReport(TranslationUnit& tu, const std::string& preTransformDatalog) {
     tu.getDebugReport().addCodeSection(
-            "dl", "Datalog", "souffle", preTransformDatalog, pprint(*tu.getProgram()));
+            "dl", "Datalog", "souffle", preTransformDatalog, pprint(tu.getProgram()));
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -15,60 +15,45 @@
 #pragma once
 
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/TupleOperation.h"
-#include "utility/ContainerUtil.h"
+#include "ram/utility/NodeMapper.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamRelationOperation
+ * @class RelationOperation
  * @brief Abstract class for operations on relations
  *
  * One such operation is a for loop
  */
-class RamRelationOperation : public RamTupleOperation {
+class RelationOperation : public TupleOperation {
 public:
-    RamRelationOperation(std::unique_ptr<RamRelationReference> relRef, int ident,
-            std::unique_ptr<RamOperation> nested, std::string profileText = "")
-            : RamTupleOperation(ident, std::move(nested), std::move(profileText)),
-              relationRef(std::move(relRef)) {
-        assert(relationRef != nullptr && "relation reference is a null-pointer");
-    }
+    RelationOperation(std::string rel, int ident, Own<Operation> nested, std::string profileText = "")
+            : TupleOperation(ident, std::move(nested), std::move(profileText)), relation(std::move(rel)) {}
 
-    RamRelationOperation* clone() const override = 0;
+    RelationOperation* clone() const override = 0;
 
     /** @brief Get search relation */
-    const RamRelation& getRelation() const {
-        return *relationRef->get();
-    }
-
-    void apply(const RamNodeMapper& map) override {
-        RamTupleOperation::apply(map);
-        relationRef = map(std::move(relationRef));
-    }
-
-    std::vector<const RamNode*> getChildNodes() const override {
-        auto res = RamTupleOperation::getChildNodes();
-        res.push_back(relationRef.get());
-        return res;
+    const std::string& getRelation() const {
+        return relation;
     }
 
 protected:
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamRelationOperation&>(node);
-        return RamTupleOperation::equal(other) && equal_ptr(relationRef, other.relationRef);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const RelationOperation&>(node);
+        return TupleOperation::equal(other) && relation == other.relation;
     }
 
     /** Search relation */
-    std::unique_ptr<RamRelationReference> relationRef;
+    const std::string relation;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

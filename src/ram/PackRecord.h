@@ -18,51 +18,51 @@
 
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
-#include "utility/ContainerUtil.h"
-#include "utility/StreamUtil.h"
+#include "ram/utility/NodeMapper.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <memory>
 #include <sstream>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamPackRecord
+ * @class PackRecord
  * @brief Packs a record's arguments into a reference
  */
-class RamPackRecord : public RamExpression {
+class PackRecord : public Expression {
 public:
-    RamPackRecord(std::vector<std::unique_ptr<RamExpression>> args) : arguments(std::move(args)) {
+    PackRecord(VecOwn<Expression> args) : arguments(std::move(args)) {
         for (const auto& arg : arguments) {
             assert(arg != nullptr && "argument is a null-pointer");
         }
     }
 
     /** @brief Get record arguments */
-    std::vector<RamExpression*> getArguments() const {
+    std::vector<Expression*> getArguments() const {
         return toPtrVector(arguments);
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        std::vector<const RamNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
         for (const auto& cur : arguments) {
             res.push_back(cur.get());
         }
         return res;
     }
 
-    RamPackRecord* clone() const override {
-        auto* res = new RamPackRecord({});
+    PackRecord* clone() const override {
+        auto* res = new PackRecord({});
         for (auto& cur : arguments) {
             res->arguments.emplace_back(cur->clone());
         }
         return res;
     }
 
-    void apply(const RamNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& arg : arguments) {
             arg = map(std::move(arg));
         }
@@ -70,18 +70,17 @@ public:
 
 protected:
     void print(std::ostream& os) const override {
-        os << "[" << join(arguments, ",", [](std::ostream& out, const std::unique_ptr<RamExpression>& arg) {
-            out << *arg;
-        }) << "]";
+        os << "[" << join(arguments, ",", [](std::ostream& out, const Own<Expression>& arg) { out << *arg; })
+           << "]";
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamPackRecord&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const PackRecord&>(node);
         return equal_targets(arguments, other.arguments);
     }
 
     /** Arguments */
-    std::vector<std::unique_ptr<RamExpression>> arguments;
+    VecOwn<Expression> arguments;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

@@ -21,27 +21,27 @@
 #include <cstdlib>
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamSubroutineArgument
+ * @class SubroutineArgument
  * @brief Access argument of a subroutine
  *
  * Arguments are number from zero 0 to n-1
  * where n is the number of arguments of the
  * subroutine.
  */
-class RamSubroutineArgument : public RamExpression {
+class SubroutineArgument : public Expression {
 public:
-    RamSubroutineArgument(size_t number) : number(number) {}
+    SubroutineArgument(size_t number) : number(number) {}
 
     /** @brief Get argument */
     size_t getArgument() const {
         return number;
     }
 
-    RamSubroutineArgument* clone() const override {
-        return new RamSubroutineArgument(number);
+    SubroutineArgument* clone() const override {
+        return new SubroutineArgument(number);
     }
 
 protected:
@@ -49,8 +49,8 @@ protected:
         os << "argument(" << number << ")";
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamSubroutineArgument&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const SubroutineArgument&>(node);
         return number == other.number;
     }
 
@@ -58,4 +58,4 @@ protected:
     const size_t number;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

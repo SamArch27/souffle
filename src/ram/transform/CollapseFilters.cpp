@@ -18,31 +18,30 @@
 #include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Statement.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <functional>
 #include <memory>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram::transform {
 
-bool CollapseFiltersTransformer::collapseFilters(RamProgram& program) {
+bool CollapseFiltersTransformer::collapseFilters(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> filterRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            if (const RamFilter* filter = dynamic_cast<RamFilter*>(node.get())) {
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
+            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
                 // true if two consecutive filters in loop nest found
                 bool canCollapse = false;
 
                 // storing conditions for collapsing
-                std::vector<std::unique_ptr<RamCondition>> conditions;
+                VecOwn<Condition> conditions;
 
-                const RamFilter* prevFilter = filter;
+                const Filter* prevFilter = filter;
                 conditions.emplace_back(filter->getCondition().clone());
-                while (auto* nextFilter = dynamic_cast<RamFilter*>(&prevFilter->getOperation())) {
+                while (auto* nextFilter = dynamic_cast<Filter*>(&prevFilter->getOperation())) {
                     canCollapse = true;
                     conditions.emplace_back(nextFilter->getCondition().clone());
                     prevFilter = nextFilter;
@@ -50,16 +49,16 @@ bool CollapseFiltersTransformer::collapseFilters(RamProgram& program) {
 
                 if (canCollapse) {
                     changed = true;
-                    node = std::make_unique<RamFilter>(toCondition(conditions),
-                            souffle::clone(&prevFilter->getOperation()), prevFilter->getProfileText());
+                    node = mk<Filter>(toCondition(conditions), souffle::clone(&prevFilter->getOperation()),
+                            prevFilter->getProfileText());
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
     });
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

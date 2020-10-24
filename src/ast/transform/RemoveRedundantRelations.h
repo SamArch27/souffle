@@ -14,17 +14,16 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to remove relations which are redundant (do not contribute to output).
  */
-class RemoveRedundantRelationsTransformer : public AstTransformer {
+class RemoveRedundantRelationsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "RemoveRedundantRelationsTransformer";
@@ -35,7 +34,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2019 The Souffle Developers. All Rights reserved
+ * Copyright (c) 2019 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -30,7 +30,7 @@ void error(std::string txt) {
     exit(1);
 }
 
-void printSource2sink(std::unique_ptr<SouffleProgram>& prog) {
+void printSource2sink(Own<SouffleProgram>& prog) {
     Relation* source2sink = prog->getRelation("source2sink");
     for (tuple tuple : *source2sink) {
         std::string field;
@@ -43,8 +43,8 @@ void printSource2sink(std::unique_ptr<SouffleProgram>& prog) {
 /**
  * Main program
  */
-int main(int argc, char** argv) {
-    std::unique_ptr<SouffleProgram> prog(ProgramFactory::newInstance("repeat_analysis"));
+int main(int /* argc */, char** /* argv */) {
+    Own<SouffleProgram> prog(ProgramFactory::newInstance("repeat_analysis"));
     if (prog == nullptr) {
         error("failed to create souffle program");
     }

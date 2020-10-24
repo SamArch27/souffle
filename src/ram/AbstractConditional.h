@@ -17,56 +17,55 @@
 #include "ram/Condition.h"
 #include "ram/NestedOperation.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
-#include "utility/ContainerUtil.h"
+#include "ram/utility/NodeMapper.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamAbstractConditional
+ * @class AbstractConditional
  * @brief Abstract conditional statement
  */
-class RamAbstractConditional : public RamNestedOperation {
+class AbstractConditional : public NestedOperation {
 public:
-    RamAbstractConditional(std::unique_ptr<RamCondition> cond, std::unique_ptr<RamOperation> nested,
-            std::string profileText = "")
-            : RamNestedOperation(std::move(nested), std::move(profileText)), condition(std::move(cond)) {
+    AbstractConditional(Own<Condition> cond, Own<Operation> nested, std::string profileText = "")
+            : NestedOperation(std::move(nested), std::move(profileText)), condition(std::move(cond)) {
         assert(condition != nullptr && "Condition is a null-pointer");
     }
 
-    RamAbstractConditional* clone() const override = 0;
+    AbstractConditional* clone() const override = 0;
 
     /** @brief Get condition that must be satisfied */
-    const RamCondition& getCondition() const {
+    const Condition& getCondition() const {
         assert(condition != nullptr && "condition of conditional operation is a null-pointer");
         return *condition;
     }
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        auto res = RamNestedOperation::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = NestedOperation::getChildNodes();
         res.push_back(condition.get());
         return res;
     }
 
-    void apply(const RamNodeMapper& map) override {
-        RamNestedOperation::apply(map);
+    void apply(const NodeMapper& map) override {
+        NestedOperation::apply(map);
         condition = map(std::move(condition));
     }
 
 protected:
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamAbstractConditional&>(node);
-        return RamNestedOperation::equal(node) && equal_ptr(condition, other.condition);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const AbstractConditional&>(node);
+        return NestedOperation::equal(node) && equal_ptr(condition, other.condition);
     }
 
     /** Condition */
-    std::unique_ptr<RamCondition> condition;
+    Own<Condition> condition;
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

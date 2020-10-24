@@ -15,13 +15,12 @@
  ***********************************************************************/
 
 #include "parser/ParserDriver.h"
-#include "ErrorReport.h"
 #include "Global.h"
 #include "ast/Clause.h"
 #include "ast/Component.h"
 #include "ast/ComponentInit.h"
+#include "ast/Directive.h"
 #include "ast/FunctorDeclaration.h"
-#include "ast/IO.h"
 #include "ast/Pragma.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
@@ -29,13 +28,13 @@
 #include "ast/SubsetType.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Type.h"
-#include "ast/Utils.h"
-#include "utility/ContainerUtil.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/StringUtil.h"
-#include "utility/tinyformat.h"
-#include <algorithm>
+#include "ast/utility/Utils.h"
+#include "reports/ErrorReport.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <memory>
 #include <utility>
 #include <vector>
@@ -48,10 +47,9 @@ extern void yyset_in(FILE* in_str, yyscan_t scanner);
 
 namespace souffle {
 
-std::unique_ptr<AstTranslationUnit> ParserDriver::parse(
+Own<ast::TranslationUnit> ParserDriver::parse(
         const std::string& filename, FILE* in, ErrorReport& errorReport, DebugReport& debugReport) {
-    translationUnit =
-            std::make_unique<AstTranslationUnit>(std::make_unique<AstProgram>(), errorReport, debugReport);
+    translationUnit = mk<ast::TranslationUnit>(mk<ast::Program>(), errorReport, debugReport);
     yyscan_t scanner;
     scanner_data data;
     data.yyfilename = filename;
@@ -66,10 +64,9 @@ std::unique_ptr<AstTranslationUnit> ParserDriver::parse(
     return std::move(translationUnit);
 }
 
-std::unique_ptr<AstTranslationUnit> ParserDriver::parse(
+Own<ast::TranslationUnit> ParserDriver::parse(
         const std::string& code, ErrorReport& errorReport, DebugReport& debugReport) {
-    translationUnit =
-            std::make_unique<AstTranslationUnit>(std::make_unique<AstProgram>(), errorReport, debugReport);
+    translationUnit = mk<ast::TranslationUnit>(mk<ast::Program>(), errorReport, debugReport);
 
     scanner_data data;
     data.yyfilename = "<in-memory>";
@@ -84,96 +81,123 @@ std::unique_ptr<AstTranslationUnit> ParserDriver::parse(
     return std::move(translationUnit);
 }
 
-std::unique_ptr<AstTranslationUnit> ParserDriver::parseTranslationUnit(
+Own<ast::TranslationUnit> ParserDriver::parseTranslationUnit(
         const std::string& filename, FILE* in, ErrorReport& errorReport, DebugReport& debugReport) {
     ParserDriver parser;
     return parser.parse(filename, in, errorReport, debugReport);
 }
 
-std::unique_ptr<AstTranslationUnit> ParserDriver::parseTranslationUnit(
+Own<ast::TranslationUnit> ParserDriver::parseTranslationUnit(
         const std::string& code, ErrorReport& errorReport, DebugReport& debugReport) {
     ParserDriver parser;
     return parser.parse(code, errorReport, debugReport);
 }
 
-void ParserDriver::addPragma(std::unique_ptr<AstPragma> p) {
-    translationUnit->getProgram()->addPragma(std::move(p));
+void ParserDriver::addPragma(Own<ast::Pragma> p) {
+    ast::Program& program = translationUnit->getProgram();
+    program.addPragma(std::move(p));
 }
 
-void ParserDriver::addFunctorDeclaration(std::unique_ptr<AstFunctorDeclaration> f) {
+void ParserDriver::addFunctorDeclaration(Own<ast::FunctorDeclaration> f) {
     const std::string& name = f->getName();
-    if (const AstFunctorDeclaration* prev = getFunctorDeclaration(*translationUnit->getProgram(), name)) {
+    ast::Program& program = translationUnit->getProgram();
+    const ast::FunctorDeclaration* existingFunctorDecl = getIf(program.getFunctorDeclarations(),
+            [&](const ast::FunctorDeclaration* current) { return current->getName() == name; });
+    if (existingFunctorDecl != nullptr) {
         Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of functor " + toString(name), f->getSrcLoc()),
-                {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
+                {DiagnosticMessage("Previous definition", existingFunctorDecl->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
     } else {
-        translationUnit->getProgram()->addFunctorDeclaration(std::move(f));
+        program.addFunctorDeclaration(std::move(f));
     }
 }
 
-void ParserDriver::addRelation(std::unique_ptr<AstRelation> r) {
+void ParserDriver::addRelation(Own<ast::Relation> r) {
     const auto& name = r->getQualifiedName();
-    if (AstRelation* prev = getRelation(*translationUnit->getProgram(), name)) {
+    ast::Program& program = translationUnit->getProgram();
+    if (ast::Relation* prev = getRelation(program, name)) {
         Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of relation " + toString(name), r->getSrcLoc()),
                 {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
     } else {
-        translationUnit->getProgram()->addRelation(std::move(r));
+        program.addRelation(std::move(r));
     }
 }
 
-void ParserDriver::addIO(std::unique_ptr<AstIO> d) {
-    if (d->getType() == AstIoType::printsize) {
-        for (const auto& cur : translationUnit->getProgram()->getIOs()) {
-            if (cur->getQualifiedName() == d->getQualifiedName() && cur->getType() == AstIoType::printsize) {
+void ParserDriver::addDirective(Own<ast::Directive> directive) {
+    ast::Program& program = translationUnit->getProgram();
+    if (directive->getType() == ast::DirectiveType::printsize) {
+        for (const auto& cur : program.getDirectives()) {
+            if (cur->getQualifiedName() == directive->getQualifiedName() &&
+                    cur->getType() == ast::DirectiveType::printsize) {
                 Diagnostic err(Diagnostic::Type::ERROR,
                         DiagnosticMessage("Redefinition of printsize directives for relation " +
-                                                  toString(d->getQualifiedName()),
-                                d->getSrcLoc()),
+                                                  toString(directive->getQualifiedName()),
+                                directive->getSrcLoc()),
+                        {DiagnosticMessage("Previous definition", cur->getSrcLoc())});
+                translationUnit->getErrorReport().addDiagnostic(err);
+                return;
+            }
+        }
+    } else if (directive->getType() == ast::DirectiveType::limitsize) {
+        for (const auto& cur : program.getDirectives()) {
+            if (cur->getQualifiedName() == directive->getQualifiedName() &&
+                    cur->getType() == ast::DirectiveType::limitsize) {
+                Diagnostic err(Diagnostic::Type::ERROR,
+                        DiagnosticMessage("Redefinition of limitsize directives for relation " +
+                                                  toString(directive->getQualifiedName()),
+                                directive->getSrcLoc()),
                         {DiagnosticMessage("Previous definition", cur->getSrcLoc())});
                 translationUnit->getErrorReport().addDiagnostic(err);
                 return;
             }
         }
     }
-    translationUnit->getProgram()->addIO(std::move(d));
+    program.addDirective(std::move(directive));
 }
 
-void ParserDriver::addType(std::unique_ptr<AstType> type) {
+void ParserDriver::addType(Own<ast::Type> type) {
+    ast::Program& program = translationUnit->getProgram();
     const auto& name = type->getQualifiedName();
-    if (const AstType* prev = getType(*translationUnit->getProgram(), name)) {
+    auto* existingType = getIf(program.getTypes(),
+            [&](const ast::Type* current) { return current->getQualifiedName() == name; });
+    if (existingType != nullptr) {
         Diagnostic err(Diagnostic::Type::ERROR,
                 DiagnosticMessage("Redefinition of type " + toString(name), type->getSrcLoc()),
-                {DiagnosticMessage("Previous definition", prev->getSrcLoc())});
+                {DiagnosticMessage("Previous definition", existingType->getSrcLoc())});
         translationUnit->getErrorReport().addDiagnostic(err);
     } else {
-        translationUnit->getProgram()->addType(std::move(type));
+        program.addType(std::move(type));
     }
 }
 
-void ParserDriver::addClause(std::unique_ptr<AstClause> c) {
-    translationUnit->getProgram()->addClause(std::move(c));
+void ParserDriver::addClause(Own<ast::Clause> c) {
+    ast::Program& program = translationUnit->getProgram();
+    program.addClause(std::move(c));
 }
-void ParserDriver::addComponent(std::unique_ptr<AstComponent> c) {
-    translationUnit->getProgram()->addComponent(std::move(c));
+void ParserDriver::addComponent(Own<ast::Component> c) {
+    ast::Program& program = translationUnit->getProgram();
+    program.addComponent(std::move(c));
 }
-void ParserDriver::addInstantiation(std::unique_ptr<AstComponentInit> ci) {
-    translationUnit->getProgram()->addInstantiation(std::move(ci));
+void ParserDriver::addInstantiation(Own<ast::ComponentInit> ci) {
+    ast::Program& program = translationUnit->getProgram();
+    program.addInstantiation(std::move(ci));
 }
 
-void ParserDriver::addIoFromDeprecatedTag(AstRelation& rel) {
+void ParserDriver::addIoFromDeprecatedTag(ast::Relation& rel) {
     if (rel.hasQualifier(RelationQualifier::INPUT)) {
-        addIO(mk<AstIO>(AstIoType::input, rel.getQualifiedName(), rel.getSrcLoc()));
+        addDirective(mk<ast::Directive>(ast::DirectiveType::input, rel.getQualifiedName(), rel.getSrcLoc()));
     }
 
     if (rel.hasQualifier(RelationQualifier::OUTPUT)) {
-        addIO(mk<AstIO>(AstIoType::output, rel.getQualifiedName(), rel.getSrcLoc()));
+        addDirective(mk<ast::Directive>(ast::DirectiveType::output, rel.getQualifiedName(), rel.getSrcLoc()));
     }
 
     if (rel.hasQualifier(RelationQualifier::PRINTSIZE)) {
-        addIO(mk<AstIO>(AstIoType::printsize, rel.getQualifiedName(), rel.getSrcLoc()));
+        addDirective(
+                mk<ast::Directive>(ast::DirectiveType::printsize, rel.getQualifiedName(), rel.getSrcLoc()));
     }
 }
 
@@ -205,12 +229,12 @@ std::set<RelationTag> ParserDriver::addTag(RelationTag tag, std::vector<Relation
     return tags;
 }
 
-Own<AstSubsetType> ParserDriver::mkDeprecatedSubType(
-        AstQualifiedName name, AstQualifiedName baseTypeName, SrcLocation loc) {
+Own<ast::SubsetType> ParserDriver::mkDeprecatedSubType(
+        ast::QualifiedName name, ast::QualifiedName baseTypeName, SrcLocation loc) {
     if (!Global::config().has("legacy")) {
         warning(loc, "Deprecated type declaration used");
     }
-    return mk<AstSubsetType>(std::move(name), std::move(baseTypeName), std::move(loc));
+    return mk<ast::SubsetType>(std::move(name), std::move(baseTypeName), std::move(loc));
 }
 
 void ParserDriver::warning(const SrcLocation& loc, const std::string& msg) {

@@ -19,13 +19,13 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
-#include "ram/Utils.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "ram/utility/NodeMapper.h"
+#include "ram/utility/Utils.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <iosfwd>
 #include <memory>
 #include <ostream>
@@ -33,10 +33,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamAggregate
+ * @class Aggregate
  * @brief Aggregation function applied on some relation
  *
  * For example:
@@ -46,28 +46,27 @@ namespace souffle {
  * Applies the function COUNT to determine the number
  * of elements in A.
  */
-class RamAggregate : public RamRelationOperation, public RamAbstractAggregate {
+class Aggregate : public RelationOperation, public AbstractAggregate {
 public:
-    RamAggregate(std::unique_ptr<RamOperation> nested, AggregateOp fun,
-            std::unique_ptr<RamRelationReference> relRef, std::unique_ptr<RamExpression> expression,
-            std::unique_ptr<RamCondition> condition, int ident)
-            : RamRelationOperation(std::move(relRef), ident, std::move(nested)),
-              RamAbstractAggregate(fun, std::move(expression), std::move(condition)) {}
+    Aggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+            Own<Condition> condition, int ident)
+            : RelationOperation(rel, ident, std::move(nested)),
+              AbstractAggregate(fun, std::move(expression), std::move(condition)) {}
 
-    std::vector<const RamNode*> getChildNodes() const override {
-        auto res = RamRelationOperation::getChildNodes();
-        auto children = RamAbstractAggregate::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = RelationOperation::getChildNodes();
+        auto children = AbstractAggregate::getChildNodes();
         res.insert(res.end(), children.begin(), children.end());
         return res;
     }
 
-    RamAggregate* clone() const override {
-        return new RamAggregate(souffle::clone(&getOperation()), function, souffle::clone(relationRef),
-                souffle::clone(expression), souffle::clone(condition), getTupleId());
+    Aggregate* clone() const override {
+        return new Aggregate(souffle::clone(&getOperation()), function, relation, souffle::clone(expression),
+                souffle::clone(condition), getTupleId());
     }
 
-    void apply(const RamNodeMapper& map) override {
-        RamRelationOperation::apply(map);
+    void apply(const NodeMapper& map) override {
+        RelationOperation::apply(map);
         condition = map(std::move(condition));
         expression = map(std::move(expression));
     }
@@ -76,19 +75,19 @@ protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "t" << getTupleId() << ".0=";
-        RamAbstractAggregate::print(os, tabpos);
-        os << "FOR ALL t" << getTupleId() << " ∈ " << getRelation().getName();
-        if (!isRamTrue(condition.get())) {
+        AbstractAggregate::print(os, tabpos);
+        os << "FOR ALL t" << getTupleId() << " ∈ " << getRelation();
+        if (!isTrue(condition.get())) {
             os << " WHERE " << getCondition();
         }
         os << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        RelationOperation::print(os, tabpos + 1);
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamAggregate&>(node);
-        return RamRelationOperation::equal(other) && RamAbstractAggregate::equal(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Aggregate&>(node);
+        return RelationOperation::equal(other) && AbstractAggregate::equal(node);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

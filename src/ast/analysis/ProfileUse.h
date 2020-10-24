@@ -19,41 +19,44 @@
 
 #include "ast/QualifiedName.h"
 #include "ast/analysis/Analysis.h"
-#include "profile/ProgramRun.h"
+#include "souffle/profile/ProgramRun.h"
 #include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
 
-namespace souffle {
-class AstTranslationUnit;
+namespace souffle::ast {
+class TranslationUnit;
+
+namespace analysis {
 
 /**
- * AstAnalysis that loads profile data and has a profile query interface.
+ * Analysis that loads profile data and has a profile query interface.
  */
-class AstProfileUseAnalysis : public AstAnalysis {
+class ProfileUseAnalysis : public Analysis {
 public:
     /** Name of analysis */
     static constexpr const char* name = "profile-use";
 
-    AstProfileUseAnalysis()
-            : AstAnalysis(name), programRun(std::make_shared<profile::ProgramRun>(profile::ProgramRun())) {}
+    ProfileUseAnalysis()
+            : Analysis(name), programRun(std::make_shared<profile::ProgramRun>(profile::ProgramRun())) {}
 
     /** Run analysis */
-    void run(const AstTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     /** Output some profile information */
     void print(std::ostream& os) const override;
 
     /** Check whether the relation size exists in profile */
-    bool hasRelationSize(const AstQualifiedName& rel);
+    bool hasRelationSize(const QualifiedName& rel) const;
 
     /** Return size of relation in the profile */
-    size_t getRelationSize(const AstQualifiedName& rel);
+    size_t getRelationSize(const QualifiedName& rel) const;
 
 private:
     /** performance model of profile run */
     std::shared_ptr<profile::ProgramRun> programRun;
 };
 
-}  // end of namespace souffle
+}  // namespace analysis
+}  // namespace souffle::ast

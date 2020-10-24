@@ -16,30 +16,29 @@
 
 #pragma once
 
-#include "ast/Argument.h"
 #include "ast/Atom.h"
+#include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
-#include "ast/Literal.h"
 #include "ast/QualifiedName.h"
-#include "ast/Variable.h"
-#include "ast/Visitor.h"
-#include "ast/analysis/Analysis.h"
 #include "ast/transform/Pipeline.h"
 #include "ast/transform/RemoveRedundantRelations.h"
 #include "ast/transform/Transformer.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/ContainerUtil.h"
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
-#include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
+class Program;
+class TranslationUnit;
+}  // namespace souffle::ast
 
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Magic Set Transformation.
@@ -57,12 +56,9 @@ public:
     class MagicSetCoreTransformer;
 
     MagicSetTransformer()
-            : PipelineTransformer(std::make_unique<NormaliseDatabaseTransformer>(),
-                      std::make_unique<LabelDatabaseTransformer>(),
-                      std::make_unique<RemoveRedundantRelationsTransformer>(),
-                      std::make_unique<AdornDatabaseTransformer>(),
-                      std::make_unique<RemoveRedundantRelationsTransformer>(),
-                      std::make_unique<MagicSetCoreTransformer>()) {}
+            : PipelineTransformer(mk<NormaliseDatabaseTransformer>(), mk<LabelDatabaseTransformer>(),
+                      mk<RemoveRedundantRelationsTransformer>(), mk<AdornDatabaseTransformer>(),
+                      mk<RemoveRedundantRelationsTransformer>(), mk<MagicSetCoreTransformer>()) {}
 
     std::string getName() const override {
         return "MagicSetTransformer";
@@ -73,18 +69,37 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& tu) override {
+    bool transform(TranslationUnit& tu) override {
         return shouldRun(tu) ? PipelineTransformer::transform(tu) : false;
     }
 
     /** Determines whether any part of the MST should be run. */
-    static bool shouldRun(const AstTranslationUnit& tu);
+    static bool shouldRun(const TranslationUnit& tu);
 
     /**
-     * Gets set of relations to ignore during the MST process.
-     * Ignored relations are relations that should not be copied or altered beyond normalisation.
+     * Gets the set of relations that are trivially computable,
+     * and so should not be magic-set.
      */
-    static std::set<AstQualifiedName> getIgnoredRelations(const AstTranslationUnit& tu);
+    static std::set<QualifiedName> getTriviallyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to weakly ignore during the MST process.
+     * Weakly-ignored relations cannot be adorned/magic'd.
+     * Superset of strongly-ignored relations.
+     */
+    static std::set<QualifiedName> getWeaklyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to strongly ignore during the MST process.
+     * Strongly-ignored relations cannot be safely duplicated without affecting semantics.
+     */
+    static std::set<QualifiedName> getStronglyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to not label.
+     * The union of strongly and trivially ignored.
+     */
+    static std::set<QualifiedName> getRelationsToNotLabel(const TranslationUnit& tu);
 };
 
 /**
@@ -94,7 +109,7 @@ private:
  *  - Normalises all arguments and constraints
  * Prerequisite for adornment.
  */
-class MagicSetTransformer::NormaliseDatabaseTransformer : public AstTransformer {
+class MagicSetTransformer::NormaliseDatabaseTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "NormaliseDatabaseTransformer";
@@ -105,19 +120,19 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /**
      * Partitions the input and output relations.
      * Program will no longer have relations that are both input and output.
      */
-    static bool partitionIO(AstTranslationUnit& translationUnit);
+    static bool partitionIO(TranslationUnit& translationUnit);
 
     /**
      * Separates the IDB from the EDB, so that they are disjoint.
      * Program will no longer have input relations that appear as the head of clauses.
      */
-    static bool extractIDB(AstTranslationUnit& translationUnit);
+    static bool extractIDB(TranslationUnit& translationUnit);
 
     /**
      * Extracts output relations into separate simple query relations,
@@ -126,7 +141,7 @@ private:
      *      (1) have exactly one rule defining them
      *      (2) do not appear in other rules
      */
-    static bool querifyOutputRelations(AstTranslationUnit& translationUnit);
+    static bool querifyOutputRelations(TranslationUnit& translationUnit);
 
     /**
      * Normalise all arguments within each clause.
@@ -134,7 +149,7 @@ private:
      *      (1) a variable, or
      *      (2) the RHS of a `<var> = <arg>` constraint
      */
-    static bool normaliseArguments(AstTranslationUnit& translationUnit);
+    static bool normaliseArguments(TranslationUnit& translationUnit);
 };
 
 /**
@@ -147,8 +162,7 @@ public:
     class PositiveLabellingTransformer;
 
     LabelDatabaseTransformer()
-            : PipelineTransformer(std::make_unique<NegativeLabellingTransformer>(),
-                      std::make_unique<PositiveLabellingTransformer>()) {}
+            : PipelineTransformer(mk<NegativeLabellingTransformer>(), mk<PositiveLabellingTransformer>()) {}
 
     std::string getName() const override {
         return "LabelDatabaseTransformer";
@@ -160,7 +174,7 @@ public:
 
 private:
     /** Check if a relation is negatively labelled. */
-    static bool isNegativelyLabelled(const AstQualifiedName& name);
+    static bool isNegativelyLabelled(const QualifiedName& name);
 };
 
 /**
@@ -168,7 +182,7 @@ private:
  * Separates out negated appearances of relations from the main SCC graph, preventing them from affecting
  * stratification once magic dependencies are added.
  */
-class MagicSetTransformer::LabelDatabaseTransformer::NegativeLabellingTransformer : public AstTransformer {
+class MagicSetTransformer::LabelDatabaseTransformer::NegativeLabellingTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "NegativeLabellingTransformer";
@@ -179,10 +193,10 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /** Provide a unique name for negatively-labelled relations. */
-    static AstQualifiedName getNegativeLabel(const AstQualifiedName& name);
+    static QualifiedName getNegativeLabel(const QualifiedName& name);
 };
 
 /**
@@ -191,7 +205,7 @@ private:
  * affecting stratification after magic.
  * Note: Negative labelling must have been run first.
  */
-class MagicSetTransformer::LabelDatabaseTransformer::PositiveLabellingTransformer : public AstTransformer {
+class MagicSetTransformer::LabelDatabaseTransformer::PositiveLabellingTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "PositiveLabellingTransformer";
@@ -202,10 +216,10 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /** Provide a unique name for a positively labelled relation copy. */
-    static AstQualifiedName getPositiveLabel(const AstQualifiedName& name, size_t count);
+    static QualifiedName getPositiveLabel(const QualifiedName& name, size_t count);
 };
 
 /**
@@ -213,11 +227,8 @@ private:
  * Adorns the rules of a database with variable flow and binding information.
  * Prerequisite for the magic set transformation.
  */
-class MagicSetTransformer::AdornDatabaseTransformer : public AstTransformer {
+class MagicSetTransformer::AdornDatabaseTransformer : public Transformer {
 public:
-    // Helper class for determining variable binding involving functors
-    class BindingStore;
-
     std::string getName() const override {
         return "AdornDatabaseTransformer";
     }
@@ -227,23 +238,22 @@ public:
     }
 
 private:
-    using adorned_predicate = std::pair<AstQualifiedName, std::string>;
+    using adorned_predicate = std::pair<QualifiedName, std::string>;
 
     std::set<adorned_predicate> headAdornmentsToDo;
-    std::set<AstQualifiedName> headAdornmentsSeen;
+    std::set<QualifiedName> headAdornmentsSeen;
 
-    std::vector<std::unique_ptr<AstClause>> adornedClauses;
-    std::vector<std::unique_ptr<AstClause>> redundantClauses;
-    std::set<AstQualifiedName> relationsToIgnore;
+    VecOwn<Clause> adornedClauses;
+    VecOwn<Clause> redundantClauses;
+    std::set<QualifiedName> weaklyIgnoredRelations;
 
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /** Get the unique identifier corresponding to an adorned predicate. */
-    static AstQualifiedName getAdornmentID(
-            const AstQualifiedName& relName, const std::string& adornmentMarker);
+    static QualifiedName getAdornmentID(const QualifiedName& relName, const std::string& adornmentMarker);
 
     /** Add an adornment to the ToDo queue if it hasn't been processed before. */
-    void queueAdornment(const AstQualifiedName& relName, const std::string& adornmentMarker) {
+    void queueAdornment(const QualifiedName& relName, const std::string& adornmentMarker) {
         auto adornmentID = getAdornmentID(relName, adornmentMarker);
         if (!contains(headAdornmentsSeen, adornmentID)) {
             headAdornmentsToDo.insert(std::make_pair(relName, adornmentMarker));
@@ -265,7 +275,7 @@ private:
     }
 
     /** Returns the adorned version of a clause. */
-    std::unique_ptr<AstClause> adornClause(const AstClause* clause, const std::string& adornmentMarker);
+    Own<Clause> adornClause(const Clause* clause, const std::string& adornmentMarker);
 };
 
 /**
@@ -273,7 +283,7 @@ private:
  * Creates all magic rules and relations based on the preceding adornment, and adds them into rules as needed.
  * Assumes that Normalisation, Labelling, and Adornment have all been performed.
  */
-class MagicSetTransformer::MagicSetCoreTransformer : public AstTransformer {
+class MagicSetTransformer::MagicSetCoreTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "MagicSetCoreTransformer";
@@ -284,84 +294,30 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 
     /** Gets a unique magic identifier for a given adorned relation name */
-    static AstQualifiedName getMagicName(const AstQualifiedName& name);
+    static QualifiedName getMagicName(const QualifiedName& name);
 
     /** Checks if a given relation name is adorned */
-    static bool isAdorned(const AstQualifiedName& name);
+    static bool isAdorned(const QualifiedName& name);
 
     /** Retrieves an adornment encoded in a given relation name */
-    static std::string getAdornment(const AstQualifiedName& name);
+    static std::string getAdornment(const QualifiedName& name);
 
     /** Get all potentially-binding equality constraints in a clause */
-    static std::vector<const AstBinaryConstraint*> getBindingEqualityConstraints(const AstClause* clause);
+    static std::vector<const BinaryConstraint*> getBindingEqualityConstraints(const Clause* clause);
 
     /** Get the closure of the given set of variables under appearance in the given eq constraints */
     static void addRelevantVariables(
-            std::set<std::string>& variables, const std::vector<const AstBinaryConstraint*> eqConstraints);
+            std::set<std::string>& variables, const std::vector<const BinaryConstraint*> eqConstraints);
 
     /** Creates the magic atom associatd with the given (rel, adornment) pair */
-    static std::unique_ptr<AstAtom> createMagicAtom(const AstAtom* atom);
+    static Own<Atom> createMagicAtom(const Atom* atom);
 
     /** Creates the magic clause centred around the given magic atom */
-    static std::unique_ptr<AstClause> createMagicClause(const AstAtom* atom,
-            const std::vector<std::unique_ptr<AstAtom>>& constrainingAtoms,
-            const std::vector<const AstBinaryConstraint*> eqConstraints);
+    static Own<Clause> createMagicClause(const Atom* atom, const VecOwn<Atom>& constrainingAtoms,
+            const std::vector<const BinaryConstraint*> eqConstraints);
 };
 
-/**
- * A storage of bound variables that dynamically determines the set of bound variables
- * within a clause.
- */
-class MagicSetTransformer::AdornDatabaseTransformer::BindingStore {
-public:
-    BindingStore(const AstClause* clause, const std::string& adornmentMarker);
-
-    void bindVariable(std::string varName) {
-        boundVariables.insert(varName);
-        reduceDependencies();
-    }
-
-    bool isBound(std::string varName) const {
-        return contains(boundVariables, varName) || contains(boundHeadVariables, varName);
-    }
-
-private:
-    // Helper types to represent a disjunction of several dependency sets
-    using ConjBindingSet = std::set<std::string>;
-    using DisjBindingSet = std::set<ConjBindingSet>;
-
-    std::set<std::string> boundVariables{};
-    std::set<std::string> boundHeadVariables{};
-    std::map<std::string, DisjBindingSet> variableDependencies{};
-
-    /**
-     * Add a new conjunction of variables as a potential binder for a given variable.
-     * The variable is considered bound if all variables in the conjunction are bound.
-     */
-    void addBindingDependency(std::string variable, ConjBindingSet dependency) {
-        if (!contains(variableDependencies, variable)) {
-            variableDependencies[variable] = DisjBindingSet();
-        }
-        variableDependencies[variable].insert(dependency);
-    }
-
-    /** Add binding dependencies formed on lhs by a <lhs> = <rhs> equality constraint. */
-    void processEqualityBindings(const AstArgument* lhs, const AstArgument* rhs);
-
-    /** Generate all binding dependencies implied by the constraints within a given clause. */
-    void generateBindingDependencies(const AstClause* clause);
-
-    /** Reduce a conjunctive set of dependencies based on the current bound variable set. */
-    ConjBindingSet reduceDependency(const ConjBindingSet& origDependency);
-
-    /** Reduce a disjunctive set of variable dependencies based on the current bound variable set. */
-    DisjBindingSet reduceDependency(const DisjBindingSet& origDependency);
-
-    /** Reduce the full set of dependencies for all tracked variables, binding whatever needs to be bound. */
-    bool reduceDependencies();
-};
-
-}  // namespace souffle
+}  // namespace souffle::ast::transform

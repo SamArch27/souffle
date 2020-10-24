@@ -16,7 +16,7 @@
 
 #include "tests/test.h"
 
-#include "CompiledTuple.h"
+#include "souffle/RamTypes.h"
 #include <cstdint>
 #include <iostream>
 #include <string>

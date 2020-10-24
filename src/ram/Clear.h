@@ -19,17 +19,17 @@
 
 #include "ram/Relation.h"
 #include "ram/RelationStatement.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamClear
+ * @class Clear
  * @brief Delete tuples of a relation
  *
  * This retains the target relation, but cleans its content
@@ -39,22 +39,20 @@ namespace souffle {
  * CLEAR A
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamClear : public RamRelationStatement {
-public:
-    RamClear(std::unique_ptr<RamRelationReference> relRef) : RamRelationStatement(std::move(relRef)) {}
 
-    RamClear* clone() const override {
-        return new RamClear(souffle::clone(relationRef));
+class Clear : public RelationStatement {
+public:
+    Clear(std::string rel) : RelationStatement(rel) {}
+
+    Clear* clone() const override {
+        return new Clear(relation);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        const RamRelation& rel = getRelation();
         os << times(" ", tabpos);
-        os << "CLEAR ";
-        os << rel.getName();
-        os << std::endl;
+        os << "CLEAR " << relation << std::endl;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

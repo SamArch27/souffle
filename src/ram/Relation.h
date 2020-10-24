@@ -17,7 +17,7 @@
 
 #include "RelationTag.h"
 #include "ram/Node.h"
-#include "utility/ContainerUtil.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -26,17 +26,16 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamRelation
+ * @class Relation
  * @brief A RAM Relation in the RAM intermediate representation.
  */
-class RamRelation : public RamNode {
+class Relation : public Node {
 public:
-    RamRelation(std::string name, size_t arity, size_t auxiliaryArity,
-            std::vector<std::string> attributeNames, std::vector<std::string> attributeTypes,
-            RelationRepresentation representation)
+    Relation(std::string name, size_t arity, size_t auxiliaryArity, std::vector<std::string> attributeNames,
+            std::vector<std::string> attributeTypes, RelationRepresentation representation)
             : representation(representation), name(std::move(name)), arity(arity),
               auxiliaryArity(auxiliaryArity), attributeNames(std::move(attributeNames)),
               attributeTypes(std::move(attributeTypes)) {
@@ -89,12 +88,12 @@ public:
     }
 
     /** @brief Compare two relations via their name */
-    bool operator<(const RamRelation& other) const {
+    bool operator<(const Relation& other) const {
         return name < other.name;
     }
 
-    RamRelation* clone() const override {
-        return new RamRelation(name, arity, auxiliaryArity, attributeNames, attributeTypes, representation);
+    Relation* clone() const override {
+        return new Relation(name, arity, auxiliaryArity, attributeNames, attributeTypes, representation);
     }
 
 protected:
@@ -116,9 +115,9 @@ protected:
         }
     }
 
-    bool equal(const RamNode& node) const override {
-        assert(nullptr != dynamic_cast<const RamRelation*>(&node));
-        const auto& other = static_cast<const RamRelation&>(node);
+    bool equal(const Node& node) const override {
+        assert(isA<Relation>(&node));
+        const auto& other = static_cast<const Relation&>(node);
         return representation == other.representation && name == other.name && arity == other.arity &&
                auxiliaryArity == other.auxiliaryArity && attributeNames == other.attributeNames &&
                attributeTypes == other.attributeTypes;
@@ -144,38 +143,4 @@ protected:
     const std::vector<std::string> attributeTypes;
 };
 
-/**
- * @class RamRelationReference
- * @brief A RAM Relation in the RAM intermediate representation.
- */
-class RamRelationReference : public RamNode {
-public:
-    RamRelationReference(const RamRelation* relation) : relation(relation) {
-        assert(relation != nullptr && "null relation");
-    }
-
-    /** @brief Get reference */
-    const RamRelation* get() const {
-        return relation;
-    }
-
-    RamRelationReference* clone() const override {
-        return new RamRelationReference(relation);
-    }
-
-protected:
-    void print(std::ostream& out) const override {
-        out << relation->getName();
-    }
-
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamRelationReference&>(node);
-        return equal_ptr(relation, other.relation);
-    }
-
-protected:
-    /** Name of relation */
-    const RamRelation* relation;
-};
-
-}  // end of namespace souffle
+}  // namespace souffle::ram

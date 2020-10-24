@@ -1,7 +1,7 @@
 
 #include "FunctorOps.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <cctype>
 #include <map>
@@ -154,7 +154,7 @@ using FOp = FunctorOp;
 #define VARIADIC_ORDERED(op) \
     VARIADIC(op, Signed), VARIADIC(U##op, Unsigned), VARIADIC(F##op, Float), VARIADIC(S##op, Symbol)
 
-const std::vector<IntrinsicFunctor> FUNCTOR_INTRINSICS = {
+const std::vector<IntrinsicFunctorInfo> FUNCTOR_INTRINSICS = {
         {FUNCTOR_INTRINSIC_PREFIX_NEGATE_NAME, {TAttr::Signed}, TAttr::Signed, FunctorOp::NEG},
         {FUNCTOR_INTRINSIC_PREFIX_NEGATE_NAME, {TAttr::Float}, TAttr::Float, FunctorOp::FNEG},
 

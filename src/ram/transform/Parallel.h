@@ -14,13 +14,13 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
+#include "ram/analysis/Relation.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class ParallelTransformer
@@ -43,7 +43,7 @@ class RamProgram;
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  */
-class ParallelTransformer : public RamTransformer {
+class ParallelTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ParallelTransformer";
@@ -54,12 +54,14 @@ public:
      * @param program Program that is transformed
      * @return Flag showing whether the program has been changed by the transformation
      */
-    bool parallelizeOperations(RamProgram& program);
+    bool parallelizeOperations(Program& program);
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
+        relAnalysis = translationUnit.getAnalysis<analysis::RelationAnalysis>();
         return parallelizeOperations(translationUnit.getProgram());
     }
+    analysis::RelationAnalysis* relAnalysis{nullptr};
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

@@ -8,49 +8,56 @@
 
 /************************************************************************
  *
- * @file IOType.cpp
+ * @file IOTypeAnalysis.cpp
  *
  * Implements methods to identify a relation as input, output, or printsize.
  *
  ***********************************************************************/
 
 #include "ast/analysis/IOType.h"
-#include "ast/IO.h"
+#include "ast/Directive.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
-#include "ast/Utils.h"
-#include "ast/Visitor.h"
-#include "utility/StreamUtil.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/StreamUtil.h"
+#include <cassert>
 #include <ostream>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-void IOType::run(const AstTranslationUnit& translationUnit) {
-    const AstProgram& program = *translationUnit.getProgram();
-    visitDepthFirst(program, [&](const AstIO& io) {
-        auto* relation = getRelation(program, io.getQualifiedName());
+void IOTypeAnalysis::run(const TranslationUnit& translationUnit) {
+    const Program& program = translationUnit.getProgram();
+    visitDepthFirst(program, [&](const Directive& directive) {
+        auto* relation = getRelation(program, directive.getQualifiedName());
         if (relation == nullptr) {
             return;
         }
-        switch (io.getType()) {
-            case AstIoType::input: inputRelations.insert(relation); break;
-            case AstIoType::output: outputRelations.insert(relation); break;
-            case AstIoType::printsize:
+        switch (directive.getType()) {
+            case ast::DirectiveType::input: inputRelations.insert(relation); break;
+            case ast::DirectiveType::output: outputRelations.insert(relation); break;
+            case ast::DirectiveType::printsize:
                 printSizeRelations.insert(relation);
                 outputRelations.insert(relation);
+                break;
+            case ast::DirectiveType::limitsize:
+                limitSizeRelations.insert(relation);
+                assert(directive.hasParameter("n") && "limitsize has no n directive");
+                limitSize[relation] = stoi(directive.getParameter("n"));
                 break;
         }
     });
 }
 
-void IOType::print(std::ostream& os) const {
-    auto show = [](std::ostream& os, const AstRelation* r) { os << r->getQualifiedName(); };
+void IOTypeAnalysis::print(std::ostream& os) const {
+    auto show = [](std::ostream& os, const Relation* r) { os << r->getQualifiedName(); };
     os << "input relations: {" << join(inputRelations, ", ", show) << "}\n";
     os << "output relations: {" << join(outputRelations, ", ", show) << "}\n";
     os << "printsize relations: {" << join(printSizeRelations, ", ", show) << "}\n";
+    os << "limitsize relations: {" << join(limitSizeRelations, ", ", show) << "}\n";
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

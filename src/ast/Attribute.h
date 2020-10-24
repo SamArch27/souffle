@@ -23,20 +23,20 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstAttribute
+ * @class Attribute
  * @brief Attribute class
  *
  * Example:
  *    x: number
  * An attribute consists of a name and its type name.
  */
-class AstAttribute : public AstNode {
+class Attribute : public Node {
 public:
-    AstAttribute(std::string n, AstQualifiedName t, SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(n)), typeName(std::move(t)) {}
+    Attribute(std::string n, QualifiedName t, SrcLocation loc = {})
+            : Node(std::move(loc)), name(std::move(n)), typeName(std::move(t)) {}
 
     /** Return attribute name */
     const std::string& getName() const {
@@ -44,17 +44,17 @@ public:
     }
 
     /** Return type name */
-    const AstQualifiedName& getTypeName() const {
+    const QualifiedName& getTypeName() const {
         return typeName;
     }
 
     /** Set type name */
-    void setTypeName(AstQualifiedName name) {
+    void setTypeName(QualifiedName name) {
         typeName = std::move(name);
     }
 
-    AstAttribute* clone() const override {
-        return new AstAttribute(name, typeName, getSrcLoc());
+    Attribute* clone() const override {
+        return new Attribute(name, typeName, getSrcLoc());
     }
 
 protected:
@@ -62,8 +62,8 @@ protected:
         os << name << ":" << typeName;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstAttribute&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Attribute&>(node);
         return name == other.name && typeName == other.typeName;
     }
 
@@ -72,7 +72,7 @@ private:
     std::string name;
 
     /** Type name */
-    AstQualifiedName typeName;
+    QualifiedName typeName;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

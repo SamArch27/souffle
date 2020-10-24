@@ -28,18 +28,18 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::analysis {
 
-void RelationDetailCacheAnalysis::run(const AstTranslationUnit& translationUnit) {
-    const auto& program = *translationUnit.getProgram();
+void RelationDetailCacheAnalysis::run(const TranslationUnit& translationUnit) {
+    const auto& program = translationUnit.getProgram();
     for (auto* rel : program.getRelations()) {
         nameToRelation[rel->getQualifiedName()] = rel;
-        nameToClauses[rel->getQualifiedName()] = std::set<AstClause*>();
+        nameToClauses[rel->getQualifiedName()] = std::set<Clause*>();
     }
     for (auto* clause : program.getClauses()) {
         const auto& relationName = clause->getHead()->getQualifiedName();
         if (nameToClauses.find(relationName) == nameToClauses.end()) {
-            nameToClauses[relationName] = std::set<AstClause*>();
+            nameToClauses[relationName] = std::set<Clause*>();
         }
         nameToClauses.at(relationName).insert(clause);
     }
@@ -56,4 +56,4 @@ void RelationDetailCacheAnalysis::print(std::ostream& os) const {
     }
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

@@ -15,17 +15,18 @@
  ***********************************************************************/
 
 #include "ast/transform/Meta.h"
+#include "souffle/utility/MiscUtil.h"
 #include <chrono>
 #include <iostream>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, AstTransformer* transformer) {
+bool MetaTransformer::applySubtransformer(TranslationUnit& translationUnit, Transformer* transformer) {
     auto start = std::chrono::high_resolution_clock::now();
     bool changed = transformer->apply(translationUnit);
     auto end = std::chrono::high_resolution_clock::now();
 
-    if (verbose && (dynamic_cast<MetaTransformer*>(transformer) == nullptr)) {
+    if (verbose && (!isA<MetaTransformer>(transformer))) {
         std::string changedString = changed ? "changed" : "unchanged";
         std::cout << transformer->getName() << " time: " << std::chrono::duration<double>(end - start).count()
                   << "sec [" << changedString << "]" << std::endl;
@@ -34,4 +35,4 @@ bool MetaTransformer::applySubtransformer(AstTranslationUnit& translationUnit, A
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

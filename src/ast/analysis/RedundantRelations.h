@@ -19,37 +19,39 @@
 #pragma once
 
 #include "ast/analysis/Analysis.h"
-#include <iostream>
 #include <set>
 #include <string>
 
-namespace souffle {
-class AstTranslationUnit;
+namespace souffle::ast {
+class TranslationUnit;
+class Relation;
+
+namespace analysis {
 class PrecedenceGraphAnalysis;
-class AstRelation;
 
 /**
  * Analysis pass identifying relations which do not contribute to the computation
  * of the output relations.
  */
-class RedundantRelationsAnalysis : public AstAnalysis {
+class RedundantRelationsAnalysis : public Analysis {
 public:
     static constexpr const char* name = "redundant-relations";
 
-    RedundantRelationsAnalysis() : AstAnalysis(name) {}
+    RedundantRelationsAnalysis() : Analysis(name) {}
 
-    void run(const AstTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     void print(std::ostream& os) const override;
 
-    const std::set<const AstRelation*>& getRedundantRelations() const {
+    const std::set<const Relation*>& getRedundantRelations() const {
         return redundantRelations;
     }
 
 private:
     PrecedenceGraphAnalysis* precedenceGraph = nullptr;
 
-    std::set<const AstRelation*> redundantRelations;
+    std::set<const Relation*> redundantRelations;
 };
 
-}  // end of namespace souffle
+}  // namespace analysis
+}  // namespace souffle::ast

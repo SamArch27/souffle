@@ -18,19 +18,19 @@
 
 #include "ast/ComponentType.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
+#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstComponentInit
+ * @class ComponentInit
  * @brief Component initialization class
  *
  * Example:
@@ -38,10 +38,10 @@ namespace souffle {
  *
  * Intialization of a component with type parameters
  */
-class AstComponentInit : public AstNode {
+class ComponentInit : public Node {
 public:
-    AstComponentInit(std::string name, Own<AstComponentType> type, SrcLocation loc = {})
-            : AstNode(std::move(loc)), instanceName(std::move(name)), componentType(std::move(type)) {}
+    ComponentInit(std::string name, Own<ComponentType> type, SrcLocation loc = {})
+            : Node(std::move(loc)), instanceName(std::move(name)), componentType(std::move(type)) {}
 
     /** Return instance name */
     const std::string& getInstanceName() const {
@@ -54,24 +54,24 @@ public:
     }
 
     /** Return component type */
-    const AstComponentType* getComponentType() const {
+    const ComponentType* getComponentType() const {
         return componentType.get();
     }
 
     /** Set component type */
-    void setComponentType(Own<AstComponentType> type) {
+    void setComponentType(Own<ComponentType> type) {
         componentType = std::move(type);
     }
 
-    AstComponentInit* clone() const override {
-        return new AstComponentInit(instanceName, souffle::clone(componentType), getSrcLoc());
+    ComponentInit* clone() const override {
+        return new ComponentInit(instanceName, souffle::clone(componentType), getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& mapper) override {
+    void apply(const NodeMapper& mapper) override {
         componentType = mapper(std::move(componentType));
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {componentType.get()};
     }
 
@@ -80,8 +80,8 @@ protected:
         os << ".init " << instanceName << " = " << *componentType;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstComponentInit&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const ComponentInit&>(node);
         return instanceName == other.instanceName && *componentType == *other.componentType;
     }
 
@@ -89,7 +89,7 @@ protected:
     std::string instanceName;
 
     /** Actual component arguments for instantiation */
-    Own<AstComponentType> componentType;
+    Own<ComponentType> componentType;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -16,22 +16,22 @@
 
 #include "ast/analysis/Type.h"
 #include "AggregateOp.h"
-#include "Constraints.h"
+#include "ConstraintSystem.h"
 #include "FunctorOps.h"
 #include "Global.h"
-#include "RamTypes.h"
 #include "ast/Aggregator.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
 #include "ast/Attribute.h"
 #include "ast/BinaryConstraint.h"
+#include "ast/BranchInit.h"
 #include "ast/Clause.h"
+#include "ast/Constant.h"
 #include "ast/Counter.h"
 #include "ast/Functor.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Negation.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
 #include "ast/NumericConstant.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
@@ -41,16 +41,19 @@
 #include "ast/TranslationUnit.h"
 #include "ast/TypeCast.h"
 #include "ast/UnnamedVariable.h"
-#include "ast/Utils.h"
 #include "ast/Variable.h"
-#include "ast/Visitor.h"
 #include "ast/analysis/Constraint.h"
+#include "ast/analysis/Functor.h"
+#include "ast/analysis/SumTypeBranches.h"
 #include "ast/analysis/TypeEnvironment.h"
 #include "ast/analysis/TypeSystem.h"
-#include "utility/ContainerUtil.h"
-#include "utility/FunctionalUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StringUtil.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/FunctionalUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -60,11 +63,11 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
-namespace souffle {
-class AstConstant;
+namespace souffle::ast::analysis {
 
 namespace {
 
@@ -110,7 +113,7 @@ struct all_type_factory {
 struct type_lattice : public property_space<TypeSet, sub_type, all_type_factory> {};
 
 /** The definition of the type of variable to be utilized in the type analysis */
-using TypeVar = AstConstraintAnalysisVar<type_lattice>;
+using TypeVar = ConstraintAnalysisVar<type_lattice>;
 
 /** The definition of the type of constraint to be utilized in the type analysis */
 using TypeConstraint = std::shared_ptr<Constraint<TypeVar>>;
@@ -350,7 +353,7 @@ TypeConstraint satisfiesOverload(const TypeEnvironment& typeEnv, IntrinsicFuncto
                 return curr.isAll() || any_of(curr, [&](auto&& t) { return getTypeAttribute(t) == ty; });
             };
 
-            overloads = filterNot(std::move(overloads), [&](const IntrinsicFunctor& x) -> bool {
+            overloads = filterNot(std::move(overloads), [&](const IntrinsicFunctorInfo& x) -> bool {
                 if (!x.variadic && args.size() != x.params.size()) return true;  // arity mismatch?
 
                 for (size_t i = 0; i < args.size(); ++i)
@@ -483,24 +486,24 @@ TypeConstraint isSubtypeOfComponent(
 }  // namespace
 
 /* Return a new clause with type-annotated variables */
-std::unique_ptr<AstClause> createAnnotatedClause(
-        const AstClause* clause, const std::map<const AstArgument*, TypeSet> argumentTypes) {
+Own<Clause> createAnnotatedClause(
+        const Clause* clause, const std::map<const Argument*, TypeSet> argumentTypes) {
     // Annotates each variable with its type based on a given type analysis result
-    struct TypeAnnotator : public AstNodeMapper {
-        const std::map<const AstArgument*, TypeSet>& types;
+    struct TypeAnnotator : public NodeMapper {
+        const std::map<const Argument*, TypeSet>& types;
 
-        TypeAnnotator(const std::map<const AstArgument*, TypeSet>& types) : types(types) {}
+        TypeAnnotator(const std::map<const Argument*, TypeSet>& types) : types(types) {}
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-            if (auto* var = dynamic_cast<AstVariable*>(node.get())) {
+        Own<Node> operator()(Own<Node> node) const override {
+            if (auto* var = dynamic_cast<ast::Variable*>(node.get())) {
                 std::stringstream newVarName;
                 newVarName << var->getName() << "&isin;" << types.find(var)->second;
-                return std::make_unique<AstVariable>(newVarName.str());
-            } else if (auto* var = dynamic_cast<AstUnnamedVariable*>(node.get())) {
+                return mk<ast::Variable>(newVarName.str());
+            } else if (auto* var = dynamic_cast<UnnamedVariable*>(node.get())) {
                 std::stringstream newVarName;
                 newVarName << "_"
                            << "&isin;" << types.find(var)->second;
-                return std::make_unique<AstVariable>(newVarName.str());
+                return mk<ast::Variable>(newVarName.str());
             }
             node->apply(*this);
             return node;
@@ -520,13 +523,13 @@ std::unique_ptr<AstClause> createAnnotatedClause(
 
     // Maps x -> y, where x is the address of an argument in the original clause, and y
     // is the address of the equivalent argument in the clone.
-    std::map<const AstArgument*, const AstArgument*> memoryMap;
+    std::map<const Argument*, const Argument*> memoryMap;
 
-    std::vector<const AstArgument*> originalAddresses;
-    visitDepthFirst(*clause, [&](const AstArgument& arg) { originalAddresses.push_back(&arg); });
+    std::vector<const Argument*> originalAddresses;
+    visitDepthFirst(*clause, [&](const Argument& arg) { originalAddresses.push_back(&arg); });
 
-    std::vector<const AstArgument*> cloneAddresses;
-    visitDepthFirst(*annotatedClause, [&](const AstArgument& arg) { cloneAddresses.push_back(&arg); });
+    std::vector<const Argument*> cloneAddresses;
+    visitDepthFirst(*annotatedClause, [&](const Argument& arg) { cloneAddresses.push_back(&arg); });
 
     assert(cloneAddresses.size() == originalAddresses.size());
 
@@ -535,7 +538,7 @@ std::unique_ptr<AstClause> createAnnotatedClause(
     }
 
     // Map the types to the clause clone
-    std::map<const AstArgument*, TypeSet> cloneArgumentTypes;
+    std::map<const Argument*, TypeSet> cloneArgumentTypes;
     for (auto& pair : argumentTypes) {
         cloneArgumentTypes[memoryMap[pair.first]] = pair.second;
     }
@@ -555,25 +558,27 @@ std::unique_ptr<AstClause> createAnnotatedClause(
  * Otherwise it is a source, and the type of the element must
  * be a subtype of source attribute.
  */
-class TypeConstraintsAnalysis : public AstConstraintAnalysis<TypeVar> {
+class TypeConstraintsAnalysis : public ConstraintAnalysis<TypeVar> {
 public:
-    TypeConstraintsAnalysis(const TypeEnvironment& typeEnv, const AstProgram& program)
-            : typeEnv(typeEnv), program(program) {}
+    TypeConstraintsAnalysis(const TranslationUnit& tu) : tu(tu) {}
 
 private:
-    const TypeEnvironment& typeEnv;
-    const AstProgram& program;
+    const TranslationUnit& tu;
+    const TypeEnvironment& typeEnv = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
+    const Program& program = tu.getProgram();
+    const SumTypeBranchesAnalysis& sumTypesBranches = *tu.getAnalysis<SumTypeBranchesAnalysis>();
+    const FunctorAnalysis& functorAnalysis = *tu.getAnalysis<FunctorAnalysis>();
 
     // Sinks = {head} ∪ {negated atoms}
-    std::set<const AstAtom*> sinks;
+    std::set<const Atom*> sinks;
 
-    void collectConstraints(const AstClause& clause) override {
+    void collectConstraints(const Clause& clause) override {
         sinks.insert(clause.getHead());
         visitDepthFirstPreOrder(clause, *this);
     }
 
-    void visitSink(const AstAtom& atom) {
-        iterateOverAtom(atom, [&](const AstArgument& argument, const Type& attributeType) {
+    void visitSink(const Atom& atom) {
+        iterateOverAtom(atom, [&](const Argument& argument, const Type& attributeType) {
             if (isA<RecordType>(attributeType)) {
                 addConstraint(isSubtypeOf(getVar(argument), getBaseType(&attributeType)));
                 return;
@@ -586,43 +591,43 @@ private:
         });
     }
 
-    void visitAtom(const AstAtom& atom) override {
+    void visitAtom(const Atom& atom) override {
         if (contains(sinks, &atom)) {
             visitSink(atom);
             return;
         }
 
-        iterateOverAtom(atom, [&](const AstArgument& argument, const Type& attributeType) {
+        iterateOverAtom(atom, [&](const Argument& argument, const Type& attributeType) {
             addConstraint(isSubtypeOf(getVar(argument), attributeType));
         });
     }
 
-    void visitNegation(const AstNegation& cur) override {
+    void visitNegation(const Negation& cur) override {
         sinks.insert(cur.getAtom());
     }
 
-    void visitStringConstant(const AstStringConstant& cnst) override {
+    void visitStringConstant(const StringConstant& cnst) override {
         addConstraint(isSubtypeOf(getVar(cnst), typeEnv.getConstantType(TypeAttribute::Symbol)));
     }
 
-    void visitNumericConstant(const AstNumericConstant& constant) override {
+    void visitNumericConstant(const NumericConstant& constant) override {
         TypeSet possibleTypes;
 
         // Check if the type is given.
         if (constant.getType().has_value()) {
             switch (*constant.getType()) {
                 // Insert a type, but only after checking that parsing is possible.
-                case AstNumericConstant::Type::Int:
+                case NumericConstant::Type::Int:
                     if (canBeParsedAsRamSigned(constant.getConstant())) {
                         possibleTypes.insert(typeEnv.getConstantType(TypeAttribute::Signed));
                     }
                     break;
-                case AstNumericConstant::Type::Uint:
+                case NumericConstant::Type::Uint:
                     if (canBeParsedAsRamUnsigned(constant.getConstant())) {
                         possibleTypes.insert(typeEnv.getConstantType(TypeAttribute::Unsigned));
                     }
                     break;
-                case AstNumericConstant::Type::Float:
+                case NumericConstant::Type::Float:
                     if (canBeParsedAsRamFloat(constant.getConstant())) {
                         possibleTypes.insert(typeEnv.getConstantType(TypeAttribute::Float));
                     }
@@ -646,22 +651,22 @@ private:
         addConstraint(hasSuperTypeInSet(getVar(constant), possibleTypes));
     }
 
-    void visitBinaryConstraint(const AstBinaryConstraint& rel) override {
+    void visitBinaryConstraint(const BinaryConstraint& rel) override {
         auto lhs = getVar(rel.getLHS());
         auto rhs = getVar(rel.getRHS());
         addConstraint(isSubtypeOf(lhs, rhs));
         addConstraint(isSubtypeOf(rhs, lhs));
     }
 
-    void visitFunctor(const AstFunctor& fun) override {
+    void visitFunctor(const Functor& fun) override {
         auto functorVar = getVar(fun);
 
-        auto intrFun = as<AstIntrinsicFunctor>(fun);
+        auto intrFun = as<IntrinsicFunctor>(fun);
         if (intrFun) {
             auto argVars = map(intrFun->getArguments(), [&](auto&& x) { return getVar(x); });
             // The type of the user-defined function might not be set at this stage.
             // If so then add overloads as alternatives
-            if (!intrFun->getFunctionInfo())
+            if (!intrFun->getFunctionOp())
                 addConstraint(satisfiesOverload(typeEnv, functorBuiltIn(intrFun->getFunction()), functorVar,
                         argVars, isInfixFunctorOp(intrFun->getFunction())));
 
@@ -677,26 +682,34 @@ private:
                 return;
             }
 
-            if (!intrFun->getFunctionInfo()) return;
+            if (!intrFun->getFunctionOp()) return;
         }
 
         // add a constraint for the return type of the functor
-        addConstraint(isSubtypeOf(functorVar, typeEnv.getConstantType(fun.getReturnType())));
+        try {
+            TypeAttribute returnType = functorAnalysis.getReturnType(&fun);
+            addConstraint(isSubtypeOf(functorVar, typeEnv.getConstantType(returnType)));
+        } catch (...) {
+            // missing function information
+            return;
+        }
 
         // Special case. Ord returns the ram representation of any object.
-        if (intrFun && intrFun->getFunctionInfo()->op == FunctorOp::ORD) return;
+        if (intrFun && intrFun->getFunctionOp().value() == FunctorOp::ORD) return;
 
+        // Add constraints on arguments
         auto arguments = fun.getArguments();
         for (size_t i = 0; i < arguments.size(); ++i) {
-            addConstraint(isSubtypeOf(getVar(arguments[i]), typeEnv.getConstantType(fun.getArgType(i))));
+            TypeAttribute argType = functorAnalysis.getArgType(&fun, i);
+            addConstraint(isSubtypeOf(getVar(arguments[i]), typeEnv.getConstantType(argType)));
         }
     }
 
-    void visitCounter(const AstCounter& counter) override {
+    void visitCounter(const Counter& counter) override {
         addConstraint(isSubtypeOf(getVar(counter), typeEnv.getConstantType(TypeAttribute::Signed)));
     }
 
-    void visitTypeCast(const AstTypeCast& typeCast) override {
+    void visitTypeCast(const ast::TypeCast& typeCast) override {
         auto& typeName = typeCast.getType();
         if (!typeEnv.isType(typeName)) {
             return;
@@ -708,19 +721,52 @@ private:
         // Otherwise, expression like: to_string(as(2, float)) couldn't be typed.
         auto* value = typeCast.getValue();
 
-        if (isA<AstConstant>(value)) {
+        if (isA<Constant>(value)) {
             addConstraint(isSubtypeOf(getVar(*value), typeEnv.getType(typeName)));
         }
     }
 
-    void visitRecordInit(const AstRecordInit& record) override {
+    void visitRecordInit(const RecordInit& record) override {
         auto arguments = record.getArguments();
         for (size_t i = 0; i < arguments.size(); ++i) {
             addConstraint(isSubtypeOfComponent(getVar(arguments[i]), getVar(record), i));
         }
     }
 
-    void visitAggregator(const AstAggregator& agg) override {
+    void visitBranchInit(const BranchInit& adt) override {
+        auto* correspondingType = sumTypesBranches.getType(adt.getConstructor());
+
+        if (correspondingType == nullptr) {
+            return;  // malformed program.
+        }
+
+        // Sanity check
+        assert(isA<AlgebraicDataType>(correspondingType));
+
+        // Constraint on the whole branch. $Branch(...) <: ADTtype
+        addConstraint(isSubtypeOf(getVar(adt), *correspondingType));
+
+        // Constraints on arguments
+        try {
+            auto branchTypes = as<AlgebraicDataType>(correspondingType)->getBranchTypes(adt.getConstructor());
+            auto branchArgs = adt.getArguments();
+
+            if (branchTypes.size() != branchArgs.size()) {
+                // handled by semantic checker later.
+                throw std::invalid_argument("Invalid arity");
+            }
+
+            // Add constraints for each of the branch arguments.
+            for (size_t i = 0; i < branchArgs.size(); ++i) {
+                auto argVar = getVar(branchArgs[i]);
+                addConstraint(isSubtypeOf(argVar, *branchTypes[i]));
+            }
+        } catch (...) {
+            return;  // Invalid program.
+        }
+    }
+
+    void visitAggregator(const Aggregator& agg) override {
         if (agg.getOperator() == AggregateOp::COUNT) {
             addConstraint(isSubtypeOf(getVar(agg), typeEnv.getConstantType(TypeAttribute::Signed)));
         } else if (agg.getOperator() == AggregateOp::MEAN) {
@@ -741,7 +787,7 @@ private:
      * Iterate over atoms valid pairs of (argument, type-attribute) and apply procedure `map` for its
      * side-effects.
      */
-    void iterateOverAtom(const AstAtom& atom, std::function<void(const AstArgument&, const Type&)> map) {
+    void iterateOverAtom(const Atom& atom, std::function<void(const Argument&, const Type&)> map) {
         // get relation
         auto rel = getAtomRelation(&atom, &program);
         if (rel == nullptr) {
@@ -763,32 +809,31 @@ private:
     }
 };
 
-std::map<const AstArgument*, TypeSet> TypeAnalysis::analyseTypes(const TypeEnvironment& typeEnv,
-        const AstClause& clause, const AstProgram& program, std::ostream* logs) {
-    return TypeConstraintsAnalysis(typeEnv, program).analyse(clause, logs);
+std::map<const Argument*, TypeSet> TypeAnalysis::analyseTypes(
+        const TranslationUnit& tu, const Clause& clause, std::ostream* logs) {
+    return TypeConstraintsAnalysis(tu).analyse(clause, logs);
 }
 
 void TypeAnalysis::print(std::ostream& os) const {
     os << "-- Analysis logs --" << std::endl;
     os << analysisLogs.str() << std::endl;
     os << "-- Result --" << std::endl;
-    for (const auto& cur : annotatedClauses) {
+    for (auto& cur : annotatedClauses) {
         os << *cur << std::endl;
     }
 }
 
-void TypeAnalysis::run(const AstTranslationUnit& translationUnit) {
+void TypeAnalysis::run(const TranslationUnit& translationUnit) {
     // Check if debugging information is being generated
     std::ostream* debugStream = nullptr;
     if (Global::config().has("debug-report") || Global::config().has("show", "type-analysis")) {
         debugStream = &analysisLogs;
     }
-    const auto& program = *translationUnit.getProgram();
-    auto& typeEnv = translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
     // Analyse types, clause by clause.
-    for (const AstClause* clause : program.getClauses()) {
-        auto clauseArgumentTypes = analyseTypes(typeEnv, *clause, program, debugStream);
+    const Program& program = translationUnit.getProgram();
+    for (const Clause* clause : program.getClauses()) {
+        auto clauseArgumentTypes = analyseTypes(translationUnit, *clause, debugStream);
         argumentTypes.insert(clauseArgumentTypes.begin(), clauseArgumentTypes.end());
 
         if (debugStream != nullptr) {
@@ -798,4 +843,4 @@ void TypeAnalysis::run(const AstTranslationUnit& translationUnit) {
     }
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

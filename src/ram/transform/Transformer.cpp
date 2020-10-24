@@ -15,22 +15,22 @@
  ***********************************************************************/
 
 #include "ram/transform/Transformer.h"
-#include "DebugReport.h"
-#include "ErrorReport.h"
 #include "Global.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/transform/Meta.h"
-#include "utility/StringUtil.h"
+#include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
+#include "souffle/utility/StringUtil.h"
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <type_traits>
 
-namespace souffle {
+namespace souffle::ram::transform {
 
-bool RamTransformer::apply(RamTranslationUnit& translationUnit) {
+bool Transformer::apply(TranslationUnit& translationUnit) {
     const bool debug = Global::config().has("debug-report");
     const bool verbose = Global::config().has("verbose");
     std::string ramProgStrOld = debug ? toString(translationUnit.getProgram()) : "";
@@ -46,7 +46,7 @@ bool RamTransformer::apply(RamTranslationUnit& translationUnit) {
     }
 
     // print runtime & change info for transformer in verbose mode
-    if (verbose && (nullptr == dynamic_cast<RamMetaTransformer*>(this))) {
+    if (verbose && (!isA<MetaTransformer>(this))) {
         std::string changedString = changed ? "changed" : "unchanged";
         std::cout << getName() << " time: " << std::chrono::duration<double>(end - start).count() << "sec ["
                   << changedString << "]" << std::endl;
@@ -76,4 +76,4 @@ bool RamTransformer::apply(RamTranslationUnit& translationUnit) {
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

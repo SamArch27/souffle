@@ -17,18 +17,17 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to reduce unnecessary computation for
  * relations that only appear in the form A(_,...,_).
  */
-class ReduceExistentialsTransformer : public AstTransformer {
+class ReduceExistentialsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ReduceExistentialsTransformer";
@@ -39,7 +38,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -16,19 +16,16 @@
 
 #pragma once
 
+#include "ast/Atom.h"
+#include "ast/Clause.h"
+#include "ast/Constraint.h"
 #include "ast/Literal.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <iosfwd>
-#include <memory>
 #include <utility>
 #include <vector>
 
 namespace souffle {
-
-class AstConstraint;
-class AstClause;
-class AstAtom;
 
 class RuleBody {
 public:
@@ -42,7 +39,7 @@ public:
 
     void disjunct(RuleBody other);
 
-    VecOwn<AstClause> toClauseBodies() const;
+    VecOwn<ast::Clause> toClauseBodies() const;
 
     // -- factory functions --
 
@@ -50,22 +47,22 @@ public:
 
     static RuleBody getFalse();
 
-    static RuleBody atom(Own<AstAtom> atom);
+    static RuleBody atom(Own<ast::Atom> atom);
 
-    static RuleBody constraint(Own<AstConstraint> constraint);
+    static RuleBody constraint(Own<ast::Constraint> constraint);
 
     friend std::ostream& operator<<(std::ostream& out, const RuleBody& body);
 
 private:
     // a struct to represent literals
     struct literal {
-        literal(bool negated, std::unique_ptr<AstLiteral> atom) : negated(negated), atom(std::move(atom)) {}
+        literal(bool negated, Own<ast::Literal> atom) : negated(negated), atom(std::move(atom)) {}
 
         // whether this literal is negated or not
         bool negated;
 
         // the atom referenced by tis literal
-        std::unique_ptr<AstLiteral> atom;
+        Own<ast::Literal> atom;
 
         literal clone() const {
             return literal(negated, souffle::clone(atom));

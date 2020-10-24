@@ -20,18 +20,18 @@
 #include "ram/Condition.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamTrue
+ * @class True
  * @brief True value condition
  *
  * Output is "true"
  */
-class RamTrue : public RamCondition {
+class True : public Condition {
 public:
-    RamTrue* clone() const override {
-        return new RamTrue();
+    True* clone() const override {
+        return new True();
     }
 
 protected:
@@ -40,4 +40,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

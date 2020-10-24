@@ -17,26 +17,26 @@
 #pragma once
 
 #include "ast/Atom.h"
+#include "ast/Program.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
-#include "ast/Utils.h"
 #include "ast/analysis/Analysis.h"
+#include "ast/utility/Utils.h"
 #include <string>
 
-namespace souffle {
-class AstRelation;
-class AstProgram;
+namespace souffle::ast::analysis {
 
 /**
  * Determine the auxiliary arity for relations
  */
-class AuxiliaryArity : public AstAnalysis {
+class AuxiliaryArityAnalysis : public Analysis {
 public:
     static constexpr const char* name = "auxiliary-arity";
 
-    AuxiliaryArity() : AstAnalysis(name) {}
+    AuxiliaryArityAnalysis() : Analysis(name) {}
 
-    void run(const AstTranslationUnit& translationUnit) override {
-        program = translationUnit.getProgram();
+    void run(const TranslationUnit& translationUnit) override {
+        program = &translationUnit.getProgram();
     }
 
     /**
@@ -44,7 +44,7 @@ public:
      * @param atom the atom to report on
      * @return number of auxiliary attributes
      */
-    size_t getArity(const AstAtom* atom) const {
+    size_t getArity(const Atom* atom) const {
         return computeArity(getRelation(*program, atom->getQualifiedName()));
     }
 
@@ -53,7 +53,7 @@ public:
      * @param relation the relation to report on
      * @return number of auxiliary attributes
      */
-    size_t getArity(const AstRelation* relation) const {
+    size_t getArity(const Relation* relation) const {
         return computeArity(relation);
     }
 
@@ -63,9 +63,9 @@ private:
      * @param relation the relation to report on
      * @return number of auxiliary attributes
      */
-    size_t computeArity(const AstRelation* relation) const;
+    size_t computeArity(const Relation* relation) const;
 
-    const AstProgram* program = nullptr;
+    const Program* program = nullptr;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::analysis

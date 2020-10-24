@@ -16,15 +16,15 @@
 
 #include "ram/Node.h"
 #include "ram/Statement.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamCall
+ * @class Call
  * @brief Call a subroutine
  *
  * Calls a subroutine
@@ -35,17 +35,17 @@ namespace souffle {
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-class RamCall : public RamStatement {
+class Call : public Statement {
 public:
-    RamCall(std::string name) : name(std::move(name)) {}
+    Call(std::string name) : name(std::move(name)) {}
 
     /** @brief Get call name */
     const std::string& getName() const {
         return name;
     }
 
-    RamCall* clone() const override {
-        return new RamCall(name);
+    Call* clone() const override {
+        return new Call(name);
     }
 
 protected:
@@ -53,13 +53,13 @@ protected:
         os << times(" ", tabpos) << "CALL " << name << std::endl;
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamCall&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Call&>(node);
         return name == other.name;
     }
 
-    /** name of subroutine */
-    std::string name;
+    /** Name of subroutine */
+    const std::string name;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

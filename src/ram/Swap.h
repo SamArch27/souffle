@@ -16,17 +16,17 @@
 
 #include "ram/BinRelationStatement.h"
 #include "ram/Relation.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamSwap
+ * @class Swap
  * @brief Swap operation with respect to two relations
  *
  * Swaps the contents of the two relations
@@ -36,21 +36,20 @@ namespace souffle {
  * SWAP(A, B)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamSwap : public RamBinRelationStatement {
+class Swap : public BinRelationStatement {
 public:
-    RamSwap(std::unique_ptr<RamRelationReference> f, std::unique_ptr<RamRelationReference> s)
-            : RamBinRelationStatement(std::move(f), std::move(s)) {}
+    Swap(std::string f, std::string s) : BinRelationStatement(f, s) {}
 
-    RamSwap* clone() const override {
-        return new RamSwap(souffle::clone(first), souffle::clone(second));
+    Swap* clone() const override {
+        return new Swap(first, second);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
-        os << "SWAP (" << getFirstRelation().getName() << ", " << getSecondRelation().getName() << ")";
+        os << "SWAP (" << getFirstRelation() << ", " << getSecondRelation() << ")";
         os << std::endl;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

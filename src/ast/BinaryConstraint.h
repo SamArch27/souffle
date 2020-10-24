@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include "BinaryConstraintOps.h"
 #include "ast/Argument.h"
 #include "ast/Constraint.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
+#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include <algorithm>
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iostream>
 #include <memory>
@@ -32,10 +31,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstBinaryConstraint
+ * @class BinaryConstraint
  * @brief Binary constraint class
  *
  * Example:
@@ -44,18 +43,18 @@ namespace souffle {
  * A binary constraint has a constraint operator, a left-hand side
  * expression, and right-hand side expression.
  */
-class AstBinaryConstraint : public AstConstraint {
+class BinaryConstraint : public Constraint {
 public:
-    AstBinaryConstraint(BinaryConstraintOp o, Own<AstArgument> ls, Own<AstArgument> rs, SrcLocation loc = {})
-            : AstConstraint(std::move(loc)), operation(o), lhs(std::move(ls)), rhs(std::move(rs)) {}
+    BinaryConstraint(BinaryConstraintOp o, Own<Argument> ls, Own<Argument> rs, SrcLocation loc = {})
+            : Constraint(std::move(loc)), operation(o), lhs(std::move(ls)), rhs(std::move(rs)) {}
 
     /** Return left-hand side argument */
-    AstArgument* getLHS() const {
+    Argument* getLHS() const {
         return lhs.get();
     }
 
     /** Return right-hand side argument */
-    AstArgument* getRHS() const {
+    Argument* getRHS() const {
         return rhs.get();
     }
 
@@ -69,16 +68,16 @@ public:
         operation = op;
     }
 
-    AstBinaryConstraint* clone() const override {
-        return new AstBinaryConstraint(operation, souffle::clone(lhs), souffle::clone(rhs), getSrcLoc());
+    BinaryConstraint* clone() const override {
+        return new BinaryConstraint(operation, souffle::clone(lhs), souffle::clone(rhs), getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         lhs = map(std::move(lhs));
         rhs = map(std::move(rhs));
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
+    std::vector<const Node*> getChildNodes() const override {
         return {lhs.get(), rhs.get()};
     }
 
@@ -87,9 +86,9 @@ protected:
         os << *lhs << " " << operation << " " << *rhs;
     }
 
-    bool equal(const AstNode& node) const override {
-        assert(nullptr != dynamic_cast<const AstBinaryConstraint*>(&node));
-        const auto& other = static_cast<const AstBinaryConstraint&>(node);
+    bool equal(const Node& node) const override {
+        assert(isA<BinaryConstraint>(&node));
+        const auto& other = static_cast<const BinaryConstraint&>(node);
         return operation == other.operation && equal_ptr(lhs, other.lhs) && equal_ptr(rhs, other.rhs);
     }
 
@@ -97,10 +96,10 @@ protected:
     BinaryConstraintOp operation;
 
     /** Left-hand side argument of binary constraint */
-    Own<AstArgument> lhs;
+    Own<Argument> lhs;
 
     /** Right-hand side argument of binary constraint */
-    Own<AstArgument> rhs;
+    Own<Argument> rhs;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

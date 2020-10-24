@@ -19,18 +19,18 @@
 #include "ram/Expression.h"
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamAutoIncrement
+ * @class AutoIncrement
  * @brief Increment a counter and return its value.
  *
  * Note that there exists a single counter only.
  */
-class RamAutoIncrement : public RamExpression {
+class AutoIncrement : public Expression {
 public:
-    RamAutoIncrement* clone() const override {
-        return new RamAutoIncrement();
+    AutoIncrement* clone() const override {
+        return new AutoIncrement();
     }
 
 protected:
@@ -39,4 +39,4 @@ protected:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

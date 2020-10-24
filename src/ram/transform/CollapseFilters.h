@@ -14,13 +14,12 @@
 
 #pragma once
 
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class RamProgram;
+namespace souffle::ram::transform {
 
 /**
  * @class CollapseFiltersTransformer
@@ -46,7 +45,7 @@ class RamProgram;
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  */
-class CollapseFiltersTransformer : public RamTransformer {
+class CollapseFiltersTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "CollapseFiltersTransformer";
@@ -57,12 +56,12 @@ public:
      * @param program Program that is transformed
      * @return Flag showing whether the program has been changed by the transformation
      */
-    bool collapseFilters(RamProgram& program);
+    bool collapseFilters(Program& program);
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         return collapseFilters(translationUnit.getProgram());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved
+ * Copyright (c) 2020 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -17,38 +17,39 @@
 #pragma once
 
 #include "FunctorOps.h"
-#include "TypeAttribute.h"
 #include "ast/Argument.h"
 #include "ast/Functor.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <cstddef>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstIntrinsicFunctor
+ * @class IntrinsicFunctor
  * @brief Intrinsic Functor class for functors are in-built.
  */
-class AstIntrinsicFunctor : public AstFunctor {
+class IntrinsicFunctor : public Functor {
 public:
     template <typename... Operands>
-    AstIntrinsicFunctor(std::string op, Operands&&... operands)
-            : AstFunctor(std::forward<Operands>(operands)...), function(std::move(op)) {}
+    IntrinsicFunctor(std::string op, Operands&&... operands)
+            : Functor(std::forward<Operands>(operands)...), function(std::move(op)) {}
 
     template <typename... Operands>
-    AstIntrinsicFunctor(SrcLocation loc, std::string op, Operands&&... operands)
-            : AstFunctor(std::move(loc), std::forward<Operands>(operands)...), function(std::move(op)) {}
+    IntrinsicFunctor(SrcLocation loc, std::string op, Operands&&... operands)
+            : Functor(std::move(loc), std::forward<Operands>(operands)...), function(std::move(op)) {}
 
-    AstIntrinsicFunctor(std::string op, VecOwn<AstArgument> args, SrcLocation loc = {})
-            : AstFunctor(std::move(args), std::move(loc)), function(std::move(op)) {}
+    IntrinsicFunctor(std::string op, VecOwn<Argument> args, SrcLocation loc = {})
+            : Functor(std::move(args), std::move(loc)), function(std::move(op)) {}
 
     /** Get function */
     const std::string& getFunction() const {
@@ -61,57 +62,48 @@ public:
     }
 
     /** Get function information */
-    const IntrinsicFunctor* getFunctionInfo() const {
-        return info;
+    std::optional<FunctorOp> getFunctionOp() const {
+        return op;
     }
 
     /** Set function information */
-    void setFunctionInfo(const IntrinsicFunctor& info) {
-        this->info = &info;
+    void setFunctionOp(FunctorOp op) {
+        this->op = op;
     }
 
-    /** Get the return type of the functor. */
-    TypeAttribute getReturnType() const override {
-        assert(info && "functor info not yet available");
-        return info->result;
-    }
-
-    /** Get type of the functor argument*/
-    TypeAttribute getArgType(const size_t arg) const override {
-        assert(info && "functor info not yet available");
-        return info->params.at(info->variadic ? 0 : arg);
-    }
-
-    AstIntrinsicFunctor* clone() const override {
-        return new AstIntrinsicFunctor(function, info, souffle::clone(args), getSrcLoc());
+    IntrinsicFunctor* clone() const override {
+        return new IntrinsicFunctor(function, op, souffle::clone(args), getSrcLoc());
     }
 
 protected:
-    AstIntrinsicFunctor(
-            std::string op, const IntrinsicFunctor* info, VecOwn<AstArgument> args, SrcLocation loc = {})
-            : AstFunctor(std::move(args), std::move(loc)), function(std::move(op)), info(info) {
-        assert((!info || info->symbol == function) && "functor info must match symbol");
-    }
+    IntrinsicFunctor(
+            std::string function, std::optional<FunctorOp> op, VecOwn<Argument> args, SrcLocation loc = {})
+            : Functor(std::move(args), std::move(loc)), function(std::move(function)), op(op) {}
 
     void print(std::ostream& os) const override {
         if (isInfixFunctorOp(function)) {
             os << "(" << join(args, function) << ")";
         } else {
-            os << function;
+            // Negation is handled differently to all other functors so we need a special case.
+            if (function == FUNCTOR_INTRINSIC_PREFIX_NEGATE_NAME) {
+                os << "-";
+            } else {
+                os << function;
+            }
             os << "(" << join(args) << ")";
         }
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstIntrinsicFunctor&>(node);
-        return function == other.function && info == other.info && AstFunctor::equal(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const IntrinsicFunctor&>(node);
+        return function == other.function && op == other.op && Functor::equal(node);
     }
 
     /** Function */
     std::string function;
 
-    /** Functor information */
-    const IntrinsicFunctor* info = nullptr;
+    /** Functor Op */
+    std::optional<FunctorOp> op;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -21,19 +21,19 @@
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstNilConstant
+ * @class NilConstant
  * @brief Defines the nil constant
  */
-class AstNilConstant : public AstConstant {
+class NilConstant : public Constant {
 public:
-    AstNilConstant(SrcLocation loc = {}) : AstConstant("nil", std::move(loc)) {}
+    NilConstant(SrcLocation loc = {}) : Constant("nil", std::move(loc)) {}
 
-    AstNilConstant* clone() const override {
-        return new AstNilConstant(getSrcLoc());
+    NilConstant* clone() const override {
+        return new NilConstant(getSrcLoc());
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

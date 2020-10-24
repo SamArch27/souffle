@@ -20,37 +20,36 @@
 #include "ram/AbstractExistenceCheck.h"
 #include "ram/Expression.h"
 #include "ram/Relation.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <sstream>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamProvenanceExistenceCheck
+ * @class ProvenanceExistenceCheck
  * @brief Provenance Existence check for a relation
  */
-class RamProvenanceExistenceCheck : public RamAbstractExistenceCheck {
+class ProvenanceExistenceCheck : public AbstractExistenceCheck {
 public:
-    RamProvenanceExistenceCheck(
-            std::unique_ptr<RamRelationReference> relRef, std::vector<std::unique_ptr<RamExpression>> vals)
-            : RamAbstractExistenceCheck(std::move(relRef), std::move(vals)) {}
+    ProvenanceExistenceCheck(std::string rel, VecOwn<Expression> vals)
+            : AbstractExistenceCheck(rel, std::move(vals)) {}
 
-    RamProvenanceExistenceCheck* clone() const override {
-        std::vector<std::unique_ptr<RamExpression>> newValues;
+    ProvenanceExistenceCheck* clone() const override {
+        VecOwn<Expression> newValues;
         for (auto& cur : values) {
             newValues.emplace_back(cur->clone());
         }
-        return new RamProvenanceExistenceCheck(souffle::clone(relationRef), std::move(newValues));
+        return new ProvenanceExistenceCheck(relation, std::move(newValues));
     }
 
 protected:
     void print(std::ostream& os) const override {
         os << "prov";
-        RamAbstractExistenceCheck::print(os);
+        AbstractExistenceCheck::print(os);
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

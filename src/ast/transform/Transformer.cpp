@@ -15,12 +15,12 @@
  ***********************************************************************/
 
 #include "ast/transform/Transformer.h"
-#include "ErrorReport.h"
 #include "ast/TranslationUnit.h"
+#include "reports/ErrorReport.h"
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool AstTransformer::apply(AstTranslationUnit& translationUnit) {
+bool Transformer::apply(TranslationUnit& translationUnit) {
     // invoke the transformation
     bool changed = transform(translationUnit);
 
@@ -34,4 +34,4 @@ bool AstTransformer::apply(AstTranslationUnit& translationUnit) {
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

@@ -13,26 +13,25 @@
  ***********************************************************************/
 
 #include "ast/transform/RemoveRedundantRelations.h"
-#include "ast/Program.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/analysis/RedundantRelations.h"
+#include "ast/utility/Utils.h"
 #include <set>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool RemoveRedundantRelationsTransformer::transform(AstTranslationUnit& translationUnit) {
+bool RemoveRedundantRelationsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
-    auto* redundantRelationsAnalysis = translationUnit.getAnalysis<RedundantRelationsAnalysis>();
-    const std::set<const AstRelation*>& redundantRelations =
-            redundantRelationsAnalysis->getRedundantRelations();
+    auto* redundantRelationsAnalysis = translationUnit.getAnalysis<analysis::RedundantRelationsAnalysis>();
+    const std::set<const Relation*>& redundantRelations = redundantRelationsAnalysis->getRedundantRelations();
     if (!redundantRelations.empty()) {
         for (auto rel : redundantRelations) {
-            translationUnit.getProgram()->removeRelation(rel->getQualifiedName());
+            removeRelation(translationUnit, rel->getQualifiedName());
             changed = true;
         }
     }
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

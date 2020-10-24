@@ -16,37 +16,36 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/DebugReporter.h"
 #include "ast/transform/Meta.h"
 #include "ast/transform/Null.h"
 #include "ast/transform/Transformer.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformer that repeatedly executes a sub-transformer until no changes are made
  */
 class FixpointTransformer : public MetaTransformer {
 public:
-    FixpointTransformer(std::unique_ptr<AstTransformer> transformer) : transformer(std::move(transformer)) {}
+    FixpointTransformer(Own<Transformer> transformer) : transformer(std::move(transformer)) {}
 
     void setDebugReport() override {
         if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
             mt->setDebugReport();
         } else {
-            transformer = std::make_unique<DebugReporter>(std::move(transformer));
+            transformer = mk<DebugReporter>(std::move(transformer));
         }
     }
 
-    std::vector<AstTransformer*> getSubtransformers() const override {
+    std::vector<Transformer*> getSubtransformers() const override {
         return {transformer.get()};
     }
 
@@ -61,7 +60,7 @@ public:
         if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
             mt->disableTransformers(transforms);
         } else if (transforms.find(transformer->getName()) != transforms.end()) {
-            transformer = std::make_unique<NullTransformer>();
+            transformer = mk<NullTransformer>();
         }
     }
 
@@ -74,8 +73,8 @@ public:
     }
 
 private:
-    std::unique_ptr<AstTransformer> transformer;
-    bool transform(AstTranslationUnit& translationUnit) override {
+    Own<Transformer> transformer;
+    bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
         while (applySubtransformer(translationUnit, transformer.get())) {
             changed = true;
@@ -84,4 +83,4 @@ private:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

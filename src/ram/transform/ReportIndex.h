@@ -14,11 +14,14 @@
 
 #pragma once
 
+#include "ram/Condition.h"
+#include "ram/Expression.h"
 #include "ram/Operation.h"
+#include "ram/Program.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/ComplexityAnalysis.h"
-#include "ram/analysis/IndexAnalysis.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Complexity.h"
+#include "ram/analysis/Index.h"
+#include "ram/analysis/Level.h"
 #include "ram/transform/Transformer.h"
 #include <cstddef>
 #include <memory>
@@ -26,11 +29,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-
-class RamProgram;
-class RamCondition;
-class RamExpression;
+namespace souffle::ram::transform {
 
 /**
  * @class ReportIndexSetsTransformer
@@ -38,17 +37,17 @@ class RamExpression;
  *        if the debug-report flag is enabled.
  *
  */
-class ReportIndexTransformer : public RamTransformer {
+class ReportIndexTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ReportIndexTransformer";
     }
 
 protected:
-    bool transform(RamTranslationUnit& translationUnit) override {
-        translationUnit.getAnalysis<RamIndexAnalysis>();
+    bool transform(TranslationUnit& translationUnit) override {
+        translationUnit.getAnalysis<analysis::IndexAnalysis>();
         return false;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

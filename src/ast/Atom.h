@@ -19,11 +19,11 @@
 #include "ast/Argument.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
 #include "ast/QualifiedName.h"
+#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -32,23 +32,23 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstAtom
+ * @class Atom
  * @brief An atom class
  *
  * An atom representing the use of a relation
  * either in the head or in the body of a clause,
  * e.g., parent(x,y), !parent(x,y), ...
  */
-class AstAtom : public AstLiteral {
+class Atom : public Literal {
 public:
-    AstAtom(AstQualifiedName name = {}, VecOwn<AstArgument> args = {}, SrcLocation loc = {})
-            : AstLiteral(std::move(loc)), name(std::move(name)), arguments(std::move(args)) {}
+    Atom(QualifiedName name = {}, VecOwn<Argument> args = {}, SrcLocation loc = {})
+            : Literal(std::move(loc)), name(std::move(name)), arguments(std::move(args)) {}
 
     /** Return qualified name */
-    const AstQualifiedName& getQualifiedName() const {
+    const QualifiedName& getQualifiedName() const {
         return name;
     }
 
@@ -58,32 +58,32 @@ public:
     }
 
     /** Set qualified name */
-    void setQualifiedName(AstQualifiedName n) {
+    void setQualifiedName(QualifiedName n) {
         name = std::move(n);
     }
 
     /** Add argument to the atom */
-    void addArgument(Own<AstArgument> arg) {
+    void addArgument(Own<Argument> arg) {
         arguments.push_back(std::move(arg));
     }
 
     /** Return arguments */
-    std::vector<AstArgument*> getArguments() const {
+    std::vector<Argument*> getArguments() const {
         return toPtrVector(arguments);
     }
 
-    AstAtom* clone() const override {
-        return new AstAtom(name, souffle::clone(arguments), getSrcLoc());
+    Atom* clone() const override {
+        return new Atom(name, souffle::clone(arguments), getSrcLoc());
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& arg : arguments) {
             arg = map(std::move(arg));
         }
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        std::vector<const AstNode*> res;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> res;
         for (auto& cur : arguments) {
             res.push_back(cur.get());
         }
@@ -95,16 +95,16 @@ protected:
         os << getQualifiedName() << "(" << join(arguments) << ")";
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstAtom&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Atom&>(node);
         return name == other.name && equal_targets(arguments, other.arguments);
     }
 
     /** Name of atom */
-    AstQualifiedName name;
+    QualifiedName name;
 
     /** Arguments of atom */
-    VecOwn<AstArgument> arguments;
+    VecOwn<Argument> arguments;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

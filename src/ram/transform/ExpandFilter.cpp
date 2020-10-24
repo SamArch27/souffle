@@ -17,35 +17,35 @@
 #include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Statement.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
 
 namespace souffle {
-class RamCondition;
+class Condition;
 
-bool ExpandFilterTransformer::expandFilters(RamProgram& program) {
+namespace ram::transform {
+
+bool ExpandFilterTransformer::expandFilters(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> filterRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            if (const RamFilter* filter = dynamic_cast<RamFilter*>(node.get())) {
-                const RamCondition* condition = &filter->getCondition();
-                std::vector<std::unique_ptr<RamCondition>> conditionList = toConjunctionList(condition);
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
+            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+                const Condition* condition = &filter->getCondition();
+                VecOwn<Condition> conditionList = toConjunctionList(condition);
                 if (conditionList.size() > 1) {
                     changed = true;
-                    std::vector<std::unique_ptr<RamFilter>> filters;
+                    VecOwn<Filter> filters;
                     for (auto& cond : conditionList) {
                         if (filters.empty()) {
-                            filters.emplace_back(std::make_unique<RamFilter>(
+                            filters.emplace_back(mk<Filter>(
                                     souffle::clone(cond), souffle::clone(&filter->getOperation())));
                         } else {
-                            filters.emplace_back(std::make_unique<RamFilter>(
-                                    souffle::clone(cond), std::move(filters.back())));
+                            filters.emplace_back(mk<Filter>(souffle::clone(cond), std::move(filters.back())));
                         }
                     }
                     node = std::move(filters.back());
@@ -54,9 +54,10 @@ bool ExpandFilterTransformer::expandFilters(RamProgram& program) {
             node->apply(makeLambdaRamMapper(filterRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
     });
     return changed;
 }
 
+}  // namespace ram::transform
 }  // end of namespace souffle

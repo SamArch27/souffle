@@ -16,31 +16,30 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-class AstTranslationUnit;
-
-class GroundedTermsChecker : public AstTransformer {
+class GroundedTermsChecker : public Transformer {
 public:
     std::string getName() const override {
         return "GroundedTermsChecker";
     }
 
     // `apply` but doesn't immediately bail if any errors are found.
-    void verify(AstTranslationUnit& translationUnit);
+    void verify(TranslationUnit& translationUnit);
 
     GroundedTermsChecker* clone() const override {
         return new GroundedTermsChecker();
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         verify(translationUnit);
         return false;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

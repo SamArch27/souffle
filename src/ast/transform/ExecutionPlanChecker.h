@@ -16,25 +16,24 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-class AstTranslationUnit;
-
-class AstExecutionPlanChecker : public AstTransformer {
+class ExecutionPlanChecker : public Transformer {
 public:
     std::string getName() const override {
-        return "AstExecutionPlanChecker";
+        return "ExecutionPlanChecker";
     }
 
-    AstExecutionPlanChecker* clone() const override {
-        return new AstExecutionPlanChecker();
+    ExecutionPlanChecker* clone() const override {
+        return new ExecutionPlanChecker();
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

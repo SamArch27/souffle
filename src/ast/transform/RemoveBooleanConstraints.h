@@ -14,18 +14,17 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to remove constant boolean constraints
  * Should be called after any transformation that may generate boolean constraints
  */
-class RemoveBooleanConstraintsTransformer : public AstTransformer {
+class RemoveBooleanConstraintsTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "RemoveBooleanConstraintsTransformer";
@@ -36,7 +35,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

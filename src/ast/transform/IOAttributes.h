@@ -18,24 +18,39 @@
 #pragma once
 
 #include "Global.h"
-#include "ast/IO.h"
+#include "ast/AlgebraicDataType.h"
+#include "ast/Attribute.h"
+#include "ast/Directive.h"
 #include "ast/Program.h"
+#include "ast/QualifiedName.h"
 #include "ast/RecordType.h"
+#include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
+#include "ast/Type.h"
 #include "ast/analysis/AuxArity.h"
 #include "ast/analysis/TypeEnvironment.h"
+#include "ast/analysis/TypeSystem.h"
 #include "ast/transform/Transformer.h"
-#include "json11.h"
-#include "utility/StringUtil.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/StringUtil.h"
+#include "souffle/utility/json11.h"
+#include <algorithm>
+#include <cstddef>
+#include <map>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to set attribute names and types in IO operations.
  */
-class IOAttributesTransformer : public AstTransformer {
+class IOAttributesTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "IOAttributesTransformer";
@@ -46,7 +61,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
 
         changed |= setAttributeNames(translationUnit);
@@ -56,13 +71,16 @@ private:
         return changed;
     }
 
-    bool setAttributeParams(AstTranslationUnit& translationUnit) {
+    bool setAttributeParams(TranslationUnit& translationUnit) {
         bool changed = false;
-        AstProgram* program = translationUnit.getProgram();
-        auto auxArityAnalysis = translationUnit.getAnalysis<AuxiliaryArity>();
+        Program& program = translationUnit.getProgram();
+        auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
 
-        for (AstIO* io : program->getIOs()) {
-            AstRelation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+        for (Directive* io : program.getDirectives()) {
+            if (io->getType() == ast::DirectiveType::limitsize) {
+                continue;
+            }
+            Relation* rel = getRelation(program, io->getQualifiedName());
             // Prepare type system information.
             std::vector<std::string> attributesParams;
 
@@ -80,23 +98,26 @@ private:
             json11::Json params = json11::Json::object{
                     {"relation", relJson}, {"records", getRecordsParams(translationUnit)}};
 
-            io->addDirective("params", params.dump());
+            io->addParameter("params", params.dump());
             changed = true;
         }
         return changed;
     }
 
-    bool setAttributeNames(AstTranslationUnit& translationUnit) {
+    bool setAttributeNames(TranslationUnit& translationUnit) {
         bool changed = false;
-        AstProgram* program = translationUnit.getProgram();
-        for (AstIO* io : program->getIOs()) {
-            if (io->hasDirective("attributeNames")) {
+        Program& program = translationUnit.getProgram();
+        for (Directive* io : program.getDirectives()) {
+            if (io->getType() == ast::DirectiveType::limitsize) {
                 continue;
             }
-            AstRelation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+            if (io->hasParameter("attributeNames")) {
+                continue;
+            }
+            Relation* rel = getRelation(program, io->getQualifiedName());
             std::string delimiter("\t");
-            if (io->hasDirective("delimiter")) {
-                delimiter = io->getDirective("delimiter");
+            if (io->hasParameter("delimiter")) {
+                delimiter = io->getParameter("delimiter");
             }
 
             std::vector<std::string> attributeNames;
@@ -105,26 +126,27 @@ private:
             }
 
             if (Global::config().has("provenance")) {
-                auto auxArityAnalysis = translationUnit.getAnalysis<AuxiliaryArity>();
+                auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
                 std::vector<std::string> originalAttributeNames(
                         attributeNames.begin(), attributeNames.end() - auxArityAnalysis->getArity(rel));
-                io->addDirective("attributeNames", toString(join(originalAttributeNames, delimiter)));
+                io->addParameter("attributeNames", toString(join(originalAttributeNames, delimiter)));
             } else {
-                io->addDirective("attributeNames", toString(join(attributeNames, delimiter)));
+                io->addParameter("attributeNames", toString(join(attributeNames, delimiter)));
             }
             changed = true;
         }
         return changed;
     }
 
-    bool setAttributeTypes(AstTranslationUnit& translationUnit) {
+    bool setAttributeTypes(TranslationUnit& translationUnit) {
         bool changed = false;
-        AstProgram* program = translationUnit.getProgram();
-        auto auxArityAnalysis = translationUnit.getAnalysis<AuxiliaryArity>();
-        auto typeEnv = &translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
+        Program& program = translationUnit.getProgram();
+        auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
+        auto typeEnv =
+                &translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
-        for (AstIO* io : program->getIOs()) {
-            AstRelation* rel = getRelation(*translationUnit.getProgram(), io->getQualifiedName());
+        for (Directive* io : program.getDirectives()) {
+            Relation* rel = getRelation(program, io->getQualifiedName());
             // Prepare type system information.
             std::vector<std::string> attributesTypes;
 
@@ -141,38 +163,91 @@ private:
             json11::Json relJson = json11::Json::object{{"arity", arity}, {"auxArity", auxArity},
                     {"types", json11::Json::array(attributesTypes.begin(), attributesTypes.end())}};
 
-            json11::Json types = json11::Json::object{
-                    {"relation", relJson}, {"records", getRecordsTypes(translationUnit)}};
+            json11::Json types =
+                    json11::Json::object{{"relation", relJson}, {"records", getRecordsTypes(translationUnit)},
+                            {"ADTs", getAlgebraicDataTypes(translationUnit)}};
 
-            io->addDirective("types", types.dump());
+            io->addParameter("types", types.dump());
             changed = true;
         }
         return changed;
     }
 
-    std::string getRelationName(const AstIO* node) {
+    std::string getRelationName(const Directive* node) {
         return toString(join(node->getQualifiedName().getQualifiers(), "."));
     }
 
-    json11::Json getRecordsTypes(AstTranslationUnit& translationUnit) const {
+    /**
+     * Get sum types info for IO.
+     * If they don't exists - create them.
+     *
+     * The structure of JSON is approximately:
+     * {"ADTs" : {ADT_NAME : {"branches" : [branch..]}, {"arity": ...}}}
+     * branch = {{"types": [types ...]}, ["name": ...]}
+     */
+    json11::Json getAlgebraicDataTypes(TranslationUnit& translationUnit) const {
+        static json11::Json sumTypesInfo;
+
+        // Check if the types were already constructed
+        if (!sumTypesInfo.is_null()) {
+            return sumTypesInfo;
+        }
+
+        Program& program = translationUnit.getProgram();
+        auto& typeEnv =
+                translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
+
+        std::map<std::string, json11::Json> sumTypes;
+
+        visitDepthFirst(program.getTypes(), [&](const AlgebraicDataType& astAlgebraicDataType) {
+            auto& sumType =
+                    dynamic_cast<const analysis::AlgebraicDataType&>(typeEnv.getType(astAlgebraicDataType));
+
+            auto& branches = sumType.getBranches();
+
+            std::vector<json11::Json> branchesInfo;
+
+            for (const auto& branch : branches) {
+                std::vector<json11::Json> branchTypes;
+                for (auto* type : branch.types) {
+                    branchTypes.push_back(getTypeQualifier(*type));
+                }
+
+                auto branchInfo =
+                        json11::Json::object{{{"types", std::move(branchTypes)}, {"name", branch.name}}};
+                branchesInfo.push_back(std::move(branchInfo));
+            }
+
+            auto typeQualifier = analysis::getTypeQualifier(sumType);
+            auto&& sumInfo = json11::Json::object{{{"branches", std::move(branchesInfo)},
+                    {"arity", static_cast<long long>(branches.size())}, {"enum", isADTEnum(sumType)}}};
+            sumTypes.emplace(std::move(typeQualifier), std::move(sumInfo));
+        });
+
+        sumTypesInfo = json11::Json(sumTypes);
+        return sumTypesInfo;
+    }
+
+    json11::Json getRecordsTypes(TranslationUnit& translationUnit) const {
         static json11::Json ramRecordTypes;
         // Check if the types where already constructed
         if (!ramRecordTypes.is_null()) {
             return ramRecordTypes;
         }
 
-        AstProgram* program = translationUnit.getProgram();
-        auto typeEnv = &translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
+        Program& program = translationUnit.getProgram();
+        auto typeEnv =
+                &translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
         std::vector<std::string> elementTypes;
         std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
-        for (auto* astType : program->getTypes()) {
-            const auto& type = typeEnv->getType(astType->getQualifiedName());
-            if (isA<RecordType>(type)) {
+        for (auto* astType : program.getTypes()) {
+            const auto& type = typeEnv->getType(*astType);
+            if (isA<analysis::RecordType>(type)) {
                 elementTypes.clear();
 
-                for (const Type* field : as<RecordType>(type)->getFields()) {
+                for (const analysis::Type* field : as<analysis::RecordType>(type)->getFields()) {
                     elementTypes.push_back(getTypeQualifier(*field));
                 }
                 const size_t recordArity = elementTypes.size();
@@ -186,23 +261,23 @@ private:
         return ramRecordTypes;
     }
 
-    json11::Json getRecordsParams(AstTranslationUnit& translationUnit) const {
+    json11::Json getRecordsParams(TranslationUnit& translationUnit) const {
         static json11::Json ramRecordParams;
         // Check if the types where already constructed
         if (!ramRecordParams.is_null()) {
             return ramRecordParams;
         }
 
-        AstProgram* program = translationUnit.getProgram();
+        Program& program = translationUnit.getProgram();
         std::vector<std::string> elementParams;
         std::map<std::string, json11::Json> records;
 
         // Iterate over all record types in the program populating the records map.
-        for (auto* astType : program->getTypes()) {
-            if (isA<AstRecordType>(astType)) {
+        for (auto* astType : program.getTypes()) {
+            if (isA<ast::RecordType>(astType)) {
                 elementParams.clear();
 
-                for (const auto field : as<AstRecordType>(astType)->getFields()) {
+                for (const auto field : as<ast::RecordType>(astType)->getFields()) {
                     elementParams.push_back(field->getName());
                 }
                 const size_t recordArity = elementParams.size();
@@ -217,4 +292,4 @@ private:
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ast::transform

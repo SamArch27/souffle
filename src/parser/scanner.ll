@@ -23,14 +23,14 @@
 # pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
 
-    #include <stdio.h>
+    #include <cstdio>
     #include <libgen.h>
-    #include <ctype.h>
+    #include <cctype>
     #include <sys/stat.h>
     #include <stack>
     #include <string>
     #include <sstream>
-    #include <assert.h>
+    #include <cassert>
     #include <unistd.h>
     #include <cstring>
 
@@ -41,16 +41,16 @@
     #include "parser/SrcLocation.h"
     #define YYLTYPE SrcLocation
 
-    #include "RamTypes.h"
+    #include "souffle/RamTypes.h"
 
-    #include "utility/StringUtil.h"
-    #include "utility/FileUtil.h"
-    #include "utility/StreamUtil.h"
-    #include "utility/MiscUtil.h"
-    #include "utility/FunctionalUtil.h"
-    #include "utility/ContainerUtil.h"
-    #include "utility/CacheUtil.h"
-    #include "utility/ParallelUtil.h"
+    #include "souffle/utility/StringUtil.h"
+    #include "souffle/utility/FileUtil.h"
+    #include "souffle/utility/StreamUtil.h"
+    #include "souffle/utility/MiscUtil.h"
+    #include "souffle/utility/FunctionalUtil.h"
+    #include "souffle/utility/ContainerUtil.h"
+    #include "souffle/utility/CacheUtil.h"
+    #include "souffle/utility/ParallelUtil.h"
 
     #define register
 
@@ -79,6 +79,7 @@
 ".input"                              { return yy::parser::make_INPUT_DECL(yylloc); }
 ".output"                             { return yy::parser::make_OUTPUT_DECL(yylloc); }
 ".printsize"                          { return yy::parser::make_PRINTSIZE_DECL(yylloc); }
+".limitsize"                          { return yy::parser::make_LIMITSIZE_DECL(yylloc); }
 ".type"                               { return yy::parser::make_TYPE(yylloc); }
 ".comp"                               { return yy::parser::make_COMPONENT(yylloc); }
 ".init"                               { return yy::parser::make_INSTANTIATE(yylloc); }
@@ -104,6 +105,7 @@
 "range"                               { return yy::parser::make_RANGE(yylloc); }
 "strlen"                              { return yy::parser::make_STRLEN(yylloc); }
 "substr"                              { return yy::parser::make_SUBSTR(yylloc); }
+"stateful"                            { return yy::parser::make_STATEFUL(yylloc); }
 "contains"                            { return yy::parser::make_TCONTAINS(yylloc); }
 "output"                              { return yy::parser::make_OUTPUT_QUALIFIER(yylloc); }
 "input"                               { return yy::parser::make_INPUT_QUALIFIER(yylloc); }

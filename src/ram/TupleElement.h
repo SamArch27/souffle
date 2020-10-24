@@ -21,10 +21,10 @@
 #include <cstdlib>
 #include <ostream>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamTupleElement
+ * @class TupleElement
  * @brief Access element from the current tuple in a tuple environment
  *
  * In the following example, the tuple element t0.1 is accessed:
@@ -33,9 +33,9 @@ namespace souffle {
  * 	...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamTupleElement : public RamExpression {
+class TupleElement : public Expression {
 public:
-    RamTupleElement(size_t ident, size_t elem) : identifier(ident), element(elem) {}
+    TupleElement(size_t ident, size_t elem) : identifier(ident), element(elem) {}
     /** @brief Get identifier */
     int getTupleId() const {
         return identifier;
@@ -46,8 +46,8 @@ public:
         return element;
     }
 
-    RamTupleElement* clone() const override {
-        return new RamTupleElement(identifier, element);
+    TupleElement* clone() const override {
+        return new TupleElement(identifier, element);
     }
 
 protected:
@@ -55,8 +55,8 @@ protected:
         os << "t" << identifier << "." << element;
     }
 
-    bool equal(const RamNode& node) const override {
-        const auto& other = static_cast<const RamTupleElement&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const TupleElement&>(node);
         return identifier == other.identifier && element == other.element;
     }
 
@@ -67,4 +67,4 @@ protected:
     const size_t element;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

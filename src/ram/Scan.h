@@ -17,18 +17,18 @@
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <iosfwd>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamScan
+ * @class Scan
  * @brief Iterate all tuples of a relation
  *
  * The following example iterates over all tuples
@@ -40,24 +40,22 @@ namespace souffle {
  *     ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamScan : public RamRelationOperation {
+class Scan : public RelationOperation {
 public:
-    RamScan(std::unique_ptr<RamRelationReference> rel, int ident, std::unique_ptr<RamOperation> nested,
-            std::string profileText = "")
-            : RamRelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)) {}
+    Scan(std::string rel, int ident, Own<Operation> nested, std::string profileText = "")
+            : RelationOperation(rel, ident, std::move(nested), std::move(profileText)) {}
 
-    RamScan* clone() const override {
-        return new RamScan(
-                souffle::clone(relationRef), getTupleId(), souffle::clone(&getOperation()), getProfileText());
+    Scan* clone() const override {
+        return new Scan(relation, getTupleId(), souffle::clone(&getOperation()), getProfileText());
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "FOR t" << getTupleId();
-        os << " IN " << getRelation().getName() << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        os << " IN " << relation << std::endl;
+        RelationOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

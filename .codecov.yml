@@ -25,3 +25,6 @@ fixes:
 ignore:
   - "tests/interface"
   - "src/tests"
+  - "src/ast/tests"
+  - "src/interpreter/tests"
+  - "src/ram/tests"

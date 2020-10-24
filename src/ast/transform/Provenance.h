@@ -16,17 +16,16 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to add provenance information
  */
-class ProvenanceTransformer : public AstTransformer {
+class ProvenanceTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ProvenanceTransformer";
@@ -37,8 +36,8 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
-    bool transformMaxHeight(AstTranslationUnit& translationUnit);
+    bool transform(TranslationUnit& translationUnit) override;
+    bool transformMaxHeight(TranslationUnit& translationUnit);
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

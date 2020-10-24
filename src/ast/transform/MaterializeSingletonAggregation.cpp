@@ -13,7 +13,6 @@
  ***********************************************************************/
 
 #include "ast/transform/MaterializeSingletonAggregation.h"
-#include "BinaryConstraintOps.h"
 #include "ast/Aggregator.h"
 #include "ast/Argument.h"
 #include "ast/Atom.h"
@@ -22,16 +21,18 @@
 #include "ast/Clause.h"
 #include "ast/Literal.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
 #include "ast/Program.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
-#include "ast/Utils.h"
 #include "ast/Variable.h"
-#include "ast/Visitor.h"
-#include "utility/MiscUtil.h"
-#include "utility/StringUtil.h"
+#include "ast/analysis/Aggregate.h"
+#include "ast/utility/NodeMapper.h"
+#include "ast/utility/Utils.h"
+#include "ast/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StringUtil.h"
 #include <cassert>
 #include <map>
 #include <memory>
@@ -39,72 +40,68 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-std::string MaterializeSingletonAggregationTransformer::findUniqueVariableName(const AstClause& clause) {
-    static int counter = 0;
-    std::set<std::string> variableNames;
-    visitDepthFirst(clause, [&](const AstVariable& variable) { variableNames.insert(variable.getName()); });
-    std::string candidateVariableName = "z";  // completely arbitrary
-    while (variableNames.find(candidateVariableName) != variableNames.end()) {
-        candidateVariableName = "z" + toString(counter++);
-    }
-    return candidateVariableName;
-}
+bool MaterializeSingletonAggregationTransformer::transform(TranslationUnit& translationUnit) {
+    Program& program = translationUnit.getProgram();
+    std::set<std::pair<Aggregator*, Clause*>> pairs;
+    // avoid trying to deal with inner aggregates directly.
+    // We will apply a fixpoint operator so that it ends up all getting
+    // wound out but we can't rush this.
+    std::set<const Aggregator*> innerAggregates;
+    visitDepthFirst(program, [&](const Aggregator& agg) {
+        visitDepthFirst(agg, [&](const Aggregator& innerAgg) {
+            if (agg != innerAgg) {
+                innerAggregates.insert(&innerAgg);
+            }
+        });
+    });
 
-std::string MaterializeSingletonAggregationTransformer::findUniqueAggregateRelationName(
-        const AstProgram& program) {
-    static int counter = 0;
-    auto candidate = "__agg_rel_" + toString(counter++);
-    while (getRelation(program, candidate) != nullptr) {
-        candidate = "__agg_rel_" + toString(counter++);
-    }
-    return candidate;
-}
-
-bool MaterializeSingletonAggregationTransformer::transform(AstTranslationUnit& translationUnit) {
-    AstProgram& program = *translationUnit.getProgram();
-    std::set<std::pair<AstAggregator*, AstClause*>> pairs;
     // collect references to clause / aggregate pairs
-    visitDepthFirst(program, [&](const AstClause& clause) {
-        visitDepthFirst(clause, [&](const AstAggregator& agg) {
-            // if the aggregate isn't single valued
-            // (ie it relies on a grounding from the outer scope)
-            // or it's the only atom in the clause, then there's no point materialising it!
-            if (!isSingleValued(agg, clause) || clause.getBodyLiterals().size() == 1) {
+    visitDepthFirst(program, [&](const Clause& clause) {
+        visitDepthFirst(clause, [&](const Aggregator& agg) {
+            // only unroll one level at a time
+            if (innerAggregates.find(&agg) != innerAggregates.end()) {
                 return;
             }
-            auto* foundAggregate = const_cast<AstAggregator*>(&agg);
-            auto* foundClause = const_cast<AstClause*>(&clause);
+            // if the aggregate isn't single valued
+            // (ie it relies on a grounding from the outer scope)
+            // or it's a constituent of the only atom in the clause,
+            // then there's no point materialising it!
+            if (!isSingleValued(translationUnit, agg, clause) || clause.getBodyLiterals().size() == 1) {
+                return;
+            }
+            auto* foundAggregate = const_cast<Aggregator*>(&agg);
+            auto* foundClause = const_cast<Clause*>(&clause);
             pairs.insert(std::make_pair(foundAggregate, foundClause));
         });
     });
     for (auto pair : pairs) {
         // Clone the aggregate that we're going to be deleting.
         auto aggregate = souffle::clone(pair.first);
-        AstClause* clause = pair.second;
+        Clause* clause = pair.second;
         // synthesise an aggregate relation
         // __agg_rel_0()
-        auto aggRel = std::make_unique<AstRelation>();
-        auto aggHead = std::make_unique<AstAtom>();
-        auto aggClause = std::make_unique<AstClause>();
+        auto aggRel = mk<Relation>();
+        auto aggHead = mk<Atom>();
+        auto aggClause = mk<Clause>();
 
-        std::string aggRelName = findUniqueAggregateRelationName(program);
+        std::string aggRelName = analysis::findUniqueRelationName(program, "__agg");
         aggRel->setQualifiedName(aggRelName);
         aggHead->setQualifiedName(aggRelName);
 
         // create a synthesised variable to replace the aggregate term!
-        std::string variableName = findUniqueVariableName(*clause);
-        auto variable = std::make_unique<AstVariable>(variableName);
+        std::string variableName = analysis::findUniqueVariableName(*clause, "z");
+        auto variable = mk<ast::Variable>(variableName);
 
         // __agg_rel_0(z) :- ...
         aggHead->addArgument(souffle::clone(variable));
-        aggRel->addAttribute(std::make_unique<AstAttribute>(variableName, "number"));
+        aggRel->addAttribute(mk<Attribute>(variableName, "number"));
         aggClause->setHead(souffle::clone(aggHead));
 
         //    A(x) :- x = sum .., B(x).
         // -> A(x) :- x = z, B(x), __agg_rel_0(z).
-        auto equalityLiteral = std::make_unique<AstBinaryConstraint>(
+        auto equalityLiteral = mk<BinaryConstraint>(
                 BinaryConstraintOp::EQ, souffle::clone(variable), souffle::clone(aggregate));
         // __agg_rel_0(z) :- z = sum ...
         aggClause->addToBody(std::move(equalityLiteral));
@@ -113,14 +110,13 @@ bool MaterializeSingletonAggregationTransformer::transform(AstTranslationUnit& t
 
         // the only thing left to do is just replace the aggregate terms in the original
         // clause with the synthesised variable
-        struct replaceAggregate : public AstNodeMapper {
-            const AstAggregator& aggregate;
-            const std::unique_ptr<AstVariable> variable;
-            replaceAggregate(const AstAggregator& aggregate, std::unique_ptr<AstVariable> variable)
+        struct replaceAggregate : public NodeMapper {
+            const Aggregator& aggregate;
+            const Own<ast::Variable> variable;
+            replaceAggregate(const Aggregator& aggregate, Own<ast::Variable> variable)
                     : aggregate(aggregate), variable(std::move(variable)) {}
-            std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
-                assert(node != nullptr);
-                if (auto* current = dynamic_cast<AstAggregator*>(node.get())) {
+            Own<Node> operator()(Own<Node> node) const override {
+                if (auto* current = dynamic_cast<Aggregator*>(node.get())) {
                     if (*current == aggregate) {
                         auto replacement = souffle::clone(variable);
                         assert(replacement != nullptr);
@@ -128,7 +124,6 @@ bool MaterializeSingletonAggregationTransformer::transform(AstTranslationUnit& t
                     }
                 }
                 node->apply(*this);
-                assert(node != nullptr);
                 return node;
             }
         };
@@ -140,25 +135,11 @@ bool MaterializeSingletonAggregationTransformer::transform(AstTranslationUnit& t
 }
 
 bool MaterializeSingletonAggregationTransformer::isSingleValued(
-        const AstAggregator& agg, const AstClause& clause) {
-    std::map<std::string, int> occurrences;
-    visitDepthFirst(clause, [&](const AstVariable& v) {
-        if (occurrences.find(v.getName()) == occurrences.end()) {
-            occurrences[v.getName()] = 0;
-        }
-        occurrences[v.getName()] = occurrences[v.getName()] + 1;
-    });
-    std::set<std::string> aggVariables;
-    visitDepthFirst(agg, [&](const AstVariable& v) {
-        aggVariables.insert(v.getName());
-        occurrences[v.getName()] = occurrences[v.getName()] - 1;
-    });
-    for (std::string variableName : aggVariables) {
-        if (occurrences[variableName] != 0) {
-            return false;
-        }
-    }
-    return true;
+        const TranslationUnit& tu, const Aggregator& agg, const Clause& clause) {
+    // An aggregate is single valued as long as it is not complex.
+    // This just means there are NO injected variables in the aggregate.
+    auto injectedVariables = analysis::getInjectedVariables(tu, clause, agg);
+    return injectedVariables.empty();
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

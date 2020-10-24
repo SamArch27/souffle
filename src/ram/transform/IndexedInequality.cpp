@@ -13,7 +13,6 @@
  ***********************************************************************/
 
 #include "ram/transform/IndexedInequality.h"
-#include "BinaryConstraintOps.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
@@ -21,9 +20,10 @@
 #include "ram/Program.h"
 #include "ram/Relation.h"
 #include "ram/Statement.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
+#include "souffle/BinaryConstraintOps.h"
+#include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cstddef>
 #include <functional>
@@ -32,121 +32,114 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram::transform {
 
-bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
+bool IndexedInequalityTransformer::transformIndexToFilter(Program& program) {
     bool changed = false;
 
     // helper for collecting conditions from filter operations
-    auto addCondition = [](std::unique_ptr<RamCondition> condition,
-                                std::unique_ptr<RamCondition> c) -> std::unique_ptr<RamCondition> {
+    auto addCondition = [](Own<Condition> condition, Own<Condition> c) -> Own<Condition> {
         if (condition == nullptr) {
             return c;
         } else {
-            return std::make_unique<RamConjunction>(std::move(condition), std::move(c));
+            return mk<Conjunction>(std::move(condition), std::move(c));
         }
     };
 
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> indexToFilterRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
-            // find a RamIndexOperation
-            if (const RamIndexOperation* indexOperation = dynamic_cast<RamIndexOperation*>(node.get())) {
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> indexToFilterRewriter = [&](Own<Node> node) -> Own<Node> {
+            // find a IndexOperation
+            if (const IndexOperation* indexOperation = dynamic_cast<IndexOperation*>(node.get())) {
+                const Relation& rel = relAnalysis->lookup(indexOperation->getRelation());
                 auto indexSelection = idxAnalysis->getIndexes(indexOperation->getRelation());
                 auto attributesToDischarge = indexSelection.getAttributesToDischarge(
-                        idxAnalysis->getSearchSignature(indexOperation), indexOperation->getRelation());
+                        idxAnalysis->getSearchSignature(indexOperation), rel);
                 auto pattern = indexOperation->getRangePattern();
-                std::unique_ptr<RamCondition> condition;
+                Own<Condition> condition;
                 RamPattern updatedPattern;
 
-                for (RamExpression* p : indexOperation->getRangePattern().first) {
+                for (Expression* p : indexOperation->getRangePattern().first) {
                     updatedPattern.first.emplace_back(p->clone());
                 }
-                for (RamExpression* p : indexOperation->getRangePattern().second) {
+                for (Expression* p : indexOperation->getRangePattern().second) {
                     updatedPattern.second.emplace_back(p->clone());
                 }
                 for (auto i : attributesToDischarge) {
                     // move constraints out of the indexed inequality and into a conjuction
-                    std::unique_ptr<RamConstraint> lowerBound;
-                    std::unique_ptr<RamConstraint> upperBound;
+                    Own<Constraint> lowerBound;
+                    Own<Constraint> upperBound;
                     changed = true;
 
-                    if (!isRamUndefValue(pattern.first[i])) {
-                        lowerBound = std::make_unique<RamConstraint>(BinaryConstraintOp::GE,
-                                std::make_unique<RamTupleElement>(indexOperation->getTupleId(), i),
+                    if (!isUndefValue(pattern.first[i])) {
+                        const Relation& rel = relAnalysis->lookup(indexOperation->getRelation());
+                        lowerBound = mk<Constraint>(getGreaterEqualConstraint(rel.getAttributeTypes()[i]),
+                                mk<TupleElement>(indexOperation->getTupleId(), i),
                                 souffle::clone(pattern.first[i]));
                         condition = addCondition(std::move(condition), souffle::clone(lowerBound));
                     }
 
-                    if (!isRamUndefValue(pattern.second[i])) {
-                        upperBound = std::make_unique<RamConstraint>(BinaryConstraintOp::LE,
-                                std::make_unique<RamTupleElement>(indexOperation->getTupleId(), i),
+                    if (!isUndefValue(pattern.second[i])) {
+                        const Relation& rel = relAnalysis->lookup(indexOperation->getRelation());
+                        upperBound = mk<Constraint>(getLessEqualConstraint(rel.getAttributeTypes()[i]),
+                                mk<TupleElement>(indexOperation->getTupleId(), i),
                                 souffle::clone(pattern.second[i]));
                         condition = addCondition(std::move(condition), souffle::clone(upperBound));
                     }
 
                     // reset the bounds
-                    updatedPattern.first[i] = std::make_unique<RamUndefValue>();
-                    updatedPattern.second[i] = std::make_unique<RamUndefValue>();
+                    updatedPattern.first[i] = mk<UndefValue>();
+                    updatedPattern.second[i] = mk<UndefValue>();
                 }
 
                 if (condition) {
                     auto nestedOp = souffle::clone(&indexOperation->getOperation());
-                    auto filter =
-                            std::make_unique<RamFilter>(souffle::clone(condition), souffle::clone(nestedOp));
+                    auto filter = mk<Filter>(souffle::clone(condition), souffle::clone(nestedOp));
 
                     // need to rewrite the node with the same index operation
-                    if (const RamIndexScan* iscan = dynamic_cast<RamIndexScan*>(node.get())) {
-                        node = std::make_unique<RamIndexScan>(
-                                std::make_unique<RamRelationReference>(&iscan->getRelation()),
-                                iscan->getTupleId(), std::move(updatedPattern), std::move(filter),
-                                iscan->getProfileText());
-                    } else if (const RamParallelIndexScan* pscan =
-                                       dynamic_cast<RamParallelIndexScan*>(node.get())) {
-                        node = std::make_unique<RamParallelIndexScan>(
-                                std::make_unique<RamRelationReference>(&pscan->getRelation()),
-                                pscan->getTupleId(), std::move(updatedPattern), std::move(filter),
-                                pscan->getProfileText());
-                    } else if (const RamIndexChoice* ichoice = dynamic_cast<RamIndexChoice*>(node.get())) {
-                        node = std::make_unique<RamIndexChoice>(
-                                std::make_unique<RamRelationReference>(&ichoice->getRelation()),
-                                ichoice->getTupleId(), souffle::clone(&ichoice->getCondition()),
-                                std::move(updatedPattern), std::move(filter), ichoice->getProfileText());
-                    } else if (const RamIndexAggregate* iagg = dynamic_cast<RamIndexAggregate*>(node.get())) {
+                    if (const IndexScan* iscan = dynamic_cast<IndexScan*>(node.get())) {
+                        node = mk<IndexScan>(iscan->getRelation(), iscan->getTupleId(),
+                                std::move(updatedPattern), std::move(filter), iscan->getProfileText());
+                    } else if (const ParallelIndexScan* pscan =
+                                       dynamic_cast<ParallelIndexScan*>(node.get())) {
+                        node = mk<ParallelIndexScan>(pscan->getRelation(), pscan->getTupleId(),
+                                std::move(updatedPattern), std::move(filter), pscan->getProfileText());
+                    } else if (const IndexChoice* ichoice = dynamic_cast<IndexChoice*>(node.get())) {
+                        node = mk<IndexChoice>(ichoice->getRelation(), ichoice->getTupleId(),
+                                souffle::clone(&ichoice->getCondition()), std::move(updatedPattern),
+                                std::move(filter), ichoice->getProfileText());
+                    } else if (const IndexAggregate* iagg = dynamic_cast<IndexAggregate*>(node.get())) {
                         // in the case of an aggregate we must strengthen the condition of the aggregate
                         // it doesn't make sense to nest a filter operation because the aggregate needs the
                         // condition in its scope
                         auto strengthenedCondition = addCondition(
-                                std::unique_ptr<RamCondition>(souffle::clone(&iagg->getCondition())),
-                                std::move(condition));
+                                Own<Condition>(souffle::clone(&iagg->getCondition())), std::move(condition));
 
-                        node = std::make_unique<RamIndexAggregate>(std::move(nestedOp), iagg->getFunction(),
-                                std::make_unique<RamRelationReference>(&iagg->getRelation()),
-                                souffle::clone(&iagg->getExpression()), std::move(strengthenedCondition),
-                                std::move(updatedPattern), iagg->getTupleId());
+                        node = mk<IndexAggregate>(std::move(nestedOp), iagg->getFunction(),
+                                iagg->getRelation(), souffle::clone(&iagg->getExpression()),
+                                std::move(strengthenedCondition), std::move(updatedPattern),
+                                iagg->getTupleId());
                     } else {
-                        fatal("New RamIndexOperation subclass found but not supported while making index.");
+                        fatal("New IndexOperation subclass found but not supported while making index.");
                     }
                 }
             }
             node->apply(makeLambdaRamMapper(indexToFilterRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(indexToFilterRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(indexToFilterRewriter));
     });
 
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> removeEmptyIndexRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> removeEmptyIndexRewriter = [&](Own<Node> node) -> Own<Node> {
             // find an IndexOperation
-            if (const RamIndexOperation* indexOperation = dynamic_cast<RamIndexOperation*>(node.get())) {
+            if (const IndexOperation* indexOperation = dynamic_cast<IndexOperation*>(node.get())) {
                 auto pattern = indexOperation->getRangePattern();
                 size_t length = pattern.first.size();
                 bool foundRealIndexableOperation = false;
 
                 for (size_t i = 0; i < length; ++i) {
                     // if both bounds are undefined we don't have a box query
-                    if (isRamUndefValue(pattern.first[i]) && isRamUndefValue(pattern.second[i])) {
+                    if (isUndefValue(pattern.first[i]) && isUndefValue(pattern.second[i])) {
                         continue;
                     }
                     // if lower and upper bounds are equal its also not a box query
@@ -155,31 +148,24 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
                 }
                 if (!foundRealIndexableOperation) {
                     // need to rewrite the node with a semantically equivalent operation to get rid of the
-                    // index operation i.e. RamIndexScan with no indexable attributes -> RamScan
-                    if (const RamIndexScan* iscan = dynamic_cast<RamIndexScan*>(node.get())) {
-                        node = std::make_unique<RamScan>(
-                                std::make_unique<RamRelationReference>(&iscan->getRelation()),
-                                iscan->getTupleId(), souffle::clone(&iscan->getOperation()),
-                                iscan->getProfileText());
-                    } else if (const RamParallelIndexScan* pscan =
-                                       dynamic_cast<RamParallelIndexScan*>(node.get())) {
-                        node = std::make_unique<RamParallelScan>(
-                                std::make_unique<RamRelationReference>(&pscan->getRelation()),
-                                pscan->getTupleId(), souffle::clone(&pscan->getOperation()),
-                                pscan->getProfileText());
-                    } else if (const RamIndexChoice* ichoice = dynamic_cast<RamIndexChoice*>(node.get())) {
-                        node = std::make_unique<RamChoice>(
-                                std::make_unique<RamRelationReference>(&ichoice->getRelation()),
-                                ichoice->getTupleId(), souffle::clone(&ichoice->getCondition()),
+                    // index operation i.e. IndexScan with no indexable attributes -> Scan
+                    if (const IndexScan* iscan = dynamic_cast<IndexScan*>(node.get())) {
+                        node = mk<Scan>(iscan->getRelation(), iscan->getTupleId(),
+                                souffle::clone(&iscan->getOperation()), iscan->getProfileText());
+                    } else if (const ParallelIndexScan* pscan =
+                                       dynamic_cast<ParallelIndexScan*>(node.get())) {
+                        node = mk<ParallelScan>(pscan->getRelation(), pscan->getTupleId(),
+                                souffle::clone(&pscan->getOperation()), pscan->getProfileText());
+                    } else if (const IndexChoice* ichoice = dynamic_cast<IndexChoice*>(node.get())) {
+                        node = mk<Choice>(ichoice->getRelation(), ichoice->getTupleId(),
+                                souffle::clone(&ichoice->getCondition()),
                                 souffle::clone(&ichoice->getOperation()), ichoice->getProfileText());
-                    } else if (const RamIndexAggregate* iagg = dynamic_cast<RamIndexAggregate*>(node.get())) {
-                        node = std::make_unique<RamAggregate>(souffle::clone(&iagg->getOperation()),
-                                iagg->getFunction(),
-                                std::make_unique<RamRelationReference>(&iagg->getRelation()),
-                                souffle::clone(&iagg->getExpression()), souffle::clone(&iagg->getCondition()),
-                                iagg->getTupleId());
+                    } else if (const IndexAggregate* iagg = dynamic_cast<IndexAggregate*>(node.get())) {
+                        node = mk<Aggregate>(souffle::clone(&iagg->getOperation()), iagg->getFunction(),
+                                iagg->getRelation(), souffle::clone(&iagg->getExpression()),
+                                souffle::clone(&iagg->getCondition()), iagg->getTupleId());
                     } else {
-                        fatal("New RamIndexOperation subclass found but not supported while transforming "
+                        fatal("New IndexOperation subclass found but not supported while transforming "
                               "index.");
                     }
                 }
@@ -187,9 +173,9 @@ bool IndexedInequalityTransformer::transformIndexToFilter(RamProgram& program) {
             node->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(removeEmptyIndexRewriter));
     });
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

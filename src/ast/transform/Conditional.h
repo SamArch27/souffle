@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/DebugReporter.h"
 #include "ast/transform/Meta.h"
 #include "ast/transform/Null.h"
 #include "ast/transform/Transformer.h"
-#include "utility/MiscUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <set>
@@ -28,22 +29,20 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformer that executes a sub-transformer iff a condition holds
  */
 class ConditionalTransformer : public MetaTransformer {
 public:
-    ConditionalTransformer(std::function<bool()> cond, std::unique_ptr<AstTransformer> transformer)
+    ConditionalTransformer(std::function<bool()> cond, Own<Transformer> transformer)
             : condition(std::move(cond)), transformer(std::move(transformer)) {}
 
-    ConditionalTransformer(bool cond, std::unique_ptr<AstTransformer> transformer)
+    ConditionalTransformer(bool cond, Own<Transformer> transformer)
             : condition([=]() { return cond; }), transformer(std::move(transformer)) {}
 
-    std::vector<AstTransformer*> getSubtransformers() const override {
+    std::vector<Transformer*> getSubtransformers() const override {
         return {transformer.get()};
     }
 
@@ -51,7 +50,7 @@ public:
         if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
             mt->setDebugReport();
         } else {
-            transformer = std::make_unique<DebugReporter>(std::move(transformer));
+            transformer = mk<DebugReporter>(std::move(transformer));
         }
     }
 
@@ -66,7 +65,7 @@ public:
         if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
             mt->disableTransformers(transforms);
         } else if (transforms.find(transformer->getName()) != transforms.end()) {
-            transformer = std::make_unique<NullTransformer>();
+            transformer = mk<NullTransformer>();
         }
     }
 
@@ -80,11 +79,11 @@ public:
 
 private:
     std::function<bool()> condition;
-    std::unique_ptr<AstTransformer> transformer;
+    Own<Transformer> transformer;
 
-    bool transform(AstTranslationUnit& translationUnit) override {
+    bool transform(TranslationUnit& translationUnit) override {
         return condition() ? applySubtransformer(translationUnit, transformer.get()) : false;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

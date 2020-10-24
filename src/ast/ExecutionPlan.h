@@ -18,9 +18,9 @@
 
 #include "ast/ExecutionOrder.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
-#include "utility/ContainerUtil.h"
-#include "utility/StreamUtil.h"
+#include "ast/utility/NodeMapper.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -28,10 +28,10 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @brief AstExecutionPlan
+ * @brief ExecutionPlan
  * @class Defines a user-defined execution plan for a clause.
  *
  * An user-defined execution plan consists of one or more
@@ -42,39 +42,39 @@ namespace souffle {
  *   .plan 0:(1,2,3), 2:(3,2,1)
  *
  */
-class AstExecutionPlan : public AstNode {
+class ExecutionPlan : public Node {
 public:
     /** Set execution order for a given rule version */
-    void setOrderFor(int version, Own<AstExecutionOrder> plan) {
+    void setOrderFor(int version, Own<ExecutionOrder> plan) {
         plans[version] = std::move(plan);
     }
 
     /** Get orders */
-    std::map<int, const AstExecutionOrder*> getOrders() const {
-        std::map<int, const AstExecutionOrder*> result;
+    std::map<int, const ExecutionOrder*> getOrders() const {
+        std::map<int, const ExecutionOrder*> result;
         for (auto& plan : plans) {
             result.insert(std::make_pair(plan.first, plan.second.get()));
         }
         return result;
     }
 
-    AstExecutionPlan* clone() const override {
-        auto res = new AstExecutionPlan();
+    ExecutionPlan* clone() const override {
+        auto res = new ExecutionPlan();
         res->setSrcLoc(getSrcLoc());
         for (auto& plan : plans) {
-            res->setOrderFor(plan.first, Own<AstExecutionOrder>(plan.second->clone()));
+            res->setOrderFor(plan.first, Own<ExecutionOrder>(plan.second->clone()));
         }
         return res;
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& plan : plans) {
             plan.second = map(std::move(plan.second));
         }
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        std::vector<const AstNode*> childNodes;
+    std::vector<const Node*> getChildNodes() const override {
+        std::vector<const Node*> childNodes;
         for (auto& plan : plans) {
             childNodes.push_back(plan.second.get());
         }
@@ -90,14 +90,14 @@ protected:
         }
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstExecutionPlan&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const ExecutionPlan&>(node);
         return equal_targets(plans, other.plans);
     }
 
 private:
     /** Mapping versions of clauses to execution orders */
-    std::map<int, Own<AstExecutionOrder>> plans;
+    std::map<int, Own<ExecutionOrder>> plans;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

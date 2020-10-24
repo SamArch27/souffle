@@ -19,16 +19,16 @@
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstComponentType
+ * @class ComponentType
  * @brief Component type of a component
  *
  * Example:
@@ -36,10 +36,10 @@ namespace souffle {
  * where name is the component name and < Type, Type, ... > is a
  * list of component type parameters (either actual or formal).
  */
-class AstComponentType : public AstNode {
+class ComponentType : public Node {
 public:
-    AstComponentType(std::string name = "", std::vector<AstQualifiedName> params = {}, SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(name)), typeParams(std::move(params)) {}
+    ComponentType(std::string name = "", std::vector<QualifiedName> params = {}, SrcLocation loc = {})
+            : Node(std::move(loc)), name(std::move(name)), typeParams(std::move(params)) {}
 
     /** Return component name */
     const std::string& getName() const {
@@ -52,17 +52,17 @@ public:
     }
 
     /** Return component type parameters */
-    const std::vector<AstQualifiedName>& getTypeParameters() const {
+    const std::vector<QualifiedName>& getTypeParameters() const {
         return typeParams;
     }
 
     /** Set component type parameters */
-    void setTypeParameters(const std::vector<AstQualifiedName>& params) {
+    void setTypeParameters(const std::vector<QualifiedName>& params) {
         typeParams = params;
     }
 
-    AstComponentType* clone() const override {
-        return new AstComponentType(name, typeParams, getSrcLoc());
+    ComponentType* clone() const override {
+        return new ComponentType(name, typeParams, getSrcLoc());
     }
 
 protected:
@@ -73,8 +73,8 @@ protected:
         }
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstComponentType&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const ComponentType&>(node);
         return name == other.name && typeParams == other.typeParams;
     }
 
@@ -83,7 +83,7 @@ private:
     std::string name;
 
     /** Component type parameters */
-    std::vector<AstQualifiedName> typeParams;
+    std::vector<QualifiedName> typeParams;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -22,51 +22,53 @@
 #include "ast/Relation.h"
 #include "ast/analysis/Analysis.h"
 #include <cassert>
-#include <iostream>
 #include <map>
 #include <set>
 #include <string>
 
-namespace souffle {
+namespace souffle::ast {
 
-class AstClause;
-class AstTranslationUnit;
+class Clause;
+class TranslationUnit;
+
+namespace analysis {
 
 /**
  * Analysis pass mapping identifiers with relations and clauses.
  */
-class RelationDetailCacheAnalysis : public AstAnalysis {
+class RelationDetailCacheAnalysis : public Analysis {
 public:
     static constexpr const char* name = "relation-detail";
 
-    RelationDetailCacheAnalysis() : AstAnalysis(name) {}
+    RelationDetailCacheAnalysis() : Analysis(name) {}
 
-    void run(const AstTranslationUnit& translationUnit) override;
+    void run(const TranslationUnit& translationUnit) override;
 
     void print(std::ostream& os) const override;
 
-    AstRelation* getRelation(const AstQualifiedName& name) const {
+    Relation* getRelation(const QualifiedName& name) const {
         if (nameToRelation.find(name) != nameToRelation.end()) {
             return nameToRelation.at(name);
         }
         return nullptr;
     }
 
-    std::set<AstClause*> getClauses(const AstRelation* rel) const {
+    std::set<Clause*> getClauses(const Relation* rel) const {
         assert(rel != nullptr && "invalid relation");
         return getClauses(rel->getQualifiedName());
     }
 
-    std::set<AstClause*> getClauses(const AstQualifiedName& name) const {
+    std::set<Clause*> getClauses(const QualifiedName& name) const {
         if (nameToClauses.find(name) != nameToClauses.end()) {
             return nameToClauses.at(name);
         }
-        return std::set<AstClause*>();
+        return std::set<Clause*>();
     }
 
 private:
-    std::map<AstQualifiedName, AstRelation*> nameToRelation;
-    std::map<AstQualifiedName, std::set<AstClause*>> nameToClauses;
+    std::map<QualifiedName, Relation*> nameToRelation;
+    std::map<QualifiedName, std::set<Clause*>> nameToClauses;
 };
 
-}  // end of namespace souffle
+}  // namespace analysis
+}  // namespace souffle::ast

@@ -13,6 +13,8 @@
  * Testing the user-defined functor interface
  *
  ***********************************************************************/
+#include "souffle/RecordTable.h"
+#include "souffle/SymbolTable.h"
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -69,4 +71,36 @@ FF_int factorial(FF_uint x) {
 FF_int rnd(FF_float x) {
     return round(x);
 }
+
+// Stateful Functors
+souffle::RamDomain mycat(souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable,
+        souffle::RamDomain arg1, souffle::RamDomain arg2) {
+    assert(symbolTable && "NULL symbol table");
+    assert(recordTable && "NULL record table");
+    const std::string& sarg1 = symbolTable->resolve(arg1);
+    const std::string& sarg2 = symbolTable->resolve(arg2);
+    std::string result = sarg1 + sarg2;
+    return symbolTable->lookup(result);
 }
+
+souffle::RamDomain _myappend(
+        souffle::SymbolTable* symbolTable, souffle::RecordTable* recordTable, souffle::RamDomain arg) {
+    assert(symbolTable && "NULL symbol table");
+    assert(recordTable && "NULL record table");
+
+    if (arg == 0) {
+        // Argument is nil
+        souffle::RamDomain myTuple[2] = {0, 0};
+        // Return [0, nil]
+        return recordTable->pack(myTuple, 2);
+    } else {
+        // Argument is a list element [x, l] where
+        // x is a number and l is another list element
+        const souffle::RamDomain* myTuple0 = recordTable->unpack(arg, 2);
+        souffle::RamDomain myTuple1[2] = {myTuple0[0] + 1, myTuple0[0]};
+        // Return [x+1, [x, l]]
+        return recordTable->pack(myTuple1, 2);
+    }
+}
+
+}  // end of extern "C"

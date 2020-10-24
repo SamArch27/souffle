@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved
+ * Copyright (c) 2020 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -19,15 +19,16 @@
 #include "ast/Constraint.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstBooleanConstraint
+ * @class BooleanConstraint
  * @brief Boolean constraint class
  *
  * Example:
@@ -35,10 +36,10 @@ namespace souffle {
  *
  * Boolean constraint representing either the 'true' or the 'false' value
  */
-class AstBooleanConstraint : public AstConstraint {
+class BooleanConstraint : public Constraint {
 public:
-    AstBooleanConstraint(bool truthValue, SrcLocation loc = {})
-            : AstConstraint(std::move(loc)), truthValue(truthValue) {}
+    BooleanConstraint(bool truthValue, SrcLocation loc = {})
+            : Constraint(std::move(loc)), truthValue(truthValue) {}
 
     /** Check whether constraint holds */
     bool isTrue() const {
@@ -50,8 +51,8 @@ public:
         truthValue = value;
     }
 
-    AstBooleanConstraint* clone() const override {
-        return new AstBooleanConstraint(truthValue, getSrcLoc());
+    BooleanConstraint* clone() const override {
+        return new BooleanConstraint(truthValue, getSrcLoc());
     }
 
 protected:
@@ -59,9 +60,9 @@ protected:
         os << (truthValue ? "true" : "false");
     }
 
-    bool equal(const AstNode& node) const override {
-        assert(nullptr != dynamic_cast<const AstBooleanConstraint*>(&node));
-        const auto& other = static_cast<const AstBooleanConstraint&>(node);
+    bool equal(const Node& node) const override {
+        assert(isA<BooleanConstraint>(&node));
+        const auto& other = static_cast<const BooleanConstraint&>(node);
         return truthValue == other.truthValue;
     }
 
@@ -69,4 +70,4 @@ protected:
     bool truthValue;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

@@ -1,9 +1,9 @@
 SOUFFLE=@abs_top_builddir@/src/souffle
 SOUFFLE_PROFILE=@abs_top_builddir@/src/souffle-profile
 TESTS=@abs_top_srcdir@/tests
-SOUFFLE_INC=@abs_top_builddir@/include
+SOUFFLE_INC=@abs_top_srcdir@/src/include
 CXX="@CXX@"
-CXXFLAGS="@CXXFLAGS@"
+CXXFLAGS="@CXXFLAGS@ -I@abs_top_srcdir@/src/include"
 CPPFLAGS="@CPPFLAGS@"
 LIBS="@LIBS@"
 LDFLAGS="@LDFLAGS@"

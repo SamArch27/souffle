@@ -18,35 +18,34 @@
 #include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Statement.h"
-#include "ram/Visitor.h"
-#include "utility/MiscUtil.h"
+#include "ram/utility/Visitor.h"
+#include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ram::transform {
 
-bool ReorderFilterBreak::reorderFilterBreak(RamProgram& program) {
+bool ReorderFilterBreak::reorderFilterBreak(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const RamQuery& query) {
-        std::function<std::unique_ptr<RamNode>(std::unique_ptr<RamNode>)> filterRewriter =
-                [&](std::unique_ptr<RamNode> node) -> std::unique_ptr<RamNode> {
+    visitDepthFirst(program, [&](const Query& query) {
+        std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
             // find filter-break nesting
-            if (const RamFilter* filter = dynamic_cast<RamFilter*>(node.get())) {
-                if (const RamBreak* br = dynamic_cast<RamBreak*>(&filter->getOperation())) {
+            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+                if (const Break* br = dynamic_cast<Break*>(&filter->getOperation())) {
                     changed = true;
                     // convert to break-filter nesting
-                    node = std::make_unique<RamBreak>(souffle::clone(&br->getCondition()),
-                            std::make_unique<RamFilter>(souffle::clone(&filter->getCondition()),
+                    node = mk<Break>(souffle::clone(&br->getCondition()),
+                            mk<Filter>(souffle::clone(&filter->getCondition()),
                                     souffle::clone(&br->getOperation())));
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));
             return node;
         };
-        const_cast<RamQuery*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
+        const_cast<Query*>(&query)->apply(makeLambdaRamMapper(filterRewriter));
     });
     return changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

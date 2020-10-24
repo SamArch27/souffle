@@ -10,18 +10,18 @@
  *
  * @file TranslationUnit.h
  *
- * Define a class that represents a Datalog translation unit, consisting
- * of a datalog program, error reports and cached analysis results.
+ * Define a RAM translation unit
  *
  ***********************************************************************/
 
 #pragma once
 
-#include "DebugReport.h"
 #include "Global.h"
-#include "SymbolTable.h"
 #include "ram/Program.h"
 #include "ram/analysis/Analysis.h"
+#include "reports/DebugReport.h"
+#include "reports/ErrorReport.h"
+#include "souffle/SymbolTable.h"
 #include <cassert>
 #include <iosfwd>
 #include <map>
@@ -31,24 +31,25 @@
 #include <utility>
 
 namespace souffle {
-class ErrorReport;
+
+namespace ram {
 
 /**
- * @class RamTranslationUnit
+ * @class TranslationUnit
  * @brief Translating a RAM program
  *
- * Comprises the program, symbol table, error report and debug report
+ * Comprises the program, symbol table, error report, debug report, and analyses
  */
-class RamTranslationUnit {
+class TranslationUnit {
 public:
-    RamTranslationUnit(std::unique_ptr<RamProgram> prog, SymbolTable sym, ErrorReport& e, DebugReport& d)
+    TranslationUnit(Own<Program> prog, SymbolTable sym, ErrorReport& e, DebugReport& d)
             : program(std::move(prog)), symbolTable(std::move(sym)), errorReport(e), debugReport(d) {
         assert(program != nullptr && "program is a null-pointer");
     }
 
-    virtual ~RamTranslationUnit() = default;
+    virtual ~TranslationUnit() = default;
 
-    /** @brief templated method to compute/retrieve an analysis for a translation unit */
+    /** @brief Get an analysis */
     template <class Analysis>
     Analysis* getAnalysis() const {
         static const bool debug = Global::config().has("debug-report");
@@ -56,7 +57,7 @@ public:
         auto it = analyses.find(name);
         if (it == analyses.end()) {
             // analysis does not exist yet, create instance and run it.
-            auto analysis = std::make_unique<Analysis>(Analysis::name);
+            auto analysis = mk<Analysis>(Analysis::name);
             analysis->run(*this);
             // output analysis in debug report
             if (debug) {
@@ -76,63 +77,48 @@ public:
         return dynamic_cast<Analysis*>(analyses[name].get());
     }
 
-    /** @brief get the set of alive analyses of the translation unit */
-    std::set<const RamAnalysis*> getAliveAnalyses() const {
-        std::set<const RamAnalysis*> result;
+    /** @brief Get all alive analyses */
+    std::set<const analysis::Analysis*> getAliveAnalyses() const {
+        std::set<const analysis::Analysis*> result;
         for (auto const& a : analyses) {
             result.insert(a.second.get());
         }
         return result;
     }
 
-    /** @brief throw away all alive analyses of the translation unit */
+    /** @brief Invalidate all alive analyses of the translation unit */
     void invalidateAnalyses() {
         analyses.clear();
     }
 
-    /** @brief get the RAM Program of the translation unit  */
-    const RamProgram& getProgram() const {
+    /** @brief Get the RAM Program of the translation unit  */
+    Program& getProgram() const {
         return *program;
     }
 
-    /** @brief get the RAM Program of the translation unit  */
-    RamProgram& getProgram() {
-        return *program;
-    }
-
-    /** @brief get symbol table  */
+    /** @brief Obtain symbol table  */
     souffle::SymbolTable& getSymbolTable() {
         return symbolTable;
     }
 
-    /** @brief get error report */
+    /** @brief Obtain error report */
     ErrorReport& getErrorReport() {
         return errorReport;
     }
 
-    /** @brief get error report */
-    const ErrorReport& getErrorReport() const {
-        return errorReport;
-    }
-
-    /** @brief get debug report */
+    /** @brief Obtain debug report */
     DebugReport& getDebugReport() {
         return debugReport;
     }
 
-    /** @brief get const debug report */
-    const DebugReport& getDebugReport() const {
-        return debugReport;
-    }
-
 protected:
-    /* cached analyses */
-    mutable std::map<std::string, std::unique_ptr<RamAnalysis>> analyses;
+    /* Cached analyses */
+    mutable std::map<std::string, Own<analysis::Analysis>> analyses;
 
-    /* Program RAM */
-    std::unique_ptr<RamProgram> program;
+    /* RAM program */
+    Own<Program> program;
 
-    /* The table of symbols encountered in the input program */
+    /* Symbol table for the RAM program */
     souffle::SymbolTable symbolTable;
 
     /* Error report for raising errors and warnings */
@@ -142,4 +128,5 @@ protected:
     DebugReport& debugReport;
 };
 
+}  // namespace ram
 }  // end of namespace souffle

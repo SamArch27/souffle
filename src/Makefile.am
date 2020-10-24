@@ -4,111 +4,30 @@
 # - https://opensource.org/licenses/UPL
 # - <souffle root>/licenses/SOUFFLE-UPL.txt
 
-SUBDIRS = . tests
+SUBDIRS = . tests ast/tests ram/tests interpreter/tests
 
 SUFFIXES = .cpp .h .yy .ll .cc .hh .h
 
 bin_PROGRAMS = souffle souffle-profile
 
-nodist_souffle_profile_SOURCES = $(BUILT_SOURCES)
-
-souffle_profile_sources = \
-        ProfileDatabase.h                                  \
-        json11.h                                           \
-        profile/Cell.h                                     \
-        profile/CellInterface.h                            \
-        profile/Cli.h                                      \
-        profile/DataComparator.h                           \
-        profile/HtmlGenerator.h                            \
-        profile/Iteration.h                                \
-        profile/OutputProcessor.h                          \
-        profile/ProgramRun.h                               \
-        profile/Reader.h                                   \
-        profile/Relation.h                                 \
-        profile/Row.h                                      \
-        profile/Rule.h                                     \
-        profile/StringUtils.h                              \
-        profile/Table.h                                    \
-        profile/Tui.h                                      \
-        profile/UserInputReader.h                          \
-        profile/htmlCssChartist.h                          \
-        profile/htmlCssStyle.h                             \
-        profile/htmlJsChartistMin.h                        \
-        profile/htmlJsChartistPlugin.h                     \
-        profile/htmlJsMain.h                               \
-        profile/htmlJsTableSort.h                          \
-        profile/htmlJsUtil.h                               \
-        profile/htmlMain.h
-
-souffle_swig_sources = \
-        swig/SwigInterface.h                               \
-        swig/SwigInterface.i
-
-souffle_utility_sources = \
-        utility/CacheUtil.h                                \
-        utility/ContainerUtil.h                            \
-        utility/FileUtil.h                                 \
-        utility/EvaluatorUtil.h                            \
-        utility/FunctionalUtil.h                           \
-        utility/MiscUtil.h                                 \
-        utility/ParallelUtil.h                             \
-        utility/StreamUtil.h                               \
-        utility/StringUtil.h                               \
-        utility/tinyformat.h
-
-souffle_io_sources = \
-        io/IOSystem.h                                      \
-        io/ReadStream.h                                    \
-        io/ReadStreamCSV.h                                 \
-        io/ReadStreamJSON.h                                \
-        io/SerialisationStream.h                           \
-        io/WriteStream.h                                   \
-        io/WriteStreamCSV.h                                \
-        io/WriteStreamJSON.h
-
-DIR := ${CURDIR}
-
-# ... which should no go to distribution
-nodist_souffle_SOURCES = $(BUILT_SOURCES)
-
-if LIBZ
-libz_sources = gzfstream.h
-endif
-
-if SQLITE
-sqlite_sources = io/ReadStreamSQLite.h io/WriteStreamSQLite.h
-endif
-
-
 souffle_sources = \
         AggregateOp.h                                      \
-        AstToRamTranslator.cpp                             \
-        AstToRamTranslator.h                               \
-        BinaryConstraintOps.h                              \
-        Constraints.h                                      \
-        DebugReport.cpp                                    \
-        DebugReport.h                                      \
-        ErrorReport.h                                      \
-        EventProcessor.h                                   \
         FunctorOps.cpp                                     \
         FunctorOps.h                                       \
         Global.cpp                                         \
         Global.h                                           \
         GraphUtils.h                                       \
         LogStatement.h                                     \
-        ProfileEvent.h                                     \
-        RamTypes.h                                         \
-        RecordTable.h                                      \
         RelationTag.h                                      \
-        SignalHandler.h                                    \
-        TypeAttribute.h                                    \
-        Util.cpp                                           \
         ast/Aggregator.h                                   \
+        ast/AlgebraicDataType.h                            \
         ast/Argument.h                                     \
         ast/Atom.h                                         \
         ast/Attribute.h                                    \
         ast/BinaryConstraint.h                             \
         ast/BooleanConstraint.h                            \
+        ast/BranchDeclaration.h                            \
+        ast/BranchInit.h                                   \
         ast/Clause.h                                       \
         ast/Component.h                                    \
         ast/ComponentInit.h                                \
@@ -120,16 +39,15 @@ souffle_sources = \
         ast/ExecutionPlan.h                                \
         ast/Functor.h                                      \
         ast/FunctorDeclaration.h                           \
-        ast/IO.h                                           \
+        ast/Directive.h                                    \
         ast/IntrinsicFunctor.h                             \
-        ast/LambdaNodeMapper.h                             \
         ast/Literal.h                                      \
         ast/Negation.h                                     \
         ast/NilConstant.h                                  \
         ast/Node.h                                         \
-        ast/NodeMapper.h                                   \
         ast/NumericConstant.h                              \
         ast/Pragma.h                                       \
+        ast/Program.cpp                                    \
         ast/Program.h                                      \
         ast/ProvenanceNegation.h                           \
         ast/QualifiedName.h                                \
@@ -146,16 +64,20 @@ souffle_sources = \
         ast/UnionType.h                                    \
         ast/UnnamedVariable.h                              \
         ast/UserDefinedFunctor.h                           \
-        ast/Utils.cpp                                      \
-        ast/Utils.h                                        \
         ast/Variable.h                                     \
-        ast/Visitor.h                                      \
+        ast/analysis/Aggregate.cpp                         \
+        ast/analysis/Aggregate.h                           \
         ast/analysis/Analysis.h                            \
         ast/analysis/AuxArity.cpp                          \
         ast/analysis/AuxArity.h                            \
+        ast/analysis/ClauseNormalisation.h                 \
+        ast/analysis/ClauseNormalisation.cpp               \
         ast/analysis/ComponentLookup.cpp                   \
         ast/analysis/ComponentLookup.h                     \
         ast/analysis/Constraint.h                          \
+        ast/analysis/ConstraintSystem.h                    \
+        ast/analysis/Functor.h                             \
+        ast/analysis/Functor.cpp                           \
         ast/analysis/Ground.cpp                            \
         ast/analysis/Ground.h                              \
         ast/analysis/IOType.cpp                            \
@@ -174,6 +96,8 @@ souffle_sources = \
         ast/analysis/RelationSchedule.h                    \
         ast/analysis/SCCGraph.cpp                          \
         ast/analysis/SCCGraph.h                            \
+        ast/analysis/SumTypeBranches.cpp                   \
+        ast/analysis/SumTypeBranches.h                     \
         ast/analysis/TopologicallySortedSCCGraph.cpp       \
         ast/analysis/TopologicallySortedSCCGraph.h         \
         ast/analysis/Type.cpp                              \
@@ -182,6 +106,10 @@ souffle_sources = \
         ast/analysis/TypeSystem.h                          \
         ast/analysis/TypeEnvironment.cpp                   \
         ast/analysis/TypeEnvironment.h                     \
+        ast/transform/ADTtoRecords.cpp                     \
+        ast/transform/ADTtoRecords.h                       \
+        ast/transform/AddNullariesToAtomlessAggregates.cpp \
+        ast/transform/AddNullariesToAtomlessAggregates.h   \
         ast/transform/ComponentChecker.cpp                 \
         ast/transform/ComponentChecker.h                   \
         ast/transform/ComponentInstantiation.cpp           \
@@ -196,6 +124,8 @@ souffle_sources = \
         ast/transform/FoldAnonymousRecords.h               \
         ast/transform/GroundedTermsChecker.cpp             \
         ast/transform/GroundedTermsChecker.h               \
+        ast/transform/GroundWitnesses.cpp                  \
+        ast/transform/GroundWitnesses.h                    \
         ast/transform/IOAttributes.h                       \
         ast/transform/IODefaults.h                         \
         ast/transform/InlineRelations.cpp                  \
@@ -212,8 +142,8 @@ souffle_sources = \
         ast/transform/MinimiseProgram.h                    \
         ast/transform/NameUnnamedVariables.cpp             \
         ast/transform/NameUnnamedVariables.h               \
-        ast/transform/NormaliseConstraints.cpp             \
-        ast/transform/NormaliseConstraints.h               \
+        ast/transform/NormaliseMultiResultFunctors.cpp     \
+        ast/transform/NormaliseMultiResultFunctors.h       \
         ast/transform/Null.h                               \
         ast/transform/PartitionBodyLiterals.cpp            \
         ast/transform/PartitionBodyLiterals.h              \
@@ -248,24 +178,47 @@ souffle_sources = \
         ast/transform/ResolveAnonymousRecordAliases.h      \
         ast/transform/SemanticChecker.cpp                  \
         ast/transform/SemanticChecker.h                    \
+        ast/transform/SimplifyAggregateTargetExpression.cpp\
+        ast/transform/SimplifyAggregateTargetExpression.h  \
         ast/transform/Transformer.cpp                      \
         ast/transform/Transformer.h                        \
+        ast/transform/TypeChecker.cpp                      \
+        ast/transform/TypeChecker.h                        \
         ast/transform/UniqueAggregationVariables.cpp       \
         ast/transform/UniqueAggregationVariables.h         \
-        ast/transform/UserDefinedFunctors.cpp              \
-        ast/transform/UserDefinedFunctors.h                \
         ast/transform/While.h                              \
-        interpreter/InterpreterContext.h                   \
-        interpreter/InterpreterEngine.cpp                  \
-        interpreter/InterpreterEngine.h                    \
-        interpreter/InterpreterGenerator.h                 \
-        interpreter/InterpreterIndex.cpp                   \
-        interpreter/InterpreterIndex.h                     \
-        interpreter/InterpreterNode.h                      \
-        interpreter/InterpreterPreamble.h                  \
-        interpreter/InterpreterProgInterface.h             \
-        interpreter/InterpreterRelation.cpp                \
-        interpreter/InterpreterRelation.h                  \
+        ast/utility/BindingStore.h                         \
+        ast/utility/BindingStore.cpp                       \
+        ast/utility/LambdaNodeMapper.h                     \
+        ast/utility/NodeMapper.h                           \
+        ast/utility/SipsMetric.h                           \
+        ast/utility/SipsMetric.cpp                         \
+        ast/utility/Utils.cpp                              \
+        ast/utility/Utils.h                                \
+        ast/utility/Visitor.h                              \
+        ast2ram/AstToRamTranslator.cpp                     \
+        ast2ram/AstToRamTranslator.h                       \
+        ast2ram/ClauseTranslator.cpp                       \
+        ast2ram/ClauseTranslator.h                         \
+        ast2ram/Location.h                                 \
+        ast2ram/ProvenanceClauseTranslator.cpp             \
+        ast2ram/ProvenanceClauseTranslator.h               \
+        ast2ram/ValueIndex.cpp                             \
+        ast2ram/ValueIndex.h                               \
+        interpreter/Context.h                              \
+        interpreter/Engine.cpp                             \
+        interpreter/Engine.h                               \
+        interpreter/Generator.h                            \
+        interpreter/BrieIndex.cpp                          \
+        interpreter/BTreeIndex.cpp                         \
+        interpreter/EqrelIndex.cpp                         \
+        interpreter/ProvenanceIndex.cpp                    \
+        interpreter/Index.h                                \
+        interpreter/Node.h                                 \
+        interpreter/ViewContext.h                          \
+        interpreter/ProgInterface.h                        \
+        interpreter/Relation.h                             \
+        interpreter/Util.h                                 \
         parser/ParserDriver.cpp                            \
         parser/ParserDriver.h                              \
         parser/ParserUtils.cpp                             \
@@ -309,7 +262,6 @@ souffle_sources = \
         ram/IndexOperation.h                               \
         ram/IndexScan.h                                    \
         ram/IntrinsicOperator.h                            \
-        ram/LambdaNodeMapper.h                             \
         ram/ListStatement.h                                \
         ram/LogRelationTimer.h                             \
         ram/LogSize.h                                      \
@@ -319,7 +271,6 @@ souffle_sources = \
         ram/NestedIntrinsicOperator.h                      \
         ram/NestedOperation.h                              \
         ram/Node.h                                         \
-        ram/NodeMapper.h                                   \
         ram/Operation.h                                    \
         ram/PackRecord.h                                   \
         ram/Parallel.h                                     \
@@ -335,6 +286,7 @@ souffle_sources = \
         ram/Relation.h                                     \
         ram/RelationOperation.h                            \
         ram/RelationStatement.h                            \
+        ram/RelationSize.h                                 \
         ram/ParallelScan.h                                 \
         ram/Scan.h                                         \
         ram/Sequence.h                                     \
@@ -352,15 +304,15 @@ souffle_sources = \
         ram/UnpackRecord.h                                 \
         ram/UnsignedConstant.h                             \
         ram/UserDefinedOperator.h                          \
-        ram/Utils.h                                        \
-        ram/Visitor.h                                      \
         ram/analysis/Analysis.h                            \
-        ram/analysis/ComplexityAnalysis.cpp                \
-        ram/analysis/ComplexityAnalysis.h                  \
-        ram/analysis/IndexAnalysis.cpp                     \
-        ram/analysis/IndexAnalysis.h                       \
-        ram/analysis/LevelAnalysis.cpp                     \
-        ram/analysis/LevelAnalysis.h                       \
+        ram/analysis/Complexity.cpp                        \
+        ram/analysis/Complexity.h                          \
+        ram/analysis/Index.cpp                             \
+        ram/analysis/Index.h                               \
+        ram/analysis/Level.cpp                             \
+        ram/analysis/Level.h                               \
+        ram/analysis/Relation.cpp                          \
+        ram/analysis/Relation.h                            \
         ram/transform/ChoiceConversion.cpp                 \
         ram/transform/ChoiceConversion.h                   \
         ram/transform/CollapseFilters.cpp                  \
@@ -394,15 +346,19 @@ souffle_sources = \
         ram/transform/Transformer.h                        \
         ram/transform/TupleId.cpp                          \
         ram/transform/TupleId.h                            \
+        ram/utility/LambdaNodeMapper.h                     \
+        ram/utility/NodeMapper.h                           \
+        ram/utility/Utils.h                                \
+        ram/utility/Visitor.h                              \
+        reports/DebugReport.cpp                            \
+        reports/DebugReport.h                              \
+        reports/ErrorReport.h                              \
         synthesiser/Synthesiser.cpp                        \
         synthesiser/Synthesiser.h                          \
-        synthesiser/SynthesiserRelation.cpp                \
-        synthesiser/SynthesiserRelation.h                  \
-        $(libz_sources)                                    \
-        $(souffle_io_sources)                              \
-        $(souffle_profile_sources)                         \
+        synthesiser/Relation.cpp                           \
+        synthesiser/Relation.h                             \
         $(souffle_utility_sources)                         \
-        $(sqlite_sources)                                  
+        $(souffle_profile_sources)
 
 # -- build souffle as a library so it can be reused in testing
 noinst_LTLIBRARIES = libsouffle.la
@@ -412,8 +368,10 @@ libsouffle_la_LDFLAGS = --static --dlopen --pic -ldl -lffi
 
 souffle_SOURCES = main.cpp
 souffle_LDADD = libsouffle.la
+souffle_CPPFLAGS = -I$(srcdir)/include
 
 souffle_profile_SOURCES = souffle_prof.cpp
+souffle_profile_CPPFLAGS = $(souffle_CPPFLAGS)
 
 dist_bin_SCRIPTS = souffle-compile souffle-config
 
@@ -422,51 +380,103 @@ EXTRA_DIST = parser/parser.yy parser/scanner.ll
 soufflepublicdir = $(includedir)/souffle
 
 soufflepublic_HEADERS = \
-        BTree.h                                            \
-        BinaryConstraintOps.h                              \
-        Brie.h                                             \
-        CompiledOptions.h                                  \
-        CompiledSouffle.h                                  \
-        CompiledTuple.h                                    \
-        EquivalenceRelation.h                              \
-        EventProcessor.h                                   \
-        Explain.h                                          \
-        ExplainProvenance.h                                \
-        ExplainProvenanceImpl.h                            \
-        ExplainTree.h                                      \
-        LambdaBTree.h                                      \
-        Logger.h                                           \
-        PiggyList.h                                        \
-        ProfileDatabase.h                                  \
-        ProfileEvent.h                                     \
-        RamTypes.h                                         \
-        RecordTable.h                                      \
-        SignalHandler.h                                    \
-        SouffleInterface.h                                 \
-        SymbolTable.h                                      \
-        Table.h                                            \
-        UnionFind.h                                        \
-        json11.h                                           \
-        $(souffle_utility_sources)                         \
-        $(souffle_io_sources)                              \
-        $(libz_sources)                                    \
-        $(sqlite_sources)
+        include/souffle/BinaryConstraintOps.h              \
+        include/souffle/CompiledOptions.h                  \
+        include/souffle/CompiledSouffle.h                  \
+        include/souffle/RamTypes.h                         \
+        include/souffle/RecordTable.h                      \
+        include/souffle/SignalHandler.h                    \
+        include/souffle/SouffleInterface.h                 \
+        include/souffle/SymbolTable.h                      \
+        include/souffle/TypeAttribute.h
 
-souffleprofiledir = $(soufflepublicdir)/profile
+souffledatastructuredir = $(soufflepublicdir)/datastructure
 
-souffleprofile_HEADERS = $(souffle_profile_sources)
-
-souffleswigdir = $(soufflepublicdir)/swig
-
-souffleswig_HEADERS = $(souffle_swig_sources)
-
-souffleutilitydir = $(soufflepublicdir)/utility
-
-souffleutility_HEADERS = $(souffle_utility_sources)
+souffledatastructure_HEADERS = \
+        include/souffle/datastructure/BTree.h              \
+        include/souffle/datastructure/Brie.h               \
+        include/souffle/datastructure/EquivalenceRelation.h\
+        include/souffle/datastructure/LambdaBTree.h        \
+        include/souffle/datastructure/PiggyList.h          \
+        include/souffle/datastructure/Table.h              \
+        include/souffle/datastructure/UnionFind.h
 
 souffleiodir = $(soufflepublicdir)/io
 
-souffleio_HEADERS = $(souffle_io_sources)
+souffleio_HEADERS = \
+        include/souffle/io/IOSystem.h                      \
+        include/souffle/io/gzfstream.h                     \
+        include/souffle/io/ReadStream.h                    \
+        include/souffle/io/ReadStreamCSV.h                 \
+        include/souffle/io/ReadStreamJSON.h                \
+        include/souffle/io/ReadStreamSQLite.h              \
+        include/souffle/io/SerialisationStream.h           \
+        include/souffle/io/WriteStreamSQLite.h             \
+        include/souffle/io/WriteStream.h                   \
+        include/souffle/io/WriteStreamCSV.h                \
+        include/souffle/io/WriteStreamJSON.h
+
+souffleprofiledir = $(soufflepublicdir)/profile
+
+souffleprofile_HEADERS = \
+        include/souffle/profile/Cell.h                     \
+        include/souffle/profile/CellInterface.h            \
+        include/souffle/profile/Cli.h                      \
+        include/souffle/profile/DataComparator.h           \
+        include/souffle/profile/EventProcessor.h           \
+        include/souffle/profile/HtmlGenerator.h            \
+        include/souffle/profile/Iteration.h                \
+        include/souffle/profile/Logger.h                   \
+        include/souffle/profile/OutputProcessor.h          \
+        include/souffle/profile/ProfileDatabase.h          \
+        include/souffle/profile/ProfileEvent.h             \
+        include/souffle/profile/ProgramRun.h               \
+        include/souffle/profile/Reader.h                   \
+        include/souffle/profile/Relation.h                 \
+        include/souffle/profile/Row.h                      \
+        include/souffle/profile/Rule.h                     \
+        include/souffle/profile/StringUtils.h              \
+        include/souffle/profile/Table.h                    \
+        include/souffle/profile/Tui.h                      \
+        include/souffle/profile/UserInputReader.h          \
+        include/souffle/profile/htmlCssChartist.h          \
+        include/souffle/profile/htmlCssStyle.h             \
+        include/souffle/profile/htmlJsChartistMin.h        \
+        include/souffle/profile/htmlJsChartistPlugin.h     \
+        include/souffle/profile/htmlJsMain.h               \
+        include/souffle/profile/htmlJsTableSort.h          \
+        include/souffle/profile/htmlJsUtil.h               \
+        include/souffle/profile/htmlMain.h
+
+souffleprovenancedir = $(soufflepublicdir)/provenance
+
+souffleprovenance_HEADERS = \
+        include/souffle/provenance/Explain.h               \
+        include/souffle/provenance/ExplainProvenance.h     \
+        include/souffle/provenance/ExplainProvenanceImpl.h \
+        include/souffle/provenance/ExplainTree.h
+
+souffleswigdir = $(soufflepublicdir)/swig
+
+souffleswig_HEADERS = \
+        include/souffle/swig/SwigInterface.h               \
+        include/souffle/swig/SwigInterface.i
+
+souffleutilitydir = $(soufflepublicdir)/utility
+
+souffleutility_HEADERS = \
+        include/souffle/utility/CacheUtil.h                \
+        include/souffle/utility/ContainerUtil.h            \
+        include/souffle/utility/FileUtil.h                 \
+        include/souffle/utility/EvaluatorUtil.h            \
+        include/souffle/utility/FunctionalUtil.h           \
+        include/souffle/utility/MiscUtil.h                 \
+        include/souffle/utility/ParallelUtil.h             \
+        include/souffle/utility/StreamUtil.h               \
+        include/souffle/utility/StringUtil.h               \
+        include/souffle/utility/json11.h                   \
+        include/souffle/utility/span.h                     \
+        include/souffle/utility/tinyformat.h
 
 # files to clean
 CLEANFILES = $(BUILT_SOURCES)  parser/parser.cc parser/scanner.cc parser/parser.hh parser/stack.hh
@@ -482,4 +492,3 @@ $(builddir)/parser/scanner.cc: $(srcdir)/parser/scanner.ll
 # driver depends on the generated header
 $(builddir)/parser/parser.cc $(builddir)/parser/stack.hh $(builddir)/parser/scanner.cc \
     $(builddir)/main.cpp $(builddir)/parser/ParserDriver.cpp: $(builddir)/parser/parser.hh
-

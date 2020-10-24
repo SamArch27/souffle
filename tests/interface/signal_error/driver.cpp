@@ -26,7 +26,7 @@ using namespace souffle;
 /**
  * Signal handler
  */
-void handler(int n) {
+void handler(int /* n */) {
     std::cerr << "handler invoked." << std::endl;
     exit(1);
 }
@@ -34,7 +34,7 @@ void handler(int n) {
 /**
  * Main program
  */
-int main(int argc, char** argv) {
+int main(int /* argc */, char** /* argv */) {
     // set default signal handler for SIGINT signal
     signal(SIGINT, handler);
 

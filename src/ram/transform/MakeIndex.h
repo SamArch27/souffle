@@ -15,13 +15,17 @@
 #pragma once
 
 #include "ram/Aggregate.h"
+#include "ram/Condition.h"
 #include "ram/Constraint.h"
+#include "ram/Expression.h"
 #include "ram/IndexOperation.h"
 #include "ram/IndexScan.h"
 #include "ram/Operation.h"
+#include "ram/Program.h"
 #include "ram/Scan.h"
 #include "ram/TranslationUnit.h"
-#include "ram/analysis/LevelAnalysis.h"
+#include "ram/analysis/Level.h"
+#include "ram/analysis/Relation.h"
 #include "ram/transform/Transformer.h"
 #include <cstddef>
 #include <memory>
@@ -29,11 +33,7 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
-
-class RamProgram;
-class RamCondition;
-class RamExpression;
+namespace souffle::ram::transform {
 
 /**
  * @class MakeIndexTransformer
@@ -61,7 +61,7 @@ class RamExpression;
  *      ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class MakeIndexTransformer : public RamTransformer {
+class MakeIndexTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "MakeIndexTransformer";
@@ -77,13 +77,10 @@ public:
      * The method retrieves expression the expression of an equivalence constraint of the
      * format t1.x = <expr> or <expr> = t1.x
      */
-    using ExpressionPair = std::pair<std::unique_ptr<RamExpression>, std::unique_ptr<RamExpression>>;
+    using ExpressionPair = std::pair<Own<Expression>, Own<Expression>>;
 
-    ExpressionPair getSignedExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-    ExpressionPair getUnsignedExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-    ExpressionPair getFloatExpressionPair(const RamConstraint* binRelOp, size_t& element, int identifier);
-
-    ExpressionPair getLowerUpperExpression(RamCondition* c, size_t& element, int level);
+    ExpressionPair getExpressionPair(const Constraint* binRelOp, size_t& element, int identifier);
+    ExpressionPair getLowerUpperExpression(Condition* c, size_t& element, int level);
 
     /**
      * @param AttributeTypes to indicate type of each attribute in the relation
@@ -93,9 +90,8 @@ public:
      * @param Tuple identifier of the indexable operation
      * @result Remaining conditions that could not be transformed to an index
      */
-    std::unique_ptr<RamCondition> constructPattern(const std::vector<std::string>& attributeTypes,
-            RamPattern& queryPattern, bool& indexable,
-            std::vector<std::unique_ptr<RamCondition>> conditionList, int identifier);
+    Own<Condition> constructPattern(const std::vector<std::string>& attributeTypes, RamPattern& queryPattern,
+            bool& indexable, VecOwn<Condition> conditionList, int identifier);
 
     /**
      * @brief Rewrite a scan operation to an indexed scan operation
@@ -103,7 +99,7 @@ public:
      * @result The result is null if the scan could not be rewritten to an IndexScan;
      *         otherwise the new IndexScan operation is returned.
      */
-    std::unique_ptr<RamOperation> rewriteScan(const RamScan* scan);
+    Own<Operation> rewriteScan(const Scan* scan);
 
     /**
      * @brief Rewrite an index scan operation to an amended index scan operation
@@ -111,7 +107,7 @@ public:
      * @result The result is null if the index scan cannot be amended;
      *         otherwise the new IndexScan operation is returned.
      */
-    std::unique_ptr<RamOperation> rewriteIndexScan(const RamIndexScan* iscan);
+    Own<Operation> rewriteIndexScan(const IndexScan* iscan);
 
     /**
      * @brief Rewrite an aggregate operation to an indexed aggregate operation
@@ -119,21 +115,25 @@ public:
      * @result The result is null if the aggregate could not be rewritten to an indexed version;
      *         otherwise the new indexed version of the aggregate is returned.
      */
-    std::unique_ptr<RamOperation> rewriteAggregate(const RamAggregate* agg);
+    Own<Operation> rewriteAggregate(const Aggregate* agg);
 
     /**
      * @brief Make indexable RAM operation indexed
      * @param RAM program that is transformed
      * @result Flag that indicates whether the input program has changed
      */
-    bool makeIndex(RamProgram& program);
+    bool makeIndex(Program& program);
 
 protected:
-    RamLevelAnalysis* rla{nullptr};
-    bool transform(RamTranslationUnit& translationUnit) override {
-        rla = translationUnit.getAnalysis<RamLevelAnalysis>();
+    analysis::LevelAnalysis* rla{nullptr};
+
+    bool transform(TranslationUnit& translationUnit) override {
+        rla = translationUnit.getAnalysis<analysis::LevelAnalysis>();
+        relAnalysis = translationUnit.getAnalysis<analysis::RelationAnalysis>();
         return makeIndex(translationUnit.getProgram());
     }
+
+    analysis::RelationAnalysis* relAnalysis{nullptr};
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram::transform

@@ -1,6 +1,6 @@
 /*
  * Souffle - A Datalog Compiler
- * Copyright (c) 2018 The Souffle Developers. All Rights reserved
+ * Copyright (c) 2018 The Souffle Developers. All rights reserved
  * Licensed under the Universal Permissive License v 1.0 as shown at:
  * - https://opensource.org/licenses/UPL
  * - <souffle root>/licenses/SOUFFLE-UPL.txt
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "TypeAttribute.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
-#include "utility/tinyformat.h"
+#include "souffle/TypeAttribute.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
+#include "souffle/utility/tinyformat.h"
 #include <cassert>
 #include <cstdlib>
 #include <ostream>
@@ -30,22 +30,22 @@
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstFunctorDeclaration
+ * @class FunctorDeclaration
  * @brief User-defined functor declaration
  *
  * Example:
  *    .declfun foo(x:number, y:number):number
  */
 
-class AstFunctorDeclaration : public AstNode {
+class FunctorDeclaration : public Node {
 public:
-    AstFunctorDeclaration(std::string name, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
-            SrcLocation loc = {})
-            : AstNode(std::move(loc)), name(std::move(name)), argsTypes(std::move(argsTypes)),
-              returnType(returnType) {
+    FunctorDeclaration(std::string name, std::vector<TypeAttribute> argsTypes, TypeAttribute returnType,
+            bool stateful, SrcLocation loc = {})
+            : Node(std::move(loc)), name(std::move(name)), argsTypes(std::move(argsTypes)),
+              returnType(returnType), stateful(stateful) {
         assert(this->name.length() > 0 && "functor name is empty");
     }
 
@@ -69,8 +69,13 @@ public:
         return argsTypes.size();
     }
 
-    AstFunctorDeclaration* clone() const override {
-        return new AstFunctorDeclaration(name, argsTypes, returnType, getSrcLoc());
+    /** Check whether functor is stateful */
+    bool isStateful() const {
+        return stateful;
+    }
+
+    FunctorDeclaration* clone() const override {
+        return new FunctorDeclaration(name, argsTypes, returnType, stateful, getSrcLoc());
     }
 
 protected:
@@ -81,19 +86,24 @@ protected:
                 case TypeAttribute::Symbol: return "symbol";
                 case TypeAttribute::Float: return "float";
                 case TypeAttribute::Unsigned: return "unsigned";
-                case TypeAttribute::Record: fatal("unhandled `TypeAttribute`");
+                case TypeAttribute::Record: break;
+                case TypeAttribute::ADT: break;
             }
-
-            UNREACHABLE_BAD_CASE_ANALYSIS
+            fatal("unhandled `TypeAttribute`");
         };
 
         tfm::format(
-                out, ".declfun %s(%s): %s\n", name, join(map(argsTypes, convert), ","), convert(returnType));
+                out, ".declfun %s(%s): %s", name, join(map(argsTypes, convert), ","), convert(returnType));
+        if (stateful) {
+            out << " stateful";
+        }
+        out << std::endl;
     }
 
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstFunctorDeclaration&>(node);
-        return name == other.name && argsTypes == other.argsTypes && returnType == other.returnType;
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const FunctorDeclaration&>(node);
+        return name == other.name && argsTypes == other.argsTypes && returnType == other.returnType &&
+               stateful == other.stateful;
     }
 
     /** Name of functor */
@@ -104,6 +114,9 @@ protected:
 
     /** Type of the return value */
     const TypeAttribute returnType;
+
+    /** Stateful flag */
+    const bool stateful;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast

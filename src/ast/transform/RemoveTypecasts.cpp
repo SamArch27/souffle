@@ -15,25 +15,25 @@
 #include "ast/transform/RemoveTypecasts.h"
 #include "ast/Argument.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 #include "ast/TypeCast.h"
-#include "utility/MiscUtil.h"
+#include "ast/utility/NodeMapper.h"
+#include "souffle/utility/MiscUtil.h"
 #include <memory>
 
-namespace souffle {
+namespace souffle::ast::transform {
 
-bool RemoveTypecastsTransformer::transform(AstTranslationUnit& translationUnit) {
-    struct TypecastRemover : public AstNodeMapper {
+bool RemoveTypecastsTransformer::transform(TranslationUnit& translationUnit) {
+    struct TypecastRemover : public NodeMapper {
         mutable bool changed{false};
 
-        std::unique_ptr<AstNode> operator()(std::unique_ptr<AstNode> node) const override {
+        Own<Node> operator()(Own<Node> node) const override {
             // remove sub-typecasts first
             node->apply(*this);
 
             // if current node is a typecast, replace with the value directly
-            if (auto* cast = dynamic_cast<AstTypeCast*>(node.get())) {
+            if (auto* cast = dynamic_cast<ast::TypeCast*>(node.get())) {
                 changed = true;
                 return souffle::clone(cast->getValue());
             }
@@ -44,9 +44,10 @@ bool RemoveTypecastsTransformer::transform(AstTranslationUnit& translationUnit) 
     };
 
     TypecastRemover update;
-    translationUnit.getProgram()->apply(update);
+    Program& program = translationUnit.getProgram();
+    program.apply(update);
 
     return update.changed;
 }
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

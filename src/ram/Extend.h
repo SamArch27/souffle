@@ -16,17 +16,17 @@
 
 #include "ram/BinRelationStatement.h"
 #include "ram/Relation.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamExtend
+ * @class Extend
  * @brief Extend equivalence relation.
  *
  * The following example merges A into B:
@@ -34,32 +34,31 @@ namespace souffle {
  * EXTEND B WITH A
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class RamExtend : public RamBinRelationStatement {
+class Extend : public BinRelationStatement {
 public:
-    RamExtend(std::unique_ptr<RamRelationReference> tRef, std::unique_ptr<RamRelationReference> sRef)
-            : RamBinRelationStatement(std::move(sRef), std::move(tRef)) {}
+    Extend(std::string tRef, const std::string& sRef) : BinRelationStatement(sRef, tRef) {}
 
     /** @brief Get source relation */
-    const RamRelation& getSourceRelation() const {
+    const std::string& getSourceRelation() const {
         return getFirstRelation();
     }
 
     /** @brief Get target relation */
-    const RamRelation& getTargetRelation() const {
+    const std::string& getTargetRelation() const {
         return getSecondRelation();
     }
 
-    RamExtend* clone() const override {
-        auto* res = new RamExtend(souffle::clone(second), souffle::clone(first));
+    Extend* clone() const override {
+        auto* res = new Extend(second, first);
         return res;
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
-        os << "EXTEND " << getTargetRelation().getName() << " WITH " << getSourceRelation().getName();
+        os << "EXTEND " << getTargetRelation() << " WITH " << getSourceRelation();
         os << std::endl;
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ram

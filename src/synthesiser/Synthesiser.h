@@ -16,7 +16,14 @@
 
 #pragma once
 
-#include "RecordTable.h"
+#include "ram/Operation.h"
+#include "ram/Relation.h"
+#include "ram/Statement.h"
+#include "ram/TranslationUnit.h"
+#include "ram/utility/Visitor.h"
+#include "souffle/RecordTable.h"
+#include "souffle/utility/ContainerUtil.h"
+#include "synthesiser/Relation.h"
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -24,13 +31,7 @@
 #include <set>
 #include <string>
 
-namespace souffle {
-
-class RamOperation;
-class RamTranslationUnit;
-class SynthesiserRelation;
-class RamRelation;
-class RamStatement;
+namespace souffle::synthesiser {
 
 /**
  * A RAM synthesiser: synthesises a C++ program from a RAM program.
@@ -41,7 +42,7 @@ private:
     RecordTable recordTable;
 
     /** RAM translation unit */
-    RamTranslationUnit& translationUnit;
+    ram::TranslationUnit& translationUnit;
 
     /** RAM identifier to C++ identifier map */
     std::map<const std::string, const std::string> identifiers;
@@ -55,6 +56,9 @@ private:
     /** Cache for generated types for relations */
     std::set<std::string> typeCache;
 
+    /** Relation map */
+    std::map<std::string, const ram::Relation*> relationMap;
+
 protected:
     /** Get record table */
     const RecordTable& getRecordTable();
@@ -63,19 +67,20 @@ protected:
     const std::string convertRamIdent(const std::string& name);
 
     /** Get relation name */
-    const std::string getRelationName(const RamRelation& rel);
+    const std::string getRelationName(const ram::Relation& rel);
+    const std::string getRelationName(const ram::Relation* rel);
 
     /** Get context name */
-    const std::string getOpContextName(const RamRelation& rel);
+    const std::string getOpContextName(const ram::Relation& rel);
 
     /** Get relation struct definition */
-    void generateRelationTypeStruct(std::ostream& out, std::unique_ptr<SynthesiserRelation> relationType);
+    void generateRelationTypeStruct(std::ostream& out, Own<Relation> relationType);
 
     /** Get referenced relations */
-    std::set<const RamRelation*> getReferencedRelations(const RamOperation& op);
+    std::set<const ram::Relation*> getReferencedRelations(const ram::Operation& op);
 
     /** Generate code */
-    void emitCode(std::ostream& out, const RamStatement& stmt);
+    void emitCode(std::ostream& out, const ram::Statement& stmt);
 
     /** Lookup frequency counter */
     unsigned lookupFreqIdx(const std::string& txt);
@@ -83,16 +88,27 @@ protected:
     /** Lookup read counter */
     size_t lookupReadIdx(const std::string& txt);
 
+    /** Lookup relation by relation name */
+    const ram::Relation* lookup(const std::string& relName) {
+        auto it = relationMap.find(relName);
+        assert(it != relationMap.end() && "relation not found");
+        return it->second;
+    }
+
 public:
-    explicit Synthesiser(RamTranslationUnit& tUnit) : translationUnit(tUnit) {}
+    explicit Synthesiser(ram::TranslationUnit& tUnit) : translationUnit(tUnit) {
+        ram::visitDepthFirst(tUnit.getProgram(),
+                [&](const ram::Relation& relation) { relationMap[relation.getName()] = &relation; });
+    }
+
     virtual ~Synthesiser() = default;
 
     /** Get translation unit */
-    RamTranslationUnit& getTranslationUnit() {
+    ram::TranslationUnit& getTranslationUnit() {
         return translationUnit;
     }
 
     /** Generate code */
     void generateCode(std::ostream& os, const std::string& id, bool& withSharedLibrary);
 };
-}  // end of namespace souffle
+}  // namespace souffle::synthesiser

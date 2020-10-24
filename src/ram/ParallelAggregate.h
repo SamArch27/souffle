@@ -24,19 +24,19 @@
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
-#include "ram/Utils.h"
-#include "utility/MiscUtil.h"
-#include "utility/StreamUtil.h"
+#include "ram/utility/Utils.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/StreamUtil.h"
 #include <iosfwd>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 
-namespace souffle {
+namespace souffle::ram {
 
 /**
- * @class RamParallelAggregate
+ * @class ParallelAggregate
  * @brief Parallel Aggregation function applied on some relation
  *
  * For example:
@@ -46,32 +46,29 @@ namespace souffle {
  * Applies the function PARALLEL COUNT to determine the number
  * of elements in A.
  */
-class RamParallelAggregate : public RamAggregate, public RamAbstractParallel {
+class ParallelAggregate : public Aggregate, public AbstractParallel {
 public:
-    RamParallelAggregate(std::unique_ptr<RamOperation> nested, AggregateOp fun,
-            std::unique_ptr<RamRelationReference> relRef, std::unique_ptr<RamExpression> expression,
-            std::unique_ptr<RamCondition> condition, int ident)
-            : RamAggregate(std::move(nested), fun, std::move(relRef), std::move(expression),
-                      std::move(condition), ident) {}
+    ParallelAggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+            Own<Condition> condition, int ident)
+            : Aggregate(std::move(nested), fun, rel, std::move(expression), std::move(condition), ident) {}
 
-    RamParallelAggregate* clone() const override {
-        return new RamParallelAggregate(souffle::clone(&getOperation()), function,
-                souffle::clone(relationRef), souffle::clone(expression), souffle::clone(condition),
-                identifier);
+    ParallelAggregate* clone() const override {
+        return new ParallelAggregate(souffle::clone(&getOperation()), function, relation,
+                souffle::clone(expression), souffle::clone(condition), identifier);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "PARALLEL t" << getTupleId() << ".0=";
-        RamAbstractAggregate::print(os, tabpos);
-        os << "FOR ALL t" << getTupleId() << " ∈ " << getRelation().getName();
-        if (!isRamTrue(condition.get())) {
+        AbstractAggregate::print(os, tabpos);
+        os << "FOR ALL t" << getTupleId() << " ∈ " << relation;
+        if (!isTrue(condition.get())) {
             os << " WHERE " << getCondition();
         }
         os << std::endl;
-        RamRelationOperation::print(os, tabpos + 1);
+        RelationOperation::print(os, tabpos + 1);
     }
 };
 
-}  // namespace souffle
+}  // namespace souffle::ram

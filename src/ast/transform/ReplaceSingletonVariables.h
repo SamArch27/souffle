@@ -14,19 +14,18 @@
 
 #pragma once
 
+#include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
 #include <string>
 
-namespace souffle {
-
-class AstTranslationUnit;
+namespace souffle::ast::transform {
 
 /**
  * Transformation pass to replace singleton variables
  * with unnamed variables.
  * E.g.: a() :- b(x). -> a() :- b(_).
  */
-class ReplaceSingletonVariablesTransformer : public AstTransformer {
+class ReplaceSingletonVariablesTransformer : public Transformer {
 public:
     std::string getName() const override {
         return "ReplaceSingletonVariablesTransformer";
@@ -37,7 +36,7 @@ public:
     }
 
 private:
-    bool transform(AstTranslationUnit& translationUnit) override;
+    bool transform(TranslationUnit& translationUnit) override;
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast::transform

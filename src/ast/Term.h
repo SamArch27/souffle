@@ -18,72 +18,72 @@
 
 #include "ast/Argument.h"
 #include "ast/Node.h"
-#include "ast/NodeMapper.h"
+#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "utility/ContainerUtil.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-namespace souffle {
+namespace souffle::ast {
 
 /**
- * @class AstTerm
+ * @class Term
  * @brief Defines an abstract term class used for functors and other constructors
  */
-class AstTerm : public AstArgument {
+class Term : public Argument {
 protected:
     template <typename... Operands>
-    AstTerm(Operands&&... operands) : AstTerm(asVec(std::forward<Operands>(operands)...)) {}
+    Term(Operands&&... operands) : Term(asVec(std::forward<Operands>(operands)...)) {}
 
     template <typename... Operands>
-    AstTerm(SrcLocation loc, Operands&&... operands)
-            : AstTerm(asVec(std::forward<Operands>(operands)...), std::move(loc)) {}
+    Term(SrcLocation loc, Operands&&... operands)
+            : Term(asVec(std::forward<Operands>(operands)...), std::move(loc)) {}
 
-    AstTerm(VecOwn<AstArgument> operands, SrcLocation loc = {})
-            : AstArgument(std::move(loc)), args(std::move(operands)) {}
+    Term(VecOwn<Argument> operands, SrcLocation loc = {})
+            : Argument(std::move(loc)), args(std::move(operands)) {}
 
 public:
     /** Get arguments */
-    std::vector<AstArgument*> getArguments() const {
+    std::vector<Argument*> getArguments() const {
         return toPtrVector(args);
     }
 
     /** Add argument to argument list */
-    void addArgument(Own<AstArgument> arg) {
+    void addArgument(Own<Argument> arg) {
         args.push_back(std::move(arg));
     }
 
-    std::vector<const AstNode*> getChildNodes() const override {
-        auto res = AstArgument::getChildNodes();
+    std::vector<const Node*> getChildNodes() const override {
+        auto res = Argument::getChildNodes();
         for (auto& cur : args) {
             res.push_back(cur.get());
         }
         return res;
     }
 
-    void apply(const AstNodeMapper& map) override {
+    void apply(const NodeMapper& map) override {
         for (auto& arg : args) {
             arg = map(std::move(arg));
         }
     }
 
 protected:
-    bool equal(const AstNode& node) const override {
-        const auto& other = static_cast<const AstTerm&>(node);
+    bool equal(const Node& node) const override {
+        const auto& other = static_cast<const Term&>(node);
         return equal_targets(args, other.args);
     }
 
     /** Arguments */
-    VecOwn<AstArgument> args;
+    VecOwn<Argument> args;
 
 private:
     template <typename... Operands>
-    static VecOwn<AstArgument> asVec(Operands... ops) {
-        Own<AstArgument> ary[] = {std::move(ops)...};
-        VecOwn<AstArgument> xs;
+    static VecOwn<Argument> asVec(Operands... ops) {
+        Own<Argument> ary[] = {std::move(ops)...};
+        VecOwn<Argument> xs;
         for (auto&& x : ary) {
             xs.push_back(std::move(x));
         }
@@ -91,4 +91,4 @@ private:
     }
 };
 
-}  // end of namespace souffle
+}  // namespace souffle::ast
