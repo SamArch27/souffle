@@ -822,9 +822,16 @@ Own<ram::Statement> AstToRamTranslator::makeSubproofSubroutine(const ast::Clause
             auto arity = atom->getArity();
             auto atomArgs = atom->getArguments();
             // arity - 1 is the level number in body atoms
-            auto constraint = mk<ast::BinaryConstraint>(BinaryConstraintOp::LT,
-                    souffle::clone(atomArgs[arity - 1]), mk<ast::SubroutineArgument>(levelIndex));
-            constraint->setFinalType(BinaryConstraintOp::LT);
+            // rewrite height < level to height <= level - 1 for more effective indexing
+            auto constant = mk<ast::NumericConstant>(1);
+            constant->setFinalType(ast::NumericConstant::Type::Int);
+            auto functor = mk<ast::IntrinsicFunctor>(
+                    "-", mk<ast::SubroutineArgument>(levelIndex), std::move(constant));
+            functor->setFinalOpType(FunctorOp::SUB);
+
+            auto constraint = mk<ast::BinaryConstraint>(
+                    BinaryConstraintOp::LE, souffle::clone(atomArgs[arity - 1]), std::move(functor));
+            constraint->setFinalType(BinaryConstraintOp::LE);
             intermediateClause->addToBody(std::move(constraint));
         }
     }
