@@ -415,22 +415,37 @@ MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
         return allInequalities;
     }
 
-    // do not support indexed inequalities with provenance
+    bool interpreted = !Global::config().has("compile") && !Global::config().has("dl-program") &&
+                       !Global::config().has("generate") && !Global::config().has("swig");
+
     if (Global::config().has("provenance")) {
-        return allInequalities;
+        // TODO @SamArch27: Provenance + Inequalities + Interpreter
+        if (interpreted) {
+            return allInequalities;
+        }
+
+        // for provenance we want to keep the indexed inequality on the subtree height
+        // we assume this is the last attribute with an inequality constraint
+        AttributeSet provenanceAttributes(allInequalities);
+        for (int i = s.arity() - 1; i >= 0; --i) {
+            if (s[i] == AttributeConstraint::Inequal) {
+                provenanceAttributes.erase(i);
+                break;
+            }
+        }
+        return provenanceAttributes;
     }
 
     // if we are in the interpreter then we only permit signed inequalities
     // remembering to discharge any excess signed inequalities!
-    AttributeSet interpreterAttributesToDischarge(dischargedMap[s]);
+    AttributeSet interpreterAttributes(dischargedMap[s]);
     for (size_t i = 0; i < s.arity(); ++i) {
         if (s[i] == AttributeConstraint::Inequal && rel.getAttributeTypes()[i][0] != 'i') {
-            interpreterAttributesToDischarge.insert(i);
+            interpreterAttributes.insert(i);
         }
     }
-    if (!Global::config().has("compile") && !Global::config().has("dl-program") &&
-            !Global::config().has("generate") && !Global::config().has("swig")) {
-        return interpreterAttributesToDischarge;
+    if (interpreted) {
+        return interpreterAttributes;
     }
 
     return dischargedMap[s];

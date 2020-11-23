@@ -2682,6 +2682,67 @@ void runFunction(std::string  inputDirectoryArg   = "",
     os << "return recordTable;\n";
     os << "}\n";  // end of getRecordTable() method
 
+    if (Global::config().has("provenance")) {
+        os << "void copyToProvRelations() {\n";
+        for (auto sourceRelation : prog.getRelations()) {
+            for (auto targetRelation : prog.getRelations()) {
+                std::string sourceRelationName = sourceRelation->getName();
+                std::string targetRelationName = targetRelation->getName();
+
+                std::istringstream ss(sourceRelationName);
+                std::istringstream tt(targetRelationName);
+                std::string sourceToken;
+                std::string targetToken;
+
+                for (size_t i = 0; i < 2; ++i) {
+                    std::getline(ss, sourceToken, '_');
+                    std::getline(tt, targetToken, '_');
+                }
+
+                // skip any special relations
+                if (sourceToken == "prov" || sourceToken == "delta" || sourceToken == "new") {
+                    continue;
+                }
+
+                // target should be provenance relation
+                if (targetToken != "prov") {
+                    continue;
+                }
+
+                // consume the prov token from the target
+                std::getline(tt, targetToken, '_');
+
+                // iterate to check that the strings must match
+                bool match = true;
+                while (true) {
+                    // unequal number of tokens
+                    std::getline(ss, sourceToken, '_');
+                    std::getline(tt, targetToken, '_');
+
+                    if (sourceToken != targetToken) {
+                        match = false;
+                        break;
+                    }
+                    // tokens not matching
+                    if (sourceToken != targetToken) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match == false) {
+                    continue;
+                }
+
+                // for all tuples in a relation used during evaluation
+                // copy its tuples over to the corresponding prov relation
+                os << "for (const auto tuple : " << sourceRelationName << ") {\n";
+                os << "    " << targetRelationName << "->insert(tuple);\n";
+                os << "}\n";
+            }
+        }
+        os << "}\n";
+    }
+
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter
         os << "void executeSubroutine(std::string name, const std::vector<RamDomain>& args, "
@@ -2815,10 +2876,14 @@ void runFunction(std::string  inputDirectoryArg   = "",
     }
     os << "obj.runAll(opt.getInputFileDir(), opt.getOutputFileDir());\n";
 
-    if (Global::config().get("provenance") == "explain") {
-        os << "explain(obj, false);\n";
-    } else if (Global::config().get("provenance") == "explore") {
-        os << "explain(obj, true);\n";
+    if (Global::config().has("provenance")) {
+        // copy every relation to the corresponding provenance relation
+        os << "obj.copyToProvRelations();\n";
+        if (Global::config().get("provenance") == "explain") {
+            os << "explain(obj, false);\n";
+        } else if (Global::config().get("provenance") == "explore") {
+            os << "explain(obj, true);\n";
+        }
     }
     os << "return 0;\n";
     os << "} catch(std::exception &e) { souffle::SignalHandler::instance()->error(e.what());}\n";

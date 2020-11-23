@@ -227,6 +227,10 @@ std::string AstToRamTranslator::translateNewRelation(const ast::Relation* rel) {
     return translateRelation(rel, "@new_");
 }
 
+std::string AstToRamTranslator::translateProvRelation(const ast::Relation* rel) {
+    return translateRelation(rel, "@prov_");
+}
+
 Own<ram::Expression> AstToRamTranslator::translateValue(const ast::Argument* arg, const ValueIndex& index) {
     if (arg == nullptr) {
         return nullptr;
@@ -757,10 +761,25 @@ Own<ram::Statement> AstToRamTranslator::translateRecursiveRelation(const std::se
 
 /** make a subroutine to search for subproofs */
 Own<ram::Statement> AstToRamTranslator::makeSubproofSubroutine(const ast::Clause& clause) {
-    auto intermediateClause = mk<ast::Clause>(souffle::clone(clause.getHead()));
+    // construct the provenance clause with every atom rel renamed to @prov_rel
+    auto provClause = Own<ast::Clause>(clause.clone());
+
+    // map each relation name to it's associated @prov_rel one
+    std::map<souffle::ast::QualifiedName, souffle::ast::QualifiedName> provNameMap;
+    for (auto& rel : ramRels) {
+        auto relName = rel.first;
+        if (relName[0] == '@') {
+            continue;
+        }
+        auto orig = souffle::ast::QualifiedName(relName);
+        auto prov = souffle::ast::QualifiedName(std::string("@prov_") + relName);
+        provNameMap.insert({orig, prov});
+    }
+    renameAtoms(*provClause, provNameMap);
+    auto intermediateClause = mk<ast::Clause>(souffle::clone(provClause->getHead()));
 
     // create a clone where all the constraints are moved to the end
-    for (auto bodyLit : clause.getBodyLiterals()) {
+    for (auto bodyLit : provClause->getBodyLiterals()) {
         // first add all the things that are not constraints
         if (!isA<ast::Constraint>(bodyLit)) {
             intermediateClause->addToBody(souffle::clone(bodyLit));
@@ -768,10 +787,9 @@ Own<ram::Statement> AstToRamTranslator::makeSubproofSubroutine(const ast::Clause
     }
 
     // now add all constraints
-    for (auto bodyLit : ast::getBodyLiterals<ast::Constraint>(clause)) {
+    for (auto bodyLit : ast::getBodyLiterals<ast::Constraint>(*provClause)) {
         intermediateClause->addToBody(souffle::clone(bodyLit));
     }
-
     // name unnamed variables
     nameUnnamedVariables(intermediateClause.get());
 
@@ -835,7 +853,8 @@ Own<ram::Statement> AstToRamTranslator::makeSubproofSubroutine(const ast::Clause
             intermediateClause->addToBody(std::move(constraint));
         }
     }
-    return ProvenanceClauseTranslator(*this).translateClause(*intermediateClause, clause);
+
+    return ProvenanceClauseTranslator(*this).translateClause(*intermediateClause, *provClause);
 }
 
 /** make a subroutine to search for subproofs for the non-existence of a tuple */
@@ -850,11 +869,27 @@ Own<ram::Statement> AstToRamTranslator::makeNegationSubproofSubroutine(const ast
     //   return 0
     // ...
 
-    // clone clause for mutation, rearranging constraints to be at the end
-    auto clauseReplacedAggregates = mk<ast::Clause>(souffle::clone(clause.getHead()));
+    // construct the provenance clause with every atom rel renamed to @prov_rel
+    auto provClause = Own<ast::Clause>(clause.clone());
+
+    // map each relation name to it's associated @prov_rel one
+    std::map<souffle::ast::QualifiedName, souffle::ast::QualifiedName> provNameMap;
+    for (auto& rel : ramRels) {
+        auto relName = rel.first;
+        if (relName[0] == '@') {
+            continue;
+        }
+        auto orig = souffle::ast::QualifiedName(relName);
+        auto prov = souffle::ast::QualifiedName(std::string("@prov_") + relName);
+        provNameMap.insert({orig, prov});
+    }
+    renameAtoms(*provClause, provNameMap);
+
+    // clone provClause for mutation, rearranging constraints to be at the end
+    auto clauseReplacedAggregates = mk<ast::Clause>(souffle::clone(provClause->getHead()));
 
     // create a clone where all the constraints are moved to the end
-    for (auto bodyLit : clause.getBodyLiterals()) {
+    for (auto bodyLit : provClause->getBodyLiterals()) {
         // first add all the things that are not constraints
         if (!isA<ast::Constraint>(bodyLit)) {
             clauseReplacedAggregates->addToBody(souffle::clone(bodyLit));
@@ -862,7 +897,7 @@ Own<ram::Statement> AstToRamTranslator::makeNegationSubproofSubroutine(const ast
     }
 
     // now add all constraints
-    for (auto bodyLit : ast::getBodyLiterals<ast::Constraint>(clause)) {
+    for (auto bodyLit : ast::getBodyLiterals<ast::Constraint>(*provClause)) {
         clauseReplacedAggregates->addToBody(souffle::clone(bodyLit));
     }
 
@@ -1236,6 +1271,13 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
                 ramRels[newName] = mk<ram::Relation>(newName, arity, auxiliaryArity, attributeNames,
                         attributeTypeQualifiers, representation);
             }
+
+            // if provenance is used we require @prov variants with the same signature
+            if (Global::config().has("provenance")) {
+                std::string provName = "@prov_" + name;
+                ramRels[provName] = mk<ram::Relation>(provName, arity, auxiliaryArity, attributeNames,
+                        attributeTypeQualifiers, representation);
+            }
         }
     }
 
@@ -1319,9 +1361,8 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
                     relName.str() + "_" + std::to_string(getClauseNum(program, &clause)) + "_subproof";
             ramSubs[subroutineLabel] = makeSubproofSubroutine(clause);
 
-            std::string negationSubroutineLabel = relName.str() + "_" +
-                                                  std::to_string(getClauseNum(program, &clause)) +
-                                                  "_negation_subproof";
+            std::string negationSubroutineLabel =
+                    relName.str() + "_" + std::to_string(getClauseNum(program, &clause)) + "_negation_subproof";
             ramSubs[negationSubroutineLabel] = makeNegationSubproofSubroutine(clause);
         });
     }

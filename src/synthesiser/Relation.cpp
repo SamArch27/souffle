@@ -483,17 +483,6 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     out << "return ind_" << masterIndex << ".end();\n";
     out << "}\n";
 
-    // copyIndex method
-    if (!provenanceIndexNumbers.empty()) {
-        out << "void copyIndex() {\n";
-        out << "for (auto const &cur : ind_" << masterIndex << ") {\n";
-        for (auto const i : provenanceIndexNumbers) {
-            out << "ind_" << i << ".insert(cur);\n";
-        }
-        out << "}\n";
-        out << "}\n";
-    }
-
     // printStatistics method
     out << "void printStatistics(std::ostream& o) const {\n";
     for (size_t i = 0; i < numIndexes; i++) {
