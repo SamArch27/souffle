@@ -47,9 +47,9 @@ namespace souffle::ram::analysis {
 enum class AttributeConstraint { None, Equal, Inequal };
 
 /** Search Signature of a RAM Operation
- *	Inequal - The attribute has an inequality constraint i.e. 11 <= x <= 13
- *      Equal   - The attribute has an equality constraint i.e. x = 17
- *      None    - The attribute no constraint
+ *    Inequal - The attribute has an inequality constraint i.e. 11 <= x <= 13
+ *    Equal   - The attribute has an equality constraint i.e. x = 17
+ *    None    - The attribute no constraint
  * */
 class SearchSignature {
 public:
