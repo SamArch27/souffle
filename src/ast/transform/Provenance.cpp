@@ -283,6 +283,7 @@ bool ProvenanceTransformer::transformMaxHeight(TranslationUnit& translationUnit)
                 // add info relation
                 program.addRelation(
                         makeInfoRelation(*clause, getClauseNum(&program, clause), translationUnit));
+                // add prov relation
             }
         }
 

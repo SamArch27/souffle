@@ -46,6 +46,12 @@ Own<Relation> Relation::getSynthesiserRelation(
         const ram::Relation& ramRel, const MinIndexSelection& indexSet, bool isProvenance) {
     Relation* rel;
 
+    /*
+    const auto& orders = indexSet.getAllOrders();
+    std::cout << ramRel.getName() << "+" << orders.size() << std::endl;
+    std::cout << join(orders, ",") << std::endl;
+    */
+
     // Handle the qualifier in souffle code
     if (isProvenance) {
         rel = new DirectRelation(ramRel, indexSet, isProvenance);

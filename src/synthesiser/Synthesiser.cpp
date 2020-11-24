@@ -2691,36 +2691,7 @@ void runFunction(std::string  inputDirectoryArg   = "",
                 std::string sourceRelationName = sourceRelation->getName();
                 std::string targetRelationName = targetRelation->getName();
 
-                std::istringstream ss(sourceRelationName);
-                std::istringstream tt(targetRelationName);
-                std::string sourceToken;
-                std::string targetToken;
-
-                // grab the first token
-                std::getline(ss, sourceToken, '_');
-                std::getline(tt, targetToken, '_');
-
-                // skip any special relations
-                if (sourceToken == "@prov" || sourceToken == "delta" || sourceToken == "new") {
-                    continue;
-                }
-
-                // target should be provenance relation
-                if (targetToken != "@prov") {
-                    continue;
-                }
-
-                // skip any info relations
-                if (sourceRelationName.find(".@info.") != std::string::npos ||
-                        targetRelationName.find(".@info.") != std::string::npos) {
-                    continue;
-                }
-
-                // consume the prov token from the target
-                std::getline(tt, targetToken, '_');
-
-                // check that the remaining strings match
-                if (sourceToken != targetToken) {
+                if (targetRelationName != std::string("@prov_") + sourceRelationName) {
                     continue;
                 }
 

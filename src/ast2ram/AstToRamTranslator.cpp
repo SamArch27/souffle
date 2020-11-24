@@ -1273,7 +1273,7 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
             }
 
             // if provenance is used we require @prov variants with the same signature
-            if (Global::config().has("provenance")) {
+            if (Global::config().has("provenance") && name.find("@info") == std::string::npos) {
                 std::string provName = "@prov_" + name;
                 ramRels[provName] = mk<ram::Relation>(provName, arity, auxiliaryArity, attributeNames,
                         attributeTypeQualifiers, representation);
@@ -1361,8 +1361,9 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
                     relName.str() + "_" + std::to_string(getClauseNum(program, &clause)) + "_subproof";
             ramSubs[subroutineLabel] = makeSubproofSubroutine(clause);
 
-            std::string negationSubroutineLabel =
-                    relName.str() + "_" + std::to_string(getClauseNum(program, &clause)) + "_negation_subproof";
+            std::string negationSubroutineLabel = relName.str() + "_" +
+                                                  std::to_string(getClauseNum(program, &clause)) +
+                                                  "_negation_subproof";
             ramSubs[negationSubroutineLabel] = makeNegationSubproofSubroutine(clause);
         });
     }
