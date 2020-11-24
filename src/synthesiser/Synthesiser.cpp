@@ -2710,6 +2710,12 @@ void runFunction(std::string  inputDirectoryArg   = "",
                     continue;
                 }
 
+                // skip any info relations
+                if (sourceRelationName.find(".@info.") != std::string::npos ||
+                        targetRelationName.find(".@info.") != std::string::npos) {
+                    continue;
+                }
+
                 // consume the prov token from the target
                 std::getline(tt, targetToken, '_');
 
