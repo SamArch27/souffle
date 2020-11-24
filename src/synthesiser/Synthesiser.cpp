@@ -2694,49 +2694,34 @@ void runFunction(std::string  inputDirectoryArg   = "",
                 std::string sourceToken;
                 std::string targetToken;
 
-                for (size_t i = 0; i < 2; ++i) {
-                    std::getline(ss, sourceToken, '_');
-                    std::getline(tt, targetToken, '_');
-                }
+                // grab the first token
+                std::getline(ss, sourceToken, '_');
+                std::getline(tt, targetToken, '_');
 
                 // skip any special relations
-                if (sourceToken == "prov" || sourceToken == "delta" || sourceToken == "new") {
+                if (sourceToken == "@prov" || sourceToken == "delta" || sourceToken == "new") {
                     continue;
                 }
 
                 // target should be provenance relation
-                if (targetToken != "prov") {
+                if (targetToken != "@prov") {
                     continue;
                 }
 
                 // consume the prov token from the target
                 std::getline(tt, targetToken, '_');
 
-                // iterate to check that the strings must match
-                bool match = true;
-                while (true) {
-                    // unequal number of tokens
-                    std::getline(ss, sourceToken, '_');
-                    std::getline(tt, targetToken, '_');
-
-                    if (sourceToken != targetToken) {
-                        match = false;
-                        break;
-                    }
-                    // tokens not matching
-                    if (sourceToken != targetToken) {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match == false) {
+                // check that the remaining strings match
+                if (sourceToken != targetToken) {
                     continue;
                 }
 
                 // for all tuples in a relation used during evaluation
                 // copy its tuples over to the corresponding prov relation
-                os << "for (const auto tuple : " << sourceRelationName << ") {\n";
-                os << "    " << targetRelationName << "->insert(tuple);\n";
+                os << "for (const auto tuple : "
+                   << "*rel_" << identifiers[sourceRelationName] << ") {\n";
+                os << "    "
+                   << "rel_" << identifiers[targetRelationName] << "->insert(tuple);\n";
                 os << "}\n";
             }
         }
