@@ -638,7 +638,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitNestedOperation(const NestedOperation& nested, std::ostream& out) override {
             visit(nested.getOperation(), out);
-            if (Global::config().has("profile") && !nested.getProfileText().empty()) {
+            if (Global::config().has("profile") && Global::config().has("profile-frequency") &&
+                    !nested.getProfileText().empty()) {
                 out << "freqs[" << synthesiser.lookupFreqIdx(nested.getProfileText()) << "]++;\n";
             }
         }
@@ -1782,7 +1783,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             auto arity = rel->getArity();
             assert(arity > 0 && "AstToRamTranslator failed");
             std::string after;
-            if (Global::config().has("profile") && !synthesiser.lookup(exists.getRelation())->isTemp()) {
+            if (Global::config().has("profile") && Global::config().has("profile-frequency") &&
+                    !synthesiser.lookup(exists.getRelation())->isTemp()) {
                 out << R"_((reads[)_" << synthesiser.lookupReadIdx(rel->getName()) << R"_(]++,)_";
                 after = ")";
             }

@@ -139,7 +139,9 @@ constexpr RamDomain RAM_BIT_SHIFT_MASK = RAM_DOMAIN_SIZE - 1;
 }
 
 Engine::Engine(ram::TranslationUnit& tUnit)
-        : profileEnabled(Global::config().has("profile")), isProvenance(Global::config().has("provenance")),
+        : profileEnabled(Global::config().has("profile")),
+          frequencyCounterEnabled(Global::config().has("profile-frequency")),
+          isProvenance(Global::config().has("provenance")),
           numOfThreads(std::stoi(Global::config().get("jobs"))), tUnit(tUnit),
           isa(tUnit.getAnalysis<ram::analysis::IndexAnalysis>()) {
 #ifdef _OPENMP
@@ -891,14 +893,13 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
         CASE(TupleOperation)
             bool result = execute(shadow.getChild(), ctxt);
 
-            if (profileEnabled && !cur.getProfileText().empty()) {
-                auto& currentFrequencies = frequencies[cur.getProfileText()];
-                while (currentFrequencies.size() <= getIterationNumber()) {
+            auto& currentFrequencies = frequencies[cur.getProfileText()];
+            while (currentFrequencies.size() <= getIterationNumber()) {
 #pragma omp critical(frequencies)
-                    currentFrequencies.emplace_back(0);
-                }
-                frequencies[cur.getProfileText()][getIterationNumber()]++;
+                currentFrequencies.emplace_back(0);
             }
+            frequencies[cur.getProfileText()][getIterationNumber()]++;
+
             return result;
         ESAC(TupleOperation)
 
@@ -1041,7 +1042,7 @@ RamDomain Engine::execute(const Node* node, Context& ctxt) {
                 result = execute(shadow.getNestedOperation(), ctxt);
             }
 
-            if (profileEnabled && !cur.getProfileText().empty()) {
+            if (profileEnabled && frequencyCounterEnabled && !cur.getProfileText().empty()) {
                 auto& currentFrequencies = frequencies[cur.getProfileText()];
                 while (currentFrequencies.size() <= getIterationNumber()) {
                     currentFrequencies.emplace_back(0);

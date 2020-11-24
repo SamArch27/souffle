@@ -150,6 +150,7 @@ private:
 
     /** If profile is enable in this program */
     const bool profileEnabled;
+    const bool frequencyCounterEnabled;
     /** If running a provenance program */
     const bool isProvenance;
     /** subroutines */

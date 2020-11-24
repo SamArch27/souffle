@@ -108,8 +108,14 @@ void removeRelation(TranslationUnit& tu, const QualifiedName& name) {
 void removeRelationClauses(TranslationUnit& tu, const QualifiedName& name) {
     Program& program = tu.getProgram();
     const auto& relDetail = *tu.getAnalysis<analysis::RelationDetailCacheAnalysis>();
+
+    // Make copies of the clauses to avoid use-after-delete for equivalent clauses
+    std::set<Own<Clause>> clausesToRemove;
     for (const auto* clause : relDetail.getClauses(name)) {
-        program.removeClause(clause);
+        clausesToRemove.insert(souffle::clone(clause));
+    }
+    for (const auto& clause : clausesToRemove) {
+        program.removeClause(clause.get());
     }
 }
 
