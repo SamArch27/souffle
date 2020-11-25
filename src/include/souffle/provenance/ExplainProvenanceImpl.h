@@ -497,7 +497,7 @@ public:
         return relRules;
     }
 
-    std::string measureRelation(std::string relName) override {
+    std::string measureRelation(std::string relName, size_t depthLimit) override {
         auto rel = prog.getRelation(relName);
 
         if (rel == nullptr) {
@@ -554,7 +554,7 @@ public:
             tuple >> levelNum;
 
             std::cout << "Tuples expanded: "
-                      << explain(relName, currentTuple, ruleNum, levelNum, 10000)->getSize();
+                      << explain(relName, currentTuple, ruleNum, levelNum, depthLimit)->getSize();
 
             numTuples++;
             proc++;

@@ -176,7 +176,7 @@ public:
             }
         } else if (command[0] == "measure") {
             try {
-                printInfo(prov.measureRelation(command[1]));
+                printInfo(prov.measureRelation(command[1], ExplainConfig::getExplainConfig().depthLimit));
             } catch (std::exception& e) {
                 printError("Usage: measure <relation name>\n");
             }
