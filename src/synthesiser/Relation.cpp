@@ -45,15 +45,15 @@ std::string Relation::getTypeAttributeString(const std::vector<std::string>& att
 Own<Relation> Relation::getSynthesiserRelation(
         const ram::Relation& ramRel, const MinIndexSelection& indexSet, bool isProvenance) {
     Relation* rel;
-
-    const auto& orders = indexSet.getAllOrders();
-    const auto& searches = indexSet.getSearches();
-    std::cout << "Relation: " << ramRel.getName() << std::endl;
-    std::cout << "#Indexes: " << orders.size() << std::endl;
-    std::cout << "#Searches: " << searches.size() << std::endl;
-    std::cout << "Searches: " << join(searches, ",") << std::endl;
-    std::cout << "Indexes: " << join(orders, ",") << std::endl << std::endl;
-
+    /*
+        const auto& orders = indexSet.getAllOrders();
+        const auto& searches = indexSet.getSearches();
+        std::cout << "Relation: " << ramRel.getName() << std::endl;
+        std::cout << "#Indexes: " << orders.size() << std::endl;
+        std::cout << "#Searches: " << searches.size() << std::endl;
+        std::cout << "Searches: " << join(searches, ",") << std::endl;
+        std::cout << "Indexes: " << join(orders, ",") << std::endl << std::endl;
+    */
     // Handle the qualifier in souffle code
     if (isProvenance) {
         rel = new DirectRelation(ramRel, indexSet, isProvenance);
@@ -146,18 +146,23 @@ void DirectRelation::computeIndices() {
                     ind.push_back(i);
                 }
             }
-            // remove any provenance annotations already in the index order
-            if (curIndexElems.find(getArity() - relation.getAuxiliaryArity() + 1) != curIndexElems.end()) {
-                ind.erase(std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity() + 1));
-            }
 
-            if (curIndexElems.find(getArity() - relation.getAuxiliaryArity()) != curIndexElems.end()) {
-                ind.erase(std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity()));
-            }
+            if (relation.getName().substr(0, 5) != "@prov") {
+                // remove any provenance annotations already in the index order
+                if (curIndexElems.find(getArity() - relation.getAuxiliaryArity() + 1) !=
+                        curIndexElems.end()) {
+                    ind.erase(
+                            std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity() + 1));
+                }
 
-            // add provenance annotations to the index, but in reverse order
-            ind.push_back(getArity() - relation.getAuxiliaryArity() + 1);
-            ind.push_back(getArity() - relation.getAuxiliaryArity());
+                if (curIndexElems.find(getArity() - relation.getAuxiliaryArity()) != curIndexElems.end()) {
+                    ind.erase(std::find(ind.begin(), ind.end(), getArity() - relation.getAuxiliaryArity()));
+                }
+
+                // add provenance annotations to the index, but in reverse order
+                ind.push_back(getArity() - relation.getAuxiliaryArity() + 1);
+                ind.push_back(getArity() - relation.getAuxiliaryArity());
+            }
             masterIndex = 0;
         } else if (ind.size() == getArity()) {
             masterIndex = index_nr;
@@ -299,7 +304,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         // for provenance, all indices must be full so we use btree_set
         // also strong/weak comparators and updater methods
 
-        if (isProvenance) {
+        if (isProvenance && relation.getName().substr(0, 5) != "@prov") {
             std::string comparator_aux;
             if (provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
                 // index for bottom up phase
