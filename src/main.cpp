@@ -246,6 +246,8 @@ int main(int argc, char** argv) {
                 {"pragma", 'P', "OPTIONS", "", false, "Set pragma options."},
                 {"provenance", 't', "[ none | explain | explore ]", "", false,
                         "Enable provenance instrumentation and interaction."},
+                {"provindex", 'z', "[ on | off ]", "on", false,
+                        "Enable indexed inequalities for provenances"},
                 {"verbose", 'v', "", "", false, "Verbose output."},
                 {"version", '\3', "", "", false, "Version."},
                 {"show", '\4',

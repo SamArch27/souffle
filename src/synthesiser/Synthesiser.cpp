@@ -2691,7 +2691,7 @@ void runFunction(std::string  inputDirectoryArg   = "",
                 std::string sourceRelationName = sourceRelation->getName();
                 std::string targetRelationName = targetRelation->getName();
 
-                if (targetRelationName != std::string("@prov_") + sourceRelationName) {
+                if (targetRelationName != std::string("@prov_.") + sourceRelationName) {
                     continue;
                 }
 

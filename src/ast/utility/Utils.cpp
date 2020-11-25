@@ -317,7 +317,7 @@ bool renameAtoms(Node& node, const std::map<QualifiedName, QualifiedName>& oldTo
                     renamedAtom->setQualifiedName(oldToNew.at(atom->getQualifiedName()));
                     changed = true;
                     return renamedAtom;
-                }
+		}
             }
             return node;
         }

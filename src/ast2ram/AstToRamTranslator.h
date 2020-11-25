@@ -177,9 +177,6 @@ private:
     /** translate a temporary `new` relation to a RAM relation for semi-naive evaluation */
     std::string translateNewRelation(const ast::Relation* rel);
 
-    /** translate a `prov` relation to a RAM relation for provenance evaluation */
-    std::string translateProvRelation(const ast::Relation* rel);
-
     /** Return a symbol table **/
     SymbolTable& getSymbolTable();
 

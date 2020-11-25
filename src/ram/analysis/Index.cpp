@@ -382,18 +382,40 @@ void MinIndexSelection::removeExtraInequalities() {
     for (auto oldSearch : searches) {
         auto newSearch = oldSearch;
 
+        int firstInequality = -1;
+        int lastInequality = -1;
+
+        for (size_t i = 0; i < newSearch.arity(); ++i) {
+            if (newSearch[i] == AttributeConstraint::Inequal) {
+                lastInequality = i;
+                if (firstInequality == -1) {
+                    firstInequality = i;
+                }
+            }
+        }
+
+        bool containsInequality = (firstInequality != -1);
+
         // find the first inequality (if it exists)
-        auto it = std::find(newSearch.begin(), newSearch.end(), AttributeConstraint::Inequal);
+        Global::config().get("provindex") == "on";
         // remove all inequalities
+
         std::for_each(newSearch.begin(), newSearch.end(), [](auto& constraint) {
             if (constraint == AttributeConstraint::Inequal) {
                 constraint = AttributeConstraint::None;
             }
         });
-        // add back the first inequality (if it exists)
-        if (it != newSearch.end()) {
-            auto index = std::distance(newSearch.begin(), it);
-            newSearch[index] = AttributeConstraint::Inequal;
+
+        // add back the inequality (if it exists)
+        if (containsInequality) {
+            // add back the last inequality for provenance
+            if (Global::config().get("provenance") == "on") {
+                newSearch[lastInequality] = AttributeConstraint::Inequal;
+            }
+            // add back the first inequality otherwise
+            else {
+                newSearch[firstInequality] = AttributeConstraint::Inequal;
+            }
         }
         updateSearch(oldSearch, newSearch);
     }
@@ -424,16 +446,11 @@ MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
             return allInequalities;
         }
 
-        // for provenance we want to keep the indexed inequality on the subtree height
-        // we assume this is the last attribute with an inequality constraint
-        AttributeSet provenanceAttributes(allInequalities);
-        for (int i = s.arity() - 1; i >= 0; --i) {
-            if (s[i] == AttributeConstraint::Inequal) {
-                provenanceAttributes.erase(i);
-                break;
-            }
+        if (Global::config().get("provindex") == "on") {
+            return dischargedMap[s];
+        } else {
+            return allInequalities;
         }
-        return provenanceAttributes;
     }
 
     // if we are in the interpreter then we only permit signed inequalities

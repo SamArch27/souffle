@@ -36,6 +36,9 @@ void Program::addRelation(Own<Relation> relation) {
     auto* existingRelation = getIf(getRelations(), [&](const Relation* current) {
         return current->getQualifiedName() == relation->getQualifiedName();
     });
+    if (existingRelation != nullptr) {
+        return;
+    }
     assert(existingRelation == nullptr && "Redefinition of relation!");
     relations.push_back(std::move(relation));
 }

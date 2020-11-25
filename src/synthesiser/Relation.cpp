@@ -46,11 +46,13 @@ Own<Relation> Relation::getSynthesiserRelation(
         const ram::Relation& ramRel, const MinIndexSelection& indexSet, bool isProvenance) {
     Relation* rel;
 
-    /*
     const auto& orders = indexSet.getAllOrders();
-    std::cout << ramRel.getName() << "+" << orders.size() << std::endl;
-    std::cout << join(orders, ",") << std::endl;
-    */
+    const auto& searches = indexSet.getSearches();
+    std::cout << "Relation: " << ramRel.getName() << std::endl;
+    std::cout << "#Indexes: " << orders.size() << std::endl;
+    std::cout << "#Searches: " << searches.size() << std::endl;
+    std::cout << "Searches: " << join(searches, ",") << std::endl;
+    std::cout << "Indexes: " << join(orders, ",") << std::endl << std::endl;
 
     // Handle the qualifier in souffle code
     if (isProvenance) {

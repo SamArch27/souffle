@@ -227,10 +227,6 @@ std::string AstToRamTranslator::translateNewRelation(const ast::Relation* rel) {
     return translateRelation(rel, "@new_");
 }
 
-std::string AstToRamTranslator::translateProvRelation(const ast::Relation* rel) {
-    return translateRelation(rel, "@prov_");
-}
-
 Own<ram::Expression> AstToRamTranslator::translateValue(const ast::Argument* arg, const ValueIndex& index) {
     if (arg == nullptr) {
         return nullptr;
@@ -766,15 +762,18 @@ Own<ram::Statement> AstToRamTranslator::makeSubproofSubroutine(const ast::Clause
 
     // map each relation name to it's associated @prov_rel one
     std::map<souffle::ast::QualifiedName, souffle::ast::QualifiedName> provNameMap;
-    for (auto& rel : ramRels) {
-        auto relName = rel.first;
-        if (relName[0] == '@') {
-            continue;
+
+    visitDepthFirst(*program, [&](const ast::Atom& atom) {
+        auto atomName = atom.getQualifiedName().toString();
+        if (atomName[0] == '@') {
+            return;
         }
-        auto orig = souffle::ast::QualifiedName(relName);
-        auto prov = souffle::ast::QualifiedName(std::string("@prov_") + relName);
+        auto orig = souffle::ast::QualifiedName(atom.getQualifiedName());
+        auto prov = orig;
+        prov.prepend("@prov_");
         provNameMap.insert({orig, prov});
-    }
+    });
+
     renameAtoms(*provClause, provNameMap);
     auto intermediateClause = mk<ast::Clause>(souffle::clone(provClause->getHead()));
 
@@ -874,15 +873,17 @@ Own<ram::Statement> AstToRamTranslator::makeNegationSubproofSubroutine(const ast
 
     // map each relation name to it's associated @prov_rel one
     std::map<souffle::ast::QualifiedName, souffle::ast::QualifiedName> provNameMap;
-    for (auto& rel : ramRels) {
-        auto relName = rel.first;
-        if (relName[0] == '@') {
-            continue;
+    visitDepthFirst(*program, [&](const ast::Atom& atom) {
+        auto atomName = atom.getQualifiedName().toString();
+        if (atomName[0] == '@') {
+            return;
         }
-        auto orig = souffle::ast::QualifiedName(relName);
-        auto prov = souffle::ast::QualifiedName(std::string("@prov_") + relName);
+        auto orig = souffle::ast::QualifiedName(atom.getQualifiedName());
+        auto prov = orig;
+        prov.prepend("@prov_");
         provNameMap.insert({orig, prov});
-    }
+    });
+
     renameAtoms(*provClause, provNameMap);
 
     // clone provClause for mutation, rearranging constraints to be at the end
@@ -1274,7 +1275,7 @@ void AstToRamTranslator::translateProgram(const ast::TranslationUnit& translatio
 
             // if provenance is used we require @prov variants with the same signature
             if (Global::config().has("provenance") && name.find("@info") == std::string::npos) {
-                std::string provName = "@prov_" + name;
+                std::string provName = "@prov_." + name;
                 ramRels[provName] = mk<ram::Relation>(provName, arity, auxiliaryArity, attributeNames,
                         attributeTypeQualifiers, representation);
             }
