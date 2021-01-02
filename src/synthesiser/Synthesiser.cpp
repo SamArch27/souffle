@@ -277,21 +277,19 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             high << "Tuple<RamDomain," << realArity << ">{{";
 
             for (size_t column = 0; column < arity; column++) {
-                std::string supremum;
-                std::string infimum;
-
-                switch (rel.getAttributeTypes()[column][0]) {
-                    case 'f':
-                        supremum = "ramBitCast<RamDomain>(MIN_RAM_FLOAT)";
-                        infimum = "ramBitCast<RamDomain>(MAX_RAM_FLOAT)";
-                        break;
-                    case 'u':
-                        supremum = "ramBitCast<RamDomain>(MIN_RAM_UNSIGNED)";
-                        infimum = "ramBitCast<RamDomain>(MAX_RAM_UNSIGNED)";
-                        break;
-                    default:
-                        supremum = "ramBitCast<RamDomain>(MIN_RAM_SIGNED)";
-                        infimum = "ramBitCast<RamDomain>(MAX_RAM_SIGNED)";
+                std::string supremum = "ramBitCast<RamDomain>(MIN_RAM_SIGNED)";
+                std::string infimum = "ramBitCast<RamDomain>(MAX_RAM_SIGNED)";
+                if (Global::config().get("default-datastructure") != "rtree") {
+                    switch (rel.getAttributeTypes()[column][0]) {
+                        case 'f':
+                            supremum = "ramBitCast<RamDomain>(MIN_RAM_FLOAT)";
+                            infimum = "ramBitCast<RamDomain>(MAX_RAM_FLOAT)";
+                            break;
+                        case 'u':
+                            supremum = "ramBitCast<RamDomain>(MIN_RAM_UNSIGNED)";
+                            infimum = "ramBitCast<RamDomain>(MAX_RAM_UNSIGNED)";
+                            break;
+                    }
                 }
 
                 // if we have an inequality where either side is not set
@@ -1139,19 +1137,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         bool isGuaranteedToBeMinimum(const IndexAggregate& aggregate) {
-            return false;
+            if (Global::config().get("default-datastructure") == "rtree") {
+                return false;
+            }
 
-            /*
             auto identifier = aggregate.getTupleId();
-                auto keys = isa->getSearchSignature(&aggregate);
-                RelationRepresentation repr =
-            synthesiser.lookup(aggregate.getRelation())->getRepresentation();
-
-                const auto* tupleElem = dynamic_cast<const TupleElement*>(&aggregate.getExpression());
-                return tupleElem && tupleElem->getTupleId() == identifier &&
-                       keys[tupleElem->getElement()] != ram::analysis::AttributeConstraint::None &&
-                       (repr == RelationRepresentation::BTREE || repr == RelationRepresentation::DEFAULT);
-                */
+            auto keys = isa->getSearchSignature(&aggregate);
+            RelationRepresentation repr = synthesiser.lookup(aggregate.getRelation())->getRepresentation();
+            const auto* tupleElem = dynamic_cast<const TupleElement*>(&aggregate.getExpression());
+            return tupleElem && tupleElem->getTupleId() == identifier &&
+                   keys[tupleElem->getElement()] != ram::analysis::AttributeConstraint::None &&
+                   (repr == RelationRepresentation::BTREE || repr == RelationRepresentation::DEFAULT);
         }
 
         void visitIndexAggregate(const IndexAggregate& aggregate, std::ostream& out) override {
@@ -1256,9 +1252,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                     out << "res0 = std::min(res0,ramBitCast<" << type << ">(";
                     visit(aggregate.getExpression(), out);
                     out << "));\n";
+
                     if (isGuaranteedToBeMinimum(aggregate)) {
                         out << "break;\n";
                     }
+
                     break;
                 case AggregateOp::FMAX:
                 case AggregateOp::UMAX:

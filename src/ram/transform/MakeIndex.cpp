@@ -92,6 +92,8 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
                            !Global::config().has("generate") && !Global::config().has("swig");
         bool provenance = Global::config().has("provenance");
         bool btree = (rep == RelationRepresentation::BTREE || rep == RelationRepresentation::DEFAULT);
+        bool rtree = (rep == RelationRepresentation::RTREE ||
+                      Global::config().get("default-datastructure") == "rtree");
         auto op = binRelOp->getOperator();
 
         // don't index FEQ in interpreter mode
@@ -99,13 +101,15 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
             return {mk<UndefValue>(), mk<UndefValue>()};
         }
         // don't index any inequalities that aren't signed
-        if (isIneqConstraint(op) && !isSignedInequalityConstraint(op) && interpreter) {
+        if (isIneqConstraint(op) && !isSignedInequalityConstraint(op) && (interpreter || rtree)) {
             return {mk<UndefValue>(), mk<UndefValue>()};
         }
+
         // don't index inequalities for provenance
         if (isIneqConstraint(op) && provenance) {
             return {mk<UndefValue>(), mk<UndefValue>()};
         }
+
         // don't index inequalities if we aren't using a BTREE
         if (isIneqConstraint(op) && !btree) {
             return {mk<UndefValue>(), mk<UndefValue>()};
