@@ -38,17 +38,16 @@ namespace souffle::ram {
  */
 class Swap : public BinRelationStatement {
 public:
-    Swap(Own<RelationReference> f, Own<RelationReference> s)
-            : BinRelationStatement(std::move(f), std::move(s)) {}
+    Swap(std::string f, std::string s) : BinRelationStatement(f, s) {}
 
     Swap* clone() const override {
-        return new Swap(souffle::clone(first), souffle::clone(second));
+        return new Swap(first, second);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
-        os << "SWAP (" << getFirstRelation().getName() << ", " << getSecondRelation().getName() << ")";
+        os << "SWAP (" << getFirstRelation() << ", " << getSecondRelation() << ")";
         os << std::endl;
     }
 };

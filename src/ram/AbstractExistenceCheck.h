@@ -20,8 +20,8 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Relation.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
@@ -39,17 +39,16 @@ namespace souffle::ram {
  */
 class AbstractExistenceCheck : public Condition {
 public:
-    AbstractExistenceCheck(Own<RelationReference> relRef, VecOwn<Expression> vals)
-            : relationRef(std::move(relRef)), values(std::move(vals)) {
-        assert(relationRef != nullptr && "Relation reference is a nullptr");
+    AbstractExistenceCheck(std::string rel, VecOwn<Expression> vals)
+            : relation(std::move(rel)), values(std::move(vals)) {
         for (const auto& v : values) {
-            assert(v != nullptr && "value is a nullptr");
+            assert(v != nullptr && "NULL value");
         }
     }
 
     /** @brief Get relation */
-    const Relation& getRelation() const {
-        return *relationRef->get();
+    const std::string& getRelation() const {
+        return relation;
     }
 
     /**
@@ -62,7 +61,7 @@ public:
     }
 
     std::vector<const Node*> getChildNodes() const override {
-        std::vector<const Node*> res = {relationRef.get()};
+        std::vector<const Node*> res;
         for (const auto& cur : values) {
             res.push_back(cur.get());
         }
@@ -70,7 +69,6 @@ public:
     }
 
     void apply(const NodeMapper& map) override {
-        relationRef = map(std::move(relationRef));
         for (auto& val : values) {
             val = map(std::move(val));
         }
@@ -78,27 +76,18 @@ public:
 
 protected:
     void print(std::ostream& os) const override {
-        os << "("
-           << join(values, ",",
-                      [](std::ostream& out, const Own<Expression>& value) {
-                          if (!value) {
-                              out << "_";
-                          } else {
-                              out << *value;
-                          }
-                      })
-           << ") ∈ " << getRelation().getName();
+        os << "(" << join(values, ",") << ") ∈ " << relation;
     }
 
     bool equal(const Node& node) const override {
         const auto& other = static_cast<const AbstractExistenceCheck&>(node);
-        return equal_ptr(relationRef, other.relationRef) && equal_targets(values, other.values);
+        return relation == other.relation && equal_targets(values, other.values);
     }
 
     /** Relation */
-    Own<RelationReference> relationRef;
+    const std::string relation;
 
-    /** Pattern -- nullptr if undefined */
+    /** Search tuple */
     VecOwn<Expression> values;
 };
 

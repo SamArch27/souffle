@@ -156,10 +156,10 @@ TEST(ExistenceCheck, CloneAndEquals) {
     Relation N("N", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     VecOwn<Expression> tuple_a;
     tuple_a.emplace_back(new SignedConstant(1));
-    ExistenceCheck a(mk<RelationReference>(&N), std::move(tuple_a));
+    ExistenceCheck a("N", std::move(tuple_a));
     VecOwn<Expression> tuple_b;
     tuple_b.emplace_back(new SignedConstant(1));
-    ExistenceCheck b(mk<RelationReference>(&N), std::move(tuple_b));
+    ExistenceCheck b("N", std::move(tuple_b));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -176,11 +176,11 @@ TEST(ExistenceCheck, CloneAndEquals) {
     VecOwn<Expression> tuple_d;
     tuple_d.emplace_back(new SignedConstant(1));
     tuple_d.emplace_back(new SignedConstant(2));
-    ExistenceCheck d(mk<RelationReference>(&edge), std::move(tuple_d));
+    ExistenceCheck d("edge", std::move(tuple_d));
     VecOwn<Expression> tuple_e;
     tuple_e.emplace_back(new SignedConstant(1));
     tuple_e.emplace_back(new SignedConstant(2));
-    ExistenceCheck e(mk<RelationReference>(&edge), std::move(tuple_e));
+    ExistenceCheck e("edge", std::move(tuple_e));
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
@@ -197,10 +197,10 @@ TEST(RamProvenanceExistCheck, CloneAndEquals) {
     Relation N("N", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     VecOwn<Expression> tuple_a;
     tuple_a.emplace_back(new SignedConstant(1));
-    ExistenceCheck a(mk<RelationReference>(&N), std::move(tuple_a));
+    ExistenceCheck a("N", std::move(tuple_a));
     VecOwn<Expression> tuple_b;
     tuple_b.emplace_back(new SignedConstant(1));
-    ExistenceCheck b(mk<RelationReference>(&N), std::move(tuple_b));
+    ExistenceCheck b("N", std::move(tuple_b));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -219,12 +219,12 @@ TEST(RamProvenanceExistCheck, CloneAndEquals) {
     tuple_d.emplace_back(new SignedConstant(0));
     tuple_d.emplace_back(new SignedConstant(2000));
     tuple_d.emplace_back(new SignedConstant(0));
-    ProvenanceExistenceCheck d(mk<RelationReference>(&address), std::move(tuple_d));
+    ProvenanceExistenceCheck d("address", std::move(tuple_d));
     VecOwn<Expression> tuple_e;
     tuple_e.emplace_back(new SignedConstant(0));
     tuple_e.emplace_back(new SignedConstant(2000));
     tuple_e.emplace_back(new SignedConstant(0));
-    ProvenanceExistenceCheck e(mk<RelationReference>(&address), std::move(tuple_e));
+    ProvenanceExistenceCheck e("address", std::move(tuple_e));
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
@@ -240,8 +240,8 @@ TEST(RamProvenanceExistCheck, CloneAndEquals) {
 TEST(EmptinessCheck, CloneAndEquals) {
     // Check A(x:number)
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
-    EmptinessCheck a(mk<RelationReference>(&A));
-    EmptinessCheck b(mk<RelationReference>(&A));
+    EmptinessCheck a("A");
+    EmptinessCheck b("A");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
     EmptinessCheck* c = a.clone();

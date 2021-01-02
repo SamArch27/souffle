@@ -43,7 +43,7 @@ void BindingStore::generateBindingDependencies(const Clause* clause) {
     visitDepthFirst(*clause, [&](const BinaryConstraint& bc) {
         bool containsAggregators = false;
         visitDepthFirst(bc, [&](const Aggregator& /* aggr */) { containsAggregators = true; });
-        if (!containsAggregators && bc.getOperator() == BinaryConstraintOp::EQ) {
+        if (!containsAggregators && isEqConstraint(bc.getBaseOperator())) {
             relevantEqConstraints.insert(&bc);
         }
     });

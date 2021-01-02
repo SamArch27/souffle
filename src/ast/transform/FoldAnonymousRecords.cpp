@@ -58,7 +58,7 @@ bool FoldAnonymousRecords::isValidRecordConstraint(const Literal* literal) {
     }
 
     // Check if operator is "=" or "!="
-    auto op = constraint->getOperator();
+    auto op = constraint->getBaseOperator();
 
     return isEqConstraint(op) || isEqConstraint(negatedConstraintOp(op));
 }
@@ -86,14 +86,14 @@ VecOwn<Literal> FoldAnonymousRecords::expandRecordBinaryConstraint(const BinaryC
 
     // [a, b..] = [c, d...] → a = c, b = d ...
     for (size_t i = 0; i < leftChildren.size(); ++i) {
-        auto newConstraint = mk<BinaryConstraint>(
-                constraint.getOperator(), souffle::clone(leftChildren[i]), souffle::clone(rightChildren[i]));
+        auto newConstraint = mk<BinaryConstraint>(constraint.getBaseOperator(),
+                souffle::clone(leftChildren[i]), souffle::clone(rightChildren[i]));
         replacedContraint.push_back(std::move(newConstraint));
     }
 
     // Handle edge case. Empty records.
     if (leftChildren.size() == 0) {
-        if (isEqConstraint(constraint.getOperator())) {
+        if (isEqConstraint(constraint.getBaseOperator())) {
             replacedContraint.emplace_back(new BooleanConstraint(true));
         } else {
             replacedContraint.emplace_back(new BooleanConstraint(false));
@@ -114,7 +114,7 @@ void FoldAnonymousRecords::transformClause(const Clause& clause, VecOwn<Clause>&
             const BinaryConstraint& constraint = dynamic_cast<BinaryConstraint&>(*literal);
 
             // Simple case, [a_0, ..., a_n] = [b_0, ..., b_n]
-            if (isEqConstraint(constraint.getOperator())) {
+            if (isEqConstraint(constraint.getBaseOperator())) {
                 auto transformedLiterals = expandRecordBinaryConstraint(constraint);
                 std::move(std::begin(transformedLiterals), std::end(transformedLiterals),
                         std::back_inserter(newBody));

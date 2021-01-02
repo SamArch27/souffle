@@ -49,7 +49,7 @@ std::map<std::string, const RecordInit*> ResolveAnonymousRecordAliasesTransforme
 
     for (auto* literal : clause.getBodyLiterals()) {
         if (auto constraint = dynamic_cast<BinaryConstraint*>(literal)) {
-            if (!isEqConstraint(constraint->getOperator())) {
+            if (!isEqConstraint(constraint->getBaseOperator())) {
                 continue;
             }
 
@@ -136,7 +136,7 @@ bool ResolveAnonymousRecordAliasesTransformer::replaceUnnamedVariable(Clause& cl
                 auto right = constraint->getRHS();
                 bool hasUnnamed = isUnnamed(left) || isUnnamed(right);
                 bool hasRecord = isRecord(left) || isRecord(right);
-                auto op = constraint->getOperator();
+                auto op = constraint->getBaseOperator();
                 if (hasUnnamed && hasRecord && isEqConstraint(op)) {
                     return mk<BooleanConstraint>(true);
                 }

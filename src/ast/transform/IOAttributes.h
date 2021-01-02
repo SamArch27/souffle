@@ -220,7 +220,7 @@ private:
 
             auto typeQualifier = analysis::getTypeQualifier(sumType);
             auto&& sumInfo = json11::Json::object{{{"branches", std::move(branchesInfo)},
-                    {"arity", static_cast<long long>(branches.size())}}};
+                    {"arity", static_cast<long long>(branches.size())}, {"enum", isADTEnum(sumType)}}};
             sumTypes.emplace(std::move(typeQualifier), std::move(sumInfo));
         });
 

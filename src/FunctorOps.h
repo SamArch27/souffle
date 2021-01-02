@@ -37,15 +37,22 @@ enum class FunctorOp {
     LNOT,    // Signed logical negation
     ULNOT,   // Unsigned logical negation
 
+    F2F,  // float     to float     (identity)
     F2I,  // float     to signed
     F2S,  // float     to symbol
     F2U,  // float     to unsigned
-    I2F,  // signed    to signed
+
+    I2I,  // signed    to signed     (identity)
+    I2F,  // signed    to float
     I2S,  // signed    to symbol     (overload base case)
     I2U,  // signed    to unsigned
+
+    S2S,  // symbol    to symbol     (identity)
     S2F,  // symbol    to float      (overload base case)
     S2I,  // symbol    to signed     (overload base case)
     S2U,  // symbol    to unsigned   (overload base case)
+
+    U2U,  // unsigned  to unsigned   (identity)
     U2F,  // unsigned  to float
     U2I,  // unsigned  to signed
     U2S,  // unsigned  to symbol

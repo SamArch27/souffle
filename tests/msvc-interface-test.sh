@@ -8,7 +8,6 @@ TESTNAME=$1
 
 script_location=$(dirname $0)
 test_dir_wsl=$($script_location/create-msvc-build-dir.sh)
-mkdir $test_dir_wsl 1>/dev/null 2>/dev/null || true
 cp -R * $test_dir_wsl
 test_dir=$(wslpath -w $test_dir_wsl)
 

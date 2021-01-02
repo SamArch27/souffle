@@ -21,7 +21,6 @@
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/SCCGraph.h"
 #include "ast/analysis/Type.h"
-#include "ast/transform/ADTtoRecords.h"
 #include "ast/transform/AddNullariesToAtomlessAggregates.h"
 #include "ast/transform/ComponentChecker.h"
 #include "ast/transform/ComponentInstantiation.h"
@@ -29,6 +28,7 @@
 #include "ast/transform/ExecutionPlanChecker.h"
 #include "ast/transform/Fixpoint.h"
 #include "ast/transform/FoldAnonymousRecords.h"
+#include "ast/transform/GroundWitnesses.h"
 #include "ast/transform/GroundedTermsChecker.h"
 #include "ast/transform/IOAttributes.h"
 #include "ast/transform/IODefaults.h"
@@ -38,9 +38,9 @@
 #include "ast/transform/MaterializeSingletonAggregation.h"
 #include "ast/transform/MinimiseProgram.h"
 #include "ast/transform/NameUnnamedVariables.h"
+#include "ast/transform/NormaliseGenerators.h"
 #include "ast/transform/PartitionBodyLiterals.h"
 #include "ast/transform/Pipeline.h"
-#include "ast/transform/PolymorphicObjects.h"
 #include "ast/transform/PragmaChecker.h"
 #include "ast/transform/Provenance.h"
 #include "ast/transform/ReduceExistentials.h"
@@ -49,18 +49,23 @@
 #include "ast/transform/RemoveRedundantRelations.h"
 #include "ast/transform/RemoveRedundantSums.h"
 #include "ast/transform/RemoveRelationCopies.h"
-#include "ast/transform/RemoveTypecasts.h"
 #include "ast/transform/ReorderLiterals.h"
 #include "ast/transform/ReplaceSingletonVariables.h"
 #include "ast/transform/ResolveAliases.h"
 #include "ast/transform/ResolveAnonymousRecordAliases.h"
 #include "ast/transform/SemanticChecker.h"
+#include "ast/transform/SimplifyAggregateTargetExpression.h"
 #include "ast/transform/UniqueAggregationVariables.h"
-#include "ast/transform/UserDefinedFunctors.h"
-#include "ast2ram/AstToRamTranslator.h"
+#include "ast2ram/TranslationStrategy.h"
+#include "ast2ram/UnitTranslator.h"
+#include "ast2ram/provenance/TranslationStrategy.h"
+#include "ast2ram/provenance/UnitTranslator.h"
+#include "ast2ram/seminaive/TranslationStrategy.h"
+#include "ast2ram/seminaive/UnitTranslator.h"
+#include "ast2ram/utility/TranslatorContext.h"
 #include "config.h"
-#include "interpreter/InterpreterEngine.h"
-#include "interpreter/InterpreterProgInterface.h"
+#include "interpreter/Engine.h"
+#include "interpreter/ProgInterface.h"
 #include "parser/ParserDriver.h"
 #include "ram/Node.h"
 #include "ram/Program.h"
@@ -73,7 +78,6 @@
 #include "ram/transform/HoistAggregate.h"
 #include "ram/transform/HoistConditions.h"
 #include "ram/transform/IfConversion.h"
-#include "ram/transform/IndexedInequality.h"
 #include "ram/transform/Loop.h"
 #include "ram/transform/MakeIndex.h"
 #include "ram/transform/Parallel.h"
@@ -241,11 +245,12 @@ int main(int argc, char** argv) {
                 {"dl-program", 'o', "FILE", "", false,
                         "Generate C++ source code, written to <FILE>, and compile this to a "
                         "binary executable (without executing it)."},
-                {"live-profile", '\2', "", "", false, "Enable live profiling."},
+                {"live-profile", '\1', "", "", false, "Enable live profiling."},
                 {"max-size", 'Z', "MS", "12", false, "Specify maximum number of elements in R-Tree node"},
                 {"profile", 'p', "FILE", "", false, "Enable profiling, and write profile data to <FILE>."},
                 {"profile-use", 'u', "FILE", "", false,
                         "Use profile log-file <FILE> for profile-guided optimization."},
+                {"profile-frequency", '\2', "", "", false, "Enable the frequency counter in the profiler."},
                 {"debug-report", 'r', "FILE", "", false, "Write HTML debug report to <FILE>."},
                 {"pragma", 'P', "OPTIONS", "", false, "Set pragma options."},
                 {"provenance", 't', "[ none | explain | explore ]", "", false,
@@ -478,27 +483,28 @@ int main(int argc, char** argv) {
     // Provenance pipeline
     auto provenancePipeline = mk<ast::transform::ConditionalTransformer>(Global::config().has("provenance"),
             mk<ast::transform::PipelineTransformer>(mk<ast::transform::ProvenanceTransformer>(),
-                    mk<ast::transform::PolymorphicObjectsTransformer>()));
+                    mk<ast::transform::NameUnnamedVariablesTransformer>()));
 
     // Main pipeline
     auto pipeline = mk<ast::transform::PipelineTransformer>(mk<ast::transform::ComponentChecker>(),
             mk<ast::transform::ComponentInstantiationTransformer>(),
             mk<ast::transform::IODefaultsTransformer>(),
+            mk<ast::transform::SimplifyAggregateTargetExpressionTransformer>(),
             mk<ast::transform::UniqueAggregationVariablesTransformer>(),
-            mk<ast::transform::UserDefinedFunctorsTransformer>(),
             mk<ast::transform::FixpointTransformer>(mk<ast::transform::PipelineTransformer>(
                     mk<ast::transform::ResolveAnonymousRecordAliasesTransformer>(),
                     mk<ast::transform::FoldAnonymousRecords>())),
-            mk<ast::transform::PolymorphicObjectsTransformer>(), mk<ast::transform::SemanticChecker>(),
-            mk<ast::transform::ADTtoRecordsTransformer>(),
+            mk<ast::transform::SemanticChecker>(), mk<ast::transform::GroundWitnessesTransformer>(),
+            mk<ast::transform::UniqueAggregationVariablesTransformer>(),
             mk<ast::transform::MaterializeSingletonAggregationTransformer>(),
             mk<ast::transform::FixpointTransformer>(
                     mk<ast::transform::MaterializeAggregationQueriesTransformer>()),
-            mk<ast::transform::ResolveAliasesTransformer>(), mk<ast::transform::RemoveTypecastsTransformer>(),
+            mk<ast::transform::RemoveRedundantSumsTransformer>(),
+            mk<ast::transform::NormaliseGeneratorsTransformer>(),
+            mk<ast::transform::ResolveAliasesTransformer>(),
             mk<ast::transform::RemoveBooleanConstraintsTransformer>(),
             mk<ast::transform::ResolveAliasesTransformer>(), mk<ast::transform::MinimiseProgramTransformer>(),
-            mk<ast::transform::InlineRelationsTransformer>(),
-            mk<ast::transform::PolymorphicObjectsTransformer>(), mk<ast::transform::GroundedTermsChecker>(),
+            mk<ast::transform::InlineRelationsTransformer>(), mk<ast::transform::GroundedTermsChecker>(),
             mk<ast::transform::ResolveAliasesTransformer>(),
             mk<ast::transform::RemoveRedundantRelationsTransformer>(),
             mk<ast::transform::RemoveRelationCopiesTransformer>(),
@@ -510,10 +516,8 @@ int main(int argc, char** argv) {
             mk<ast::transform::RemoveRelationCopiesTransformer>(), std::move(partitionPipeline),
             std::move(equivalencePipeline), mk<ast::transform::RemoveRelationCopiesTransformer>(),
             std::move(magicPipeline), mk<ast::transform::ReorderLiteralsTransformer>(),
-            mk<ast::transform::RemoveRedundantSumsTransformer>(),
             mk<ast::transform::RemoveEmptyRelationsTransformer>(),
             mk<ast::transform::AddNullariesToAtomlessAggregatesTransformer>(),
-            mk<ast::transform::PolymorphicObjectsTransformer>(),
             mk<ast::transform::ReorderLiteralsTransformer>(), mk<ast::transform::ExecutionPlanChecker>(),
             std::move(provenancePipeline), mk<ast::transform::IOAttributesTransformer>());
 
@@ -590,7 +594,12 @@ int main(int argc, char** argv) {
     // ------- execution -------------
     /* translate AST to RAM */
     debugReport.startSection();
-    Own<ram::TranslationUnit> ramTranslationUnit = AstToRamTranslator().translateUnit(*astTranslationUnit);
+    auto translationStrategy =
+            Global::config().has("provenance")
+                    ? mk<ast2ram::TranslationStrategy, ast2ram::provenance::TranslationStrategy>()
+                    : mk<ast2ram::TranslationStrategy, ast2ram::seminaive::TranslationStrategy>();
+    auto unitTranslator = Own<ast2ram::UnitTranslator>(translationStrategy->createUnitTranslator());
+    auto ramTranslationUnit = unitTranslator->translateUnit(*astTranslationUnit);
     debugReport.endSection("ast-to-ram", "Translate AST to RAM");
 
     // Apply RAM transforms
@@ -600,8 +609,8 @@ int main(int argc, char** argv) {
 
                 mk<LoopTransformer>(mk<TransformerSequence>(mk<ExpandFilterTransformer>(),
                         mk<HoistConditionsTransformer>(), mk<MakeIndexTransformer>())),
-                mk<LoopTransformer>(mk<IndexedInequalityTransformer>()), mk<IfConversionTransformer>(),
-                mk<ChoiceConversionTransformer>(), mk<CollapseFiltersTransformer>(), mk<TupleIdTransformer>(),
+                mk<IfConversionTransformer>(), mk<ChoiceConversionTransformer>(),
+                mk<CollapseFiltersTransformer>(), mk<TupleIdTransformer>(),
                 mk<LoopTransformer>(
                         mk<TransformerSequence>(mk<HoistAggregateTransformer>(), mk<TupleIdTransformer>())),
                 mk<ExpandFilterTransformer>(), mk<HoistConditionsTransformer>(),
@@ -638,7 +647,7 @@ int main(int argc, char** argv) {
             }
 
             // configure and execute interpreter
-            Own<InterpreterEngine> interpreter(mk<InterpreterEngine>(*ramTranslationUnit));
+            Own<interpreter::Engine> interpreter(mk<interpreter::Engine>(*ramTranslationUnit));
             interpreter->executeMain();
             // If the profiler was started, join back here once it exits.
             if (profiler.joinable()) {
@@ -646,7 +655,7 @@ int main(int argc, char** argv) {
             }
             if (Global::config().has("provenance")) {
                 // only run explain interface if interpreted
-                InterpreterProgInterface interface(*interpreter);
+                interpreter::ProgInterface interface(*interpreter);
                 if (Global::config().get("provenance") == "explain") {
                     explain(interface, false);
                 } else if (Global::config().get("provenance") == "explore") {

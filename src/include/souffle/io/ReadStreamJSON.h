@@ -39,6 +39,13 @@
 namespace souffle {
 class RecordTable;
 
+template <typename... T>
+[[noreturn]] static void throwError(T const&... t) {
+    std::ostringstream out;
+    (out << ... << t);
+    throw std::runtime_error(out.str());
+}
+
 class ReadStreamJSON : public ReadStream {
 public:
     ReadStreamJSON(std::istream& file, const std::map<std::string, std::string>& rwOperation,
@@ -47,7 +54,7 @@ public:
         std::string err;
         params = Json::parse(rwOperation.at("params"), err);
         if (err.length() > 0) {
-            fatal("cannot get internal params: %s", err);
+            throwError("cannot get internal params: ", err);
         }
     }
 
@@ -71,7 +78,12 @@ protected:
             jsonSource = Json::parse(source, error);
             // it should be wrapped by an extra array
             if (error.length() > 0 || !jsonSource.is_array()) {
-                fatal("cannot deserialize json because %s:\n%s", error, source);
+                throwError("cannot deserialize json because ", error, ":\n", source);
+            }
+
+            if (jsonSource.array_items().empty()) {
+                // No tuples defined
+                return nullptr;
             }
 
             // we only check the first one, since there are extra checks
@@ -86,7 +98,7 @@ protected:
                     index_pos++;
                 }
             } else {
-                fatal("the input is neither list nor object format");
+                throwError("the input is neither list nor object format");
             }
         }
 
@@ -130,7 +142,7 @@ protected:
                         tuple[i] = static_cast<RamDomain>(jsonObj[i].number_value());
                         break;
                     }
-                    default: fatal("invalid type attribute: `%c`", ty[0]);
+                    default: throwError("invalid type attribute: '", ty[0], "'");
                 }
             } catch (...) {
                 std::stringstream errorMessage;
@@ -185,7 +197,7 @@ protected:
                     recordValues[i] = static_cast<RamDomain>(source[i].number_value());
                     break;
                 }
-                default: fatal("invalid type attribute");
+                default: throwError("invalid type attribute");
             }
         }
 
@@ -205,7 +217,7 @@ protected:
             try {
                 // get the corresponding position by parameter name
                 if (paramIndex.find(p.first) == paramIndex.end()) {
-                    fatal("invalid parameter: %s", p.first);
+                    throwError("invalid parameter: ", p.first);
                 }
                 size_t i = paramIndex.at(p.first);
                 auto&& ty = typeAttributes.at(i);
@@ -230,7 +242,7 @@ protected:
                         tuple[i] = static_cast<RamDomain>(p.second.number_value());
                         break;
                     }
-                    default: fatal("invalid type attribute: `%c`", ty[0]);
+                    default: throwError("invalid type attribute: '", ty[0], "'");
                 }
             } catch (...) {
                 std::stringstream errorMessage;
@@ -270,7 +282,7 @@ protected:
         for (auto readParam : source.object_items()) {
             // get the corresponding position by parameter name
             if (recordIndex.find(readParam.first) == recordIndex.end()) {
-                fatal("invalid parameter: %s", readParam.first);
+                throwError("invalid parameter: ", readParam.first);
             }
             size_t i = recordIndex.at(readParam.first);
             auto&& type = recordTypes[i].string_value();
@@ -295,7 +307,7 @@ protected:
                     recordValues[i] = static_cast<RamDomain>(readParam.second.number_value());
                     break;
                 }
-                default: fatal("invalid type attribute: `%c`", type[0]);
+                default: throwError("invalid type attribute: '", type[0], "'");
             }
         }
 
@@ -307,6 +319,8 @@ class ReadFileJSON : public ReadStreamJSON {
 public:
     ReadFileJSON(const std::map<std::string, std::string>& rwOperation, SymbolTable& symbolTable,
             RecordTable& recordTable)
+            // FIXME: This is bordering on UB - we're passing an unconstructed
+            // object (fileHandle) to the base class
             : ReadStreamJSON(fileHandle, rwOperation, symbolTable, recordTable),
               baseName(souffle::baseName(getFileName(rwOperation))),
               fileHandle(getFileName(rwOperation), std::ios::in | std::ios::binary) {

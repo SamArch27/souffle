@@ -103,11 +103,10 @@ private:
                 break;
             }
             ++start_pos;
-            if (str[start_pos] == 't' || str[start_pos] == '"' || str[start_pos] == '\\' ||
-                    str[start_pos] == 'n' || str[start_pos] == ';') {
-                continue;
+            if (str[start_pos] != 't' && str[start_pos] != '"' && str[start_pos] != '\\' &&
+                    str[start_pos] != 'n' && str[start_pos] != ';') {
+                str.replace(start_pos - 1, 1, "\\\\");
             }
-            str.replace(start_pos - 1, 1, "\\\\");
             ++start_pos;
         }
         return str;

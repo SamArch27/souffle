@@ -188,4 +188,4 @@ private:
     const analysis::IOTypeAnalysis& ioTypes;
 };
 
-};  // namespace souffle::ast
+}  // namespace souffle::ast

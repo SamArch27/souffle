@@ -23,8 +23,9 @@
 #include "ram/Relation.h"
 #include "ram/Swap.h"
 #include "ram/TranslationUnit.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
+#include "ram/analysis/Relation.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cstdint>
@@ -37,27 +38,6 @@ namespace souffle::ram::analysis {
 
 SearchSignature::SearchSignature(size_t arity) : constraints(arity, AttributeConstraint::None) {}
 
-size_t SearchSignature::arity() const {
-    return constraints.size();
-}
-
-// convenient operator overload
-AttributeConstraint& SearchSignature::operator[](std::size_t pos) {
-    assert(pos < constraints.size());
-    return constraints[pos];
-}
-
-const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
-    assert(pos < constraints.size());
-    return constraints[pos];
-}
-
-// comparison operators
-bool SearchSignature::operator<(const SearchSignature& other) const {
-    assert(constraints.size() == other.constraints.size());
-    return isComparable(*this, other) && isSubset(*this, other);
-}
-
 bool SearchSignature::operator==(const SearchSignature& other) const {
     assert(constraints.size() == other.constraints.size());
     return constraints == other.constraints;
@@ -68,61 +48,59 @@ bool SearchSignature::operator!=(const SearchSignature& other) const {
 }
 
 bool SearchSignature::empty() const {
-    size_t len = constraints.size();
-    for (size_t i = 0; i < len; ++i) {
+    return std::all_of(constraints.begin(), constraints.end(),
+            [](AttributeConstraint c) { return c == AttributeConstraint::None; });
+}
+
+AttributeConstraint& SearchSignature::operator[](std::size_t pos) {
+    assert(pos < constraints.size());
+    return constraints[pos];
+}
+
+const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
+    assert(pos < constraints.size());
+    return constraints[pos];
+}
+
+size_t SearchSignature::arity() const {
+    return constraints.size();
+}
+
+// comparison operators
+bool SearchSignature::precedes(const SearchSignature& other) const {
+    assert(arity() == other.arity());
+    // ignore duplicates
+    if (*this == other) {
+        return false;
+    }
+
+    // (1) LHS is a subset of RHS
+    for (size_t i = 0; i < other.arity(); ++i) {
         if (constraints[i] != AttributeConstraint::None) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool SearchSignature::containsInequality() const {
-    for (size_t i = 0; i < constraints.size(); ++i) {
-        if (constraints[i] == AttributeConstraint::Inequal) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Note: We have 0 < 1 and 0 < 2 but we cannot say that 1 < 2.
-// The reason for this is to prevent search chains such as 100->101->201 which have no valid lex-order
-bool SearchSignature::isComparable(const SearchSignature& lhs, const SearchSignature& rhs) {
-    assert(lhs.arity() == rhs.arity());
-    if (lhs == rhs) {
-        return true;
-    }
-
-    bool withinDelta = true;
-    for (size_t i = 0; i < rhs.arity(); ++i) {
-        if (rhs[i] == AttributeConstraint::Inequal) {
-            if (lhs[i] != AttributeConstraint::None) {
-                withinDelta = false;
+            if (other.constraints[i] == AttributeConstraint::None) {
+                return false;
             }
         }
     }
-    return withinDelta;
-}
 
-bool SearchSignature::isSubset(const SearchSignature& lhs, const SearchSignature& rhs) {
-    assert(lhs.arity() == rhs.arity());
-    size_t len = lhs.arity();
-    for (size_t i = 0; i < len; ++i) {
-        if (lhs[i] != AttributeConstraint::None && rhs[i] == AttributeConstraint::None) {
-            return false;
+    // (2) If RHS has an inequality then LHS can't have that attribute
+    for (size_t i = 0; i < other.arity(); ++i) {
+        if (other.constraints[i] == AttributeConstraint::Inequal) {
+            if (constraints[i] != AttributeConstraint::None) {
+                return false;
+            }
         }
     }
     return true;
 }
-
 SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const SearchSignature& rhs) {
     assert(lhs.arity() == rhs.arity());
     SearchSignature delta(lhs.arity());
     for (size_t i = 0; i < lhs.arity(); ++i) {
-        // if constraints are the same then delta is nothing
+        // if rhs is empty then delta is just lhs
         if (rhs[i] == AttributeConstraint::None) {
             delta.constraints[i] = lhs[i];
+            // otherwise no delta
         } else {
             delta.constraints[i] = AttributeConstraint::None;
         }
@@ -132,32 +110,7 @@ SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const Sear
 
 SearchSignature SearchSignature::getFullSearchSignature(size_t arity) {
     SearchSignature res(arity);
-    for (size_t i = 0; i < arity; ++i) {
-        res.constraints[i] = AttributeConstraint::Equal;
-    }
-    return res;
-}
-
-SearchSignature SearchSignature::getDischarged(const SearchSignature& signature) {
-    SearchSignature res = signature;  // copy original
-    for (size_t i = 0; i < res.arity(); ++i) {
-        if (res[i] == AttributeConstraint::Inequal) {
-            res[i] = AttributeConstraint::None;
-        }
-    }
-    return res;
-}
-
-SearchSignature SearchSignature::getFixed(const SearchSignature& signature) {
-    SearchSignature res = signature;  // copy original
-    for (size_t i = 0; i < res.arity(); ++i) {
-        if (res[i] == AttributeConstraint::Lower) {
-            res[i] = AttributeConstraint::Inequal;
-        }
-        if (res[i] == AttributeConstraint::Upper) {
-            res[i] = AttributeConstraint::Inequal;
-        }
-    }
+    std::for_each(res.begin(), res.end(), [](auto& constraint) { constraint = AttributeConstraint::Equal; });
     return res;
 }
 
@@ -168,8 +121,6 @@ std::ostream& operator<<(std::ostream& out, const SearchSignature& signature) {
             case AttributeConstraint::None: out << 0; break;
             case AttributeConstraint::Equal: out << 1; break;
             case AttributeConstraint::Inequal: out << 2; break;
-            case AttributeConstraint::Lower: out << 3; break;
-            case AttributeConstraint::Upper: out << 4; break;
         }
     }
     return out;
@@ -268,50 +219,37 @@ const MaxMatching::Matchings& MaxMatching::solve() {
     return match;
 }
 
-void MinIndexSelection::addSearch(SearchSignature cols) {
-    if (!cols.empty()) {
-        spatialSearches.push_back(cols);  // stats
-        searches.insert(SearchSignature::getFixed(cols));
-    }
-}
+IndexCluster MinIndexSelectionStrategy::solve(const SearchSet& searches) const {
+    OrderCollection orders;
+    SignatureOrderMap indexSelection;
 
-const std::vector<SearchSignature>& MinIndexSelection::getAllSpatialSearches() const {
-    return spatialSearches;
-}
-
-void MinIndexSelection::solve() {
-    // map the keys in the key set to lexicographical order
+    // If there are no orders then the arity of the relation is zero
+    // this is because every non-nullary relation has an existence check
     if (searches.empty()) {
-        return;
+        auto search = SearchSignature::getFullSearchSignature(0);
+        LexOrder emptyOrder;
+        orders.push_back(emptyOrder);
+        indexSelection.insert({search, emptyOrder});
+        return IndexCluster(indexSelection, {search}, orders);
     }
 
-    // discharge multiple inequalities
-    removeExtraInequalities();
-
-    // map the signatures of each search to a unique index for the matching problem
-    AttributeIndex currentIndex = 1;
-    for (SearchSignature s : searches) {
-        if (s.empty()) {
-            continue;
-        }
-        // map the signature to its unique index in each set
-        signatureToIndexA.insert({s, currentIndex});
-        signatureToIndexB.insert({s, currentIndex + 1});
-        // map each index back to the search signature
-        indexToSignature.insert({currentIndex, s});
-        indexToSignature.insert({currentIndex + 1, s});
-        currentIndex += 2;
+    // Map the signatures of each search to a unique node in each bipartition for the matching problem
+    SearchBipartiteMap mapping;
+    for (auto s : searches) {
+        mapping.addSearch(s);
     }
 
     // Construct the matching poblem
-    for (auto search : searches) {
-        for (auto itt : searches) {
-            if (search == itt) {
+    // For each pair of search sets
+    // Draw an edge from LHS to RHS if LHS precedes RHS in the partial order
+    MaxMatching matching;
+    for (auto left : searches) {
+        for (auto right : searches) {
+            if (left == right) {
                 continue;
             }
-
-            if (search < itt) {
-                matching.addEdge(signatureToIndexA[search], signatureToIndexB[itt]);
+            if (left.precedes(right)) {
+                matching.addEdge(mapping.getLeftNode(left), mapping.getRightNode(right));
             }
         }
     }
@@ -322,7 +260,7 @@ void MinIndexSelection::solve() {
     const MaxMatching::Matchings& matchings = matching.solve();
 
     // Extract the chains given the nodes and matchings
-    ChainOrderMap chains = getChainsFromMatching(matchings, searches);
+    auto chains = getChainsFromMatching(matchings, searches, mapping);
 
     // Should never get no chains back as we never call calculate on an empty graph
     assert(!chains.empty());
@@ -332,7 +270,7 @@ void MinIndexSelection::solve() {
         SearchSignature initDelta = *(chain.begin());
         insertIndex(ids, initDelta);
 
-        // build the lex-order
+        // Build the lex-order
         for (auto iit = chain.begin(); next(iit) != chain.end(); ++iit) {
             SearchSignature delta = SearchSignature::getDelta(*next(iit), *iit);
             insertIndex(ids, delta);
@@ -345,13 +283,19 @@ void MinIndexSelection::solve() {
     // Validate the lex-order
     for (auto chain : chains) {
         for (auto search : chain) {
-            int idx = map(search);
-            size_t l = card(search);
+            int idx = map(search, orders, chains);
 
+            // Rebuild the search from the order
             SearchSignature k(search.arity());
-            for (size_t i = 0; i < l; i++) {
+            size_t numConstraints = std::count_if(
+                    search.begin(), search.end(), [](auto c) { return c != AttributeConstraint::None; });
+
+            // Map the k-th prefix of the order to a search
+            for (size_t i = 0; i < numConstraints; i++) {
                 k[orders[idx][i]] = AttributeConstraint::Equal;
             }
+
+            // Validate that the prefix concides with the original search (ignoring inequalities)
             for (size_t i = 0; i < search.arity(); ++i) {
                 if (k[i] == AttributeConstraint::None && search[i] != AttributeConstraint::None) {
                     assert("incorrect lexicographical order");
@@ -362,19 +306,27 @@ void MinIndexSelection::solve() {
             }
         }
     }
+
+    // Return the index selection
+    for (const auto& search : searches) {
+        size_t orderIndex = map(search, orders, chains);
+        indexSelection.insert({search, orders.at(orderIndex)});
+    }
+
+    return IndexCluster(indexSelection, searches, orders);
 }
 
-MinIndexSelection::Chain MinIndexSelection::getChain(
-        const SearchSignature umn, const MaxMatching::Matchings& match) {
+Chain MinIndexSelectionStrategy::getChain(const SearchSignature umn, const MaxMatching::Matchings& match,
+        const SearchBipartiteMap& mapping) const {
     SearchSignature start = umn;  // start at an unmatched node
     Chain chain;
     // given an unmapped node from set A we follow it from set B until it cannot be matched from B
-    //  if not mateched from B then umn is a chain
+    //  if not matched from B then umn is a chain
     //
     // Assume : no circular mappings, i.e. a in A -> b in B -> ........ -> a in A is not allowed.
     // Given this, the loop will terminate
     while (true) {
-        auto mit = match.find(signatureToIndexB[start]);  // we start from B side
+        auto mit = match.find(mapping.getRightNode(start));  // we start from B side
         // on each iteration we swap sides when collecting the chain so we use the corresponding index map
         if (std::find(chain.begin(), chain.end(), start) == chain.end()) {
             chain.push_back(start);
@@ -385,7 +337,7 @@ MinIndexSelection::Chain MinIndexSelection::getChain(
             return chain;
         }
 
-        SearchSignature a = indexToSignature.at(mit->second);
+        SearchSignature a = mapping.getSearch(mit->second);
         if (std::find(chain.begin(), chain.end(), a) == chain.end()) {
             chain.push_back(a);
         }
@@ -393,17 +345,17 @@ MinIndexSelection::Chain MinIndexSelection::getChain(
     }
 }
 
-const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
-        const MaxMatching::Matchings& match, const SearchSet& nodes) {
+const ChainOrderMap MinIndexSelectionStrategy::getChainsFromMatching(const MaxMatching::Matchings& match,
+        const SearchSet& nodes, const SearchBipartiteMap& mapping) const {
     assert(!nodes.empty());
+    ChainOrderMap chainToOrder;
 
     // Get all unmatched nodes from A
-    const SearchSet& umKeys = getUnmatchedKeys(match, nodes);
+    const SearchSet& umKeys = getUnmatchedKeys(match, nodes, mapping);
     // Case: if no unmatched nodes then we have an anti-chain
     if (umKeys.empty()) {
         for (auto node : nodes) {
-            Chain a;
-            a.push_back(node);
+            Chain a = {node};
             chainToOrder.push_back(a);
             return chainToOrder;
         }
@@ -416,7 +368,7 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
 
     // Case: nodes < umKeys or if nodes == umKeys then anti chain - this is handled by this loop
     for (auto umKey : umKeys) {
-        Chain c = getChain(umKey, match);
+        auto c = getChain(umKey, match, mapping);
         assert(!c.empty());
         chainToOrder.push_back(c);
     }
@@ -425,99 +377,9 @@ const MinIndexSelection::ChainOrderMap MinIndexSelection::getChainsFromMatching(
     return chainToOrder;
 }
 
-void MinIndexSelection::updateSearch(SearchSignature oldSearch, SearchSignature newSearch) {
-    auto delta = SearchSignature::getDelta(oldSearch, newSearch);
-    for (size_t i = 0; i < delta.arity(); ++i) {
-        if (delta[i] == AttributeConstraint::Inequal) {
-            dischargedMap[oldSearch].insert(i);
-        }
-    }
-
-    for (auto& chain : chainToOrder) {
-        for (auto& search : chain) {
-            if (search == oldSearch) {
-                search = newSearch;
-            }
-        }
-    }
-}
-
-void MinIndexSelection::removeExtraInequalities() {
-    for (auto oldSearch : searches) {
-        auto newSearch = oldSearch;
-        bool seenInequality = false;
-        for (size_t i = 0; i < oldSearch.arity(); ++i) {
-            if (oldSearch[i] == AttributeConstraint::Inequal) {
-                if (seenInequality) {
-                    newSearch[i] = AttributeConstraint::None;
-                } else {
-                    seenInequality = true;
-                }
-            }
-        }
-        updateSearch(oldSearch, newSearch);
-    }
-}
-
-MinIndexSelection::AttributeSet MinIndexSelection::getAttributesToDischarge(
-        const SearchSignature& s, Relation& rel) {
-    // by default we have all attributes w/inequalities discharged
-    AttributeSet allInequalities;
-    for (size_t i = 0; i < s.arity(); ++i) {
-        if (s[i] == AttributeConstraint::Inequal) {
-            allInequalities.insert(i);
-        }
-    }
-
-    /*
-    // If contains multiple inequality then make it an R-Tree
-    if (!dischargedMap.empty()) {
-        rel.setRepresentation(RelationRepresentation::RTREE);
-    }*/
-
-    // if contains any inequality make it an R-Tree
-    for (auto& search : searches) {
-        if (search.containsInequality()) {
-            rel.setRepresentation(RelationRepresentation::RTREE);
-        }
-    }
-
-    // nothing discharge if we are using an rtree
-    if (rel.getRepresentation() == RelationRepresentation::RTREE ||
-            Global::config().get("default-datastructure") == "rtree") {
-        return {};
-    }
-
-    // if we don't have a btree then we don't retain any inequalities
-    if (rel.getRepresentation() != RelationRepresentation::BTREE &&
-            rel.getRepresentation() != RelationRepresentation::DEFAULT) {
-        return allInequalities;
-    }
-
-    // do not support indexed inequalities with provenance
-    if (Global::config().has("provenance")) {
-        return allInequalities;
-    }
-
-    // if we are in the interpreter then we only permit signed inequalities
-    AttributeSet inequalitiesNotSigned;
-    for (size_t i = 0; i < s.arity(); ++i) {
-        if (s[i] == AttributeConstraint::Inequal && rel.getAttributeTypes()[i][0] != 'i') {
-            inequalitiesNotSigned.insert(i);
-        }
-    }
-    if (!Global::config().has("compile") && !Global::config().has("dl-program") &&
-            !Global::config().has("generate") && !Global::config().has("swig")) {
-        return inequalitiesNotSigned;
-    }
-
-    if (Global::config().get("inequalities") == "on") {
-        return dischargedMap[s];
-    }
-    return allInequalities;
-}
-
 void IndexAnalysis::run(const TranslationUnit& translationUnit) {
+    relAnalysis = translationUnit.getAnalysis<RelationAnalysis>();
+
     // After complete:
     // 1. All relations should have at least one index (for full-order search).
     // 2. Two relations involved in a swap operation will have same set of indices.
@@ -527,21 +389,18 @@ void IndexAnalysis::run(const TranslationUnit& translationUnit) {
     //
     // TODO:
     // 0-arity relation in a provenance program still need to be revisited.
+    // visit all nodes to collect searches of each relation
 
     // visit all nodes to collect searches of each relation
     visitDepthFirst(translationUnit.getProgram(), [&](const Node& node) {
         if (const auto* indexSearch = dynamic_cast<const IndexOperation*>(&node)) {
-            MinIndexSelection& indexes = getIndexes(indexSearch->getRelation());
-            indexes.addSearch(getSearchSignature(indexSearch));
+            relationToSearches[indexSearch->getRelation()].insert(getSearchSignature(indexSearch));
         } else if (const auto* exists = dynamic_cast<const ExistenceCheck*>(&node)) {
-            MinIndexSelection& indexes = getIndexes(exists->getRelation());
-            indexes.addSearch(getSearchSignature(exists));
+            relationToSearches[exists->getRelation()].insert(getSearchSignature(exists));
         } else if (const auto* provExists = dynamic_cast<const ProvenanceExistenceCheck*>(&node)) {
-            MinIndexSelection& indexes = getIndexes(provExists->getRelation());
-            indexes.addSearch(getSearchSignature(provExists));
+            relationToSearches[provExists->getRelation()].insert(getSearchSignature(provExists));
         } else if (const auto* ramRel = dynamic_cast<const Relation*>(&node)) {
-            MinIndexSelection& indexes = getIndexes(*ramRel);
-            indexes.addSearch(getSearchSignature(ramRel));
+            relationToSearches[ramRel->getName()].insert(getSearchSignature(ramRel));
         }
     });
 
@@ -553,73 +412,54 @@ void IndexAnalysis::run(const TranslationUnit& translationUnit) {
         // in any of the relation in a complete iteration.
         //
         // Currently RAM does not have such situation.
-        const Relation& relA = swap.getFirstRelation();
-        const Relation& relB = swap.getSecondRelation();
+        const std::string& relA = swap.getFirstRelation();
+        const std::string& relB = swap.getSecondRelation();
 
-        MinIndexSelection& indexesA = getIndexes(relA);
-        MinIndexSelection& indexesB = getIndexes(relB);
-        // Add all searchSignature of A into B
-        for (const auto& signature : indexesA.getSearches()) {
-            indexesB.addSearch(signature);
-        }
+        const auto searchesA = relationToSearches[relA];
+        const auto searchesB = relationToSearches[relB];
 
-        // Add all searchSignature of B into A
-        for (const auto& signature : indexesB.getSearches()) {
-            indexesA.addSearch(signature);
-        }
+        relationToSearches[relA].insert(searchesB.begin(), searchesB.end());
+        relationToSearches[relB].insert(searchesA.begin(), searchesA.end());
     });
 
-    // find optimal indexes for relations
-    for (auto& cur : minIndexCover) {
-        MinIndexSelection& indexes = cur.second;
-        indexes.solve();
-    }
-
-    // Only case where indexSet is still empty is when relation has arity == 0
-    for (auto& cur : minIndexCover) {
-        MinIndexSelection& indexes = cur.second;
-        if (indexes.getAllOrders().empty()) {
-            indexes.insertDefaultTotalIndex(0);
+    // remove all empty searches
+    for (auto& relToSearch : relationToSearches) {
+        auto& searches = relToSearch.second;
+        for (auto it = searches.begin(); it != searches.end();) {
+            if (it->empty()) {
+                it = searches.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
-}
 
-MinIndexSelection& IndexAnalysis::getIndexes(const Relation& rel) {
-    auto pos = minIndexCover.find(&rel);
-    if (pos != minIndexCover.end()) {
-        return pos->second;
-    } else {
-        auto ret = minIndexCover.insert(std::make_pair(&rel, MinIndexSelection()));
-        assert(ret.second);
-        return ret.first->second;
+    // find optimal indexes for relations
+    for (auto& relToSearch : relationToSearches) {
+        const std::string& relation = relToSearch.first;
+        auto& searches = relToSearch.second;
+        indexCover.insert({relation, solver->solve(searches)});
     }
 }
 
 void IndexAnalysis::print(std::ostream& os) const {
-    for (auto& cur : minIndexCover) {
-        const Relation& rel = *cur.first;
-        const MinIndexSelection& indexes = cur.second;
-        const std::string& relName = rel.getName();
+    for (auto& cur : indexCover) {
+        const std::string& relName = cur.first;
+        const auto& selection = cur.second;
 
-        /* Print searches */
         os << "Relation " << relName << "\n";
-        os << "\tNumber of Searches: " << indexes.getSearches().size() << "\n";
 
         /* print searches */
-        for (auto& search : indexes.getSearches()) {
+        os << "\tNumber of Searches: " << selection.getSearches().size() << "\n";
+        for (auto& search : selection.getSearches()) {
             os << "\t\t";
             os << search;
             os << "\n";
         }
 
-        /* print chains */
-        for (auto& chain : indexes.getAllChains()) {
-            os << join(chain, "-->") << "\n";
-        }
-        os << "\n";
-
-        os << "\tNumber of Indexes: " << indexes.getAllOrders().size() << "\n";
-        for (auto& order : indexes.getAllOrders()) {
+        /* print indexes */
+        os << "\tNumber of Indexes: " << selection.getAllOrders().size() << "\n";
+        for (auto& order : selection.getAllOrders()) {
             os << "\t\t";
             os << join(order, "<") << "\n";
             os << "\n";
@@ -649,7 +489,8 @@ SearchSignature searchSignature(size_t arity, Seq const& xs) {
 }  // namespace
 
 SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) const {
-    size_t arity = search->getRelation().getArity();
+    const Relation* rel = &relAnalysis->lookup(search->getRelation());
+    size_t arity = rel->getArity();
 
     auto lower = search->getRangePattern().first;
     auto upper = search->getRangePattern().second;
@@ -661,12 +502,8 @@ SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) 
             // if bounds are equal we have an equality
         } else if (*lower[i] == *upper[i]) {
             keys[i] = AttributeConstraint::Equal;
-        } else if (!isUndefValue(lower[i]) && !isUndefValue(upper[i])) {
+        } else {
             keys[i] = AttributeConstraint::Inequal;
-        } else if (!isUndefValue(lower[i]) && isUndefValue(upper[i])) {
-            keys[i] = AttributeConstraint::Lower;
-        } else if (isUndefValue(lower[i]) && !isUndefValue(upper[i])) {
-            keys[i] = AttributeConstraint::Upper;
         }
     }
     return keys;
@@ -674,7 +511,8 @@ SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) 
 
 SearchSignature IndexAnalysis::getSearchSignature(const ProvenanceExistenceCheck* provExistCheck) const {
     const auto values = provExistCheck->getValues();
-    auto auxiliaryArity = provExistCheck->getRelation().getAuxiliaryArity();
+    const Relation* rel = &relAnalysis->lookup(provExistCheck->getRelation());
+    auto auxiliaryArity = rel->getAuxiliaryArity();
 
     SearchSignature keys(values.size());
 
@@ -694,7 +532,8 @@ SearchSignature IndexAnalysis::getSearchSignature(const ProvenanceExistenceCheck
 }
 
 SearchSignature IndexAnalysis::getSearchSignature(const ExistenceCheck* existCheck) const {
-    return searchSignature(existCheck->getRelation().getArity(), existCheck->getValues());
+    const Relation* rel = &relAnalysis->lookup(existCheck->getRelation());
+    return searchSignature(rel->getArity(), existCheck->getValues());
 }
 
 SearchSignature IndexAnalysis::getSearchSignature(const Relation* ramRel) const {

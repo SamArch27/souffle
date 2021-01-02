@@ -425,43 +425,41 @@ ComponentContent getInstantiatedContent(Program& program, const ComponentInit& c
         fixNames(*cur);
     }
 
-    // done
     return res;
 }
 }  // namespace
 
 bool ComponentInstantiationTransformer::transform(TranslationUnit& translationUnit) {
-    // TODO: Do this without being a friend class of Program
-
     Program& program = translationUnit.getProgram();
+    auto& report = translationUnit.getErrorReport();
 
     auto* componentLookup = translationUnit.getAnalysis<ComponentLookupAnalysis>();
 
-    for (const auto& cur : program.instantiations) {
+    for (const auto* cur : program.getComponentInstantiations()) {
         std::vector<Own<Clause>> orphans;
 
-        ComponentContent content = getInstantiatedContent(
-                program, *cur, nullptr, *componentLookup, orphans, translationUnit.getErrorReport());
+        auto content = getInstantiatedContent(program, *cur, nullptr, *componentLookup, orphans, report);
+        if (report.getNumErrors() != 0) continue;
+
         for (auto& type : content.types) {
-            program.types.push_back(std::move(type));
+            program.addType(std::move(type));
         }
         for (auto& rel : content.relations) {
-            program.relations.push_back(std::move(rel));
+            program.addRelation(std::move(rel));
         }
         for (auto& clause : content.clauses) {
-            program.clauses.push_back(std::move(clause));
+            program.addClause(std::move(clause));
         }
         for (auto& orphan : orphans) {
-            program.clauses.push_back(std::move(orphan));
+            program.addClause(std::move(orphan));
         }
         for (auto& directive : content.directives) {
-            program.directives.push_back(std::move(directive));
+            program.addDirective(std::move(directive));
         }
     }
 
     // delete components and instantiations
-    program.instantiations.clear();
-    program.components.clear();
+    program.clearComponents();
 
     return true;
 }

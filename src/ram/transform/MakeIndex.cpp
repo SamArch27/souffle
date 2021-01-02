@@ -23,8 +23,8 @@
 #include "ram/Program.h"
 #include "ram/Relation.h"
 #include "ram/Statement.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/BinaryConstraintOps.h"
 #include "souffle/RamTypes.h"
 #include "souffle/utility/ContainerUtil.h"
@@ -85,9 +85,33 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
 
 // Retrieves the <expr1> <= Tuple[level, element] <= <expr2> part of the constraint as a pair { <expr1>,
 // <expr2> }
-ExpressionPair MakeIndexTransformer::getLowerUpperExpression(Condition* c, size_t& element, int identifier) {
+ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
+        Condition* c, size_t& element, int identifier, RelationRepresentation rep) {
     if (auto* binRelOp = dynamic_cast<Constraint*>(c)) {
-        if (isEqConstraint(binRelOp->getOperator())) {
+        bool interpreter = !Global::config().has("compile") && !Global::config().has("dl-program") &&
+                           !Global::config().has("generate") && !Global::config().has("swig");
+        bool provenance = Global::config().has("provenance");
+        bool btree = (rep == RelationRepresentation::BTREE || rep == RelationRepresentation::DEFAULT);
+        auto op = binRelOp->getOperator();
+
+        // don't index FEQ in interpreter mode
+        if (op == BinaryConstraintOp::FEQ && interpreter) {
+            return {mk<UndefValue>(), mk<UndefValue>()};
+        }
+        // don't index any inequalities that aren't signed
+        if (isIneqConstraint(op) && !isSignedInequalityConstraint(op) && interpreter) {
+            return {mk<UndefValue>(), mk<UndefValue>()};
+        }
+        // don't index inequalities for provenance
+        if (isIneqConstraint(op) && provenance) {
+            return {mk<UndefValue>(), mk<UndefValue>()};
+        }
+        // don't index inequalities if we aren't using a BTREE
+        if (isIneqConstraint(op) && !btree) {
+            return {mk<UndefValue>(), mk<UndefValue>()};
+        }
+
+        if (isEqConstraint(op)) {
             if (const auto* lhs = dynamic_cast<const TupleElement*>(&binRelOp->getLHS())) {
                 const Expression* rhs = &binRelOp->getRHS();
                 if (lhs->getTupleId() == identifier && rla->getLevel(rhs) < identifier) {
@@ -102,7 +126,9 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(Condition* c, size_
                     return {clone(lhs), clone(lhs)};
                 }
             }
-        } else if (isWeakIneqConstraint(binRelOp->getOperator())) {
+        }
+
+        if (isWeakIneqConstraint(op)) {
             return getExpressionPair(binRelOp, element, identifier);
         }
     }
@@ -110,7 +136,8 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(Condition* c, size_
 }
 
 Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::string>& attributeTypes,
-        RamPattern& queryPattern, bool& indexable, VecOwn<Condition> conditionList, int identifier) {
+        RamPattern& queryPattern, bool& indexable, VecOwn<Condition> conditionList, int identifier,
+        RelationRepresentation rep) {
     // Remaining conditions which cannot be handled by an index
     Own<Condition> condition;
     auto addCondition = [&](Own<Condition> c) {
@@ -124,7 +151,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
     // transform condition list so that every strict inequality becomes a weak inequality + filter
     // e.g. Tuple[level, element] < <expr> --> Tuple[level, element] <= <expr> and Tuple[level, element] !=
     // <expr>
-    std::vector<std::unique_ptr<Condition>> toAppend;
+    std::vector<Own<Condition>> toAppend;
     auto it = conditionList.begin();
     while (it != conditionList.end()) {
         auto* binRelOp = dynamic_cast<Constraint*>(it->get());
@@ -152,13 +179,11 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
 
         if (transformable) {
             // append the weak version of inequality
-            toAppend.emplace_back(
-                    std::make_unique<Constraint>(convertStrictToWeakIneqConstraint(binRelOp->getOperator()),
-                            clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
+            toAppend.emplace_back(mk<Constraint>(convertStrictToWeakIneqConstraint(binRelOp->getOperator()),
+                    clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
             // append the != constraint
-            toAppend.emplace_back(
-                    std::make_unique<Constraint>(convertStrictToNotEqualConstraint(binRelOp->getOperator()),
-                            clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
+            toAppend.emplace_back(mk<Constraint>(convertStrictToNotEqualConstraint(binRelOp->getOperator()),
+                    clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
 
             // remove the strict version of inequality
             it = conditionList.erase(it);
@@ -168,98 +193,201 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
     }
 
     std::transform(toAppend.begin(), toAppend.end(), std::back_inserter(conditionList),
-            [](const std::unique_ptr<Condition>& cond) { return std::move(clone(cond)); });
+            [](const Own<Condition>& cond) { return clone(cond); });
+
+    // Define a comparator which orders all of the conditions nicely
+    // 1. Equalities come before inequalities
+    // 2. Conditions are ordered by the index of the constraint i.e. t0.0 comes before t0.1
+    auto cmp = [&](auto& c1, auto& c2) -> bool {
+        auto* cond1 = dynamic_cast<Constraint*>(c1.get());
+        auto* cond2 = dynamic_cast<Constraint*>(c2.get());
+        // place non-conditions at the end
+        if (!cond1 && !cond2) {
+            return c1.get() < c2.get();
+        }
+        if (cond1 && !cond2) {
+            return true;
+        }
+
+        if (!cond1 && cond2) {
+            return false;
+        }
+        // if it's not indexable place the condition at the end
+        bool lhsIndexable = isIndexableConstraint(cond1->getOperator());
+        bool rhsIndexable = isIndexableConstraint(cond2->getOperator());
+
+        if (!lhsIndexable && !rhsIndexable) {
+            return c1.get() < c2.get();
+        }
+        if (lhsIndexable && !rhsIndexable) {
+            return true;
+        }
+        if (!lhsIndexable && rhsIndexable) {
+            return false;
+        }
+
+        // eq before ineq otherwise we compare the attribute of the involved relation
+        if (isEqConstraint(cond1->getOperator()) && isIneqConstraint(cond2->getOperator())) {
+            return true;
+        }
+        if (isIneqConstraint(cond1->getOperator()) && isEqConstraint(cond2->getOperator())) {
+            return false;
+        }
+
+        size_t attr1 = 0;
+        size_t attr2 = 0;
+        const auto p1 = getExpressionPair(cond1, attr1, identifier);
+        const auto p2 = getExpressionPair(cond2, attr2, identifier);
+
+        // check if the constraint is of the right form
+        bool lhsUndefined = isUndefValue(p1.first.get()) && isUndefValue(p1.second.get());
+        bool rhsUndefined = isUndefValue(p2.first.get()) && isUndefValue(p2.second.get());
+
+        if (lhsUndefined && rhsUndefined) {
+            return c1.get() < c2.get();
+        }
+
+        if (!lhsUndefined && rhsUndefined) {
+            return true;
+        }
+
+        if (lhsUndefined && !rhsUndefined) {
+            return false;
+        }
+
+        // at this point we are guaranteed that attr1 and attr2 are set
+        return attr1 <= attr2;
+    };
+
+    std::sort(conditionList.begin(), conditionList.end(), cmp);
+    bool rtree = (Global::config().get("default-datastructure") == "rtree");
 
     // Build query pattern and remaining condition
+    bool seenInequality = false;
+    size_t arity = queryPattern.first.size();
+
+    for (size_t i = 0; i < arity; ++i) {
+        // ignore attributes with no constraints
+        if (isUndefValue(queryPattern.first[i].get()) && isUndefValue(queryPattern.second[i].get())) {
+            continue;
+        }
+        // found an inequality
+        if (*queryPattern.first[i] != *queryPattern.second[i]) {
+            if (!rtree) {
+                seenInequality = true;
+            }
+            break;
+        }
+    }
+
     for (auto& cond : conditionList) {
         size_t element = 0;
         Own<Expression> lowerExpression;
         Own<Expression> upperExpression;
-        std::tie(lowerExpression, upperExpression) = getLowerUpperExpression(cond.get(), element, identifier);
+        std::tie(lowerExpression, upperExpression) =
+                getLowerUpperExpression(cond.get(), element, identifier, rep);
 
         // we have new bounds if at least one is defined
         if (!isUndefValue(lowerExpression.get()) || !isUndefValue(upperExpression.get())) {
             // if no previous bounds are set then just assign them, consider both bounds to be set (but not
             // necessarily defined) in all remaining cases
+
+            bool firstLowerBound = isUndefValue(queryPattern.first[element].get());
+            bool firstUpperBound = isUndefValue(queryPattern.second[element].get());
+            bool firstConstraint = firstLowerBound && firstUpperBound;
+
+            bool newLowerBound = !isUndefValue(lowerExpression.get());
+            bool newUpperBound = !isUndefValue(upperExpression.get());
+
+            bool equality = (*lowerExpression == *upperExpression);
+            bool inequality = !equality;
+
+            auto& lowerBound = queryPattern.first[element];
+            auto& upperBound = queryPattern.second[element];
+
+            // don't permit multiple inequalities
+            // TODO: @SamArch27 invariant that we have at most one indexed inequality per relation
+            if (firstConstraint && inequality && seenInequality) {
+                addCondition(std::move(cond));
+                continue;
+            }
+
             auto type = attributeTypes[element];
             indexable = true;
-            if (isUndefValue(queryPattern.first[element].get()) &&
-                    isUndefValue(queryPattern.second[element].get())) {
-                queryPattern.first[element] = std::move(lowerExpression);
-                queryPattern.second[element] = std::move(upperExpression);
+            if (firstConstraint) {
+                // equality
+                lowerBound = std::move(lowerExpression);
+                upperBound = std::move(upperExpression);
+
+                // seen inequality
+                if (inequality && !rtree) {
+                    seenInequality = true;
+                }
+
                 // if lower bound is undefined and we have a new lower bound then assign it
-            } else if (isUndefValue(queryPattern.first[element].get()) &&
-                       !isUndefValue(lowerExpression.get()) && isUndefValue(upperExpression.get())) {
-                queryPattern.first[element] = std::move(lowerExpression);
+            } else if (firstLowerBound && newLowerBound && !newUpperBound) {
+                lowerBound = std::move(lowerExpression);
                 // if upper bound is undefined and we have a new upper bound then assign it
-            } else if (isUndefValue(queryPattern.second[element].get()) &&
-                       isUndefValue(lowerExpression.get()) && !isUndefValue(upperExpression.get())) {
-                queryPattern.second[element] = std::move(upperExpression);
+            } else if (firstUpperBound && !newLowerBound && newUpperBound) {
+                upperBound = std::move(upperExpression);
                 // if both bounds are defined ...
                 // and equal then we have a previous equality constraint i.e. Tuple[level, element] = <expr1>
-            } else if (!isUndefValue(queryPattern.first[element].get()) &&
-                       !isUndefValue(queryPattern.second[element].get()) &&
-                       (*(queryPattern.first[element]) == *(queryPattern.second[element]))) {
+            } else if (!firstLowerBound && !firstUpperBound && (*(lowerBound) == *(upperBound))) {
                 // new equality constraint i.e. Tuple[level, element] = <expr2>
                 // simply hoist <expr1> = <expr2> to the outer loop
-                if (!isUndefValue(lowerExpression.get()) && !isUndefValue(upperExpression.get())) {
-                    // FIXME: `FEQ` handling; need to know if the expr is a float exp or not
-                    addCondition(mk<Constraint>(getEqConstraint(type),
-                            souffle::clone(queryPattern.first[element]), std::move(lowerExpression)));
+                if (newLowerBound && newUpperBound) {
+                    addCondition(mk<Constraint>(
+                            getEqConstraint(type), souffle::clone(lowerBound), std::move(lowerExpression)));
                 }
                 // new lower bound i.e. Tuple[level, element] >= <expr2>
                 // we need to hoist <expr1> >= <expr2> to the outer loop
-                else if (!isUndefValue(lowerExpression.get()) && isUndefValue(upperExpression.get())) {
-                    addCondition(mk<Constraint>(getGreaterEqualConstraint(type),
-                            souffle::clone(queryPattern.first[element]), std::move(lowerExpression)));
+                else if (newLowerBound && !newUpperBound) {
+                    addCondition(mk<Constraint>(getGreaterEqualConstraint(type), souffle::clone(lowerBound),
+                            std::move(lowerExpression)));
                 }
                 // new upper bound i.e. Tuple[level, element] <= <expr2>
                 // we need to hoist <expr1> <= <expr2> to the outer loop
-                else if (isUndefValue(lowerExpression.get()) && !isUndefValue(upperExpression.get())) {
-                    addCondition(mk<Constraint>(getLessEqualConstraint(type),
-                            souffle::clone(queryPattern.first[element]), std::move(upperExpression)));
+                else if (!newLowerBound && newUpperBound) {
+                    addCondition(mk<Constraint>(getLessEqualConstraint(type), souffle::clone(lowerBound),
+                            std::move(upperExpression)));
                 }
                 // if either bound is defined but they aren't equal we must consider the cases for updating
                 // them note that at this point we know that if we have a lower/upper bound it can't be the
                 // first one
-            } else if (!isUndefValue(queryPattern.first[element].get()) ||
-                       !isUndefValue(queryPattern.second[element].get())) {
+            } else if (!firstLowerBound || !firstUpperBound) {
                 // if we have a new equality constraint and previous inequality constraints
-                if (!isUndefValue(lowerExpression.get()) && !isUndefValue(upperExpression.get()) &&
-                        *lowerExpression == *upperExpression) {
+                if (newLowerBound && newUpperBound && *lowerExpression == *upperExpression) {
                     // if Tuple[level, element] >= <expr1> and we see Tuple[level, element] = <expr2>
                     // need to hoist <expr2> >= <expr1> to the outer loop
-                    if (!isUndefValue(queryPattern.first[element].get())) {
+                    if (!firstLowerBound) {
                         addCondition(mk<Constraint>(getGreaterEqualConstraint(type),
-                                souffle::clone(lowerExpression), std::move(queryPattern.first[element])));
+                                souffle::clone(lowerExpression), std::move(lowerBound)));
                     }
                     // if Tuple[level, element] <= <expr1> and we see Tuple[level, element] = <expr2>
                     // need to hoist <expr2> <= <expr1> to the outer loop
-                    if (!isUndefValue(queryPattern.second[element].get())) {
+                    if (!firstUpperBound) {
                         addCondition(mk<Constraint>(getLessEqualConstraint(type),
-                                souffle::clone(upperExpression), std::move(queryPattern.second[element])));
+                                souffle::clone(upperExpression), std::move(upperBound)));
                     }
                     // finally replace bounds with equality constraint
-                    queryPattern.first[element] = std::move(lowerExpression);
-                    queryPattern.second[element] = std::move(upperExpression);
+                    lowerBound = std::move(lowerExpression);
+                    upperBound = std::move(upperExpression);
                     // if we have a new lower bound
-                } else if (!isUndefValue(lowerExpression.get())) {
+                } else if (newLowerBound) {
                     // we want the tightest lower bound so we take the max
                     VecOwn<Expression> maxArguments;
-                    maxArguments.push_back(std::move(queryPattern.first[element]));
+                    maxArguments.push_back(std::move(lowerBound));
                     maxArguments.push_back(std::move(lowerExpression));
 
-                    queryPattern.first[element] =
-                            mk<IntrinsicOperator>(getMaxOp(type), std::move(maxArguments));
+                    lowerBound = mk<IntrinsicOperator>(getMaxOp(type), std::move(maxArguments));
                     // if we have a new upper bound
-                } else if (!isUndefValue(upperExpression.get())) {
+                } else if (newUpperBound) {
                     // we want the tightest upper bound so we take the min
                     VecOwn<Expression> minArguments;
-                    minArguments.push_back(std::move(queryPattern.second[element]));
+                    minArguments.push_back(std::move(upperBound));
                     minArguments.push_back(std::move(upperExpression));
 
-                    queryPattern.second[element] =
-                            mk<IntrinsicOperator>(getMinOp(type), std::move(minArguments));
+                    upperBound = mk<IntrinsicOperator>(getMinOp(type), std::move(minArguments));
                 }
             }
         } else {
@@ -276,7 +404,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
 
 Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
     if (dynamic_cast<const True*>(&agg->getCondition()) == nullptr) {
-        const Relation& rel = agg->getRelation();
+        const Relation& rel = relAnalysis->lookup(agg->getRelation());
         int identifier = agg->getTupleId();
         RamPattern queryPattern;
         for (unsigned int i = 0; i < rel.getArity(); ++i) {
@@ -286,10 +414,10 @@ Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
 
         bool indexable = false;
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
-                toConjunctionList(&agg->getCondition()), identifier);
+                toConjunctionList(&agg->getCondition()), identifier, rel.getRepresentation());
         if (indexable) {
             return mk<IndexAggregate>(souffle::clone(&agg->getOperation()), agg->getFunction(),
-                    mk<RelationReference>(&rel), souffle::clone(&agg->getExpression()), std::move(condition),
+                    agg->getRelation(), souffle::clone(&agg->getExpression()), std::move(condition),
                     std::move(queryPattern), agg->getTupleId());
         }
     }
@@ -298,7 +426,7 @@ Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
 
 Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
     if (const auto* filter = dynamic_cast<const Filter*>(&scan->getOperation())) {
-        const Relation& rel = scan->getRelation();
+        const Relation& rel = relAnalysis->lookup(scan->getRelation());
         const int identifier = scan->getTupleId();
         RamPattern queryPattern;
         for (unsigned int i = 0; i < rel.getArity(); ++i) {
@@ -308,14 +436,14 @@ Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
 
         bool indexable = false;
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
-                toConjunctionList(&filter->getCondition()), identifier);
+                toConjunctionList(&filter->getCondition()), identifier, rel.getRepresentation());
         if (indexable) {
             Own<Operation> op = souffle::clone(&filter->getOperation());
             if (!isTrue(condition.get())) {
                 op = mk<Filter>(std::move(condition), std::move(op));
             }
-            return mk<IndexScan>(mk<RelationReference>(&rel), identifier, std::move(queryPattern),
-                    std::move(op), scan->getProfileText());
+            return mk<IndexScan>(scan->getRelation(), identifier, std::move(queryPattern), std::move(op),
+                    scan->getProfileText());
         }
     }
     return nullptr;
@@ -323,7 +451,7 @@ Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
 
 Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
     if (const auto* filter = dynamic_cast<const Filter*>(&iscan->getOperation())) {
-        const Relation& rel = iscan->getRelation();
+        const Relation& rel = relAnalysis->lookup(iscan->getRelation());
         const int identifier = iscan->getTupleId();
 
         RamPattern strengthenedPattern;
@@ -333,7 +461,7 @@ Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
         bool indexable = false;
         // strengthen the pattern with construct pattern
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), strengthenedPattern, indexable,
-                toConjunctionList(&filter->getCondition()), identifier);
+                toConjunctionList(&filter->getCondition()), identifier, rel.getRepresentation());
 
         if (indexable) {
             // Merge Index Pattern here
@@ -342,7 +470,7 @@ Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
             if (!isTrue(condition.get())) {
                 op = mk<Filter>(std::move(condition), std::move(op));
             }
-            return mk<IndexScan>(mk<RelationReference>(&rel), identifier, std::move(strengthenedPattern),
+            return mk<IndexScan>(iscan->getRelation(), identifier, std::move(strengthenedPattern),
                     std::move(op), iscan->getProfileText());
         }
     }
@@ -354,7 +482,8 @@ bool MakeIndexTransformer::makeIndex(Program& program) {
     visitDepthFirst(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> scanRewriter = [&](Own<Node> node) -> Own<Node> {
             if (const Scan* scan = dynamic_cast<Scan*>(node.get())) {
-                if (scan->getRelation().getRepresentation() != RelationRepresentation::INFO) {
+                const Relation& rel = relAnalysis->lookup(scan->getRelation());
+                if (rel.getRepresentation() != RelationRepresentation::INFO) {
                     if (Own<Operation> op = rewriteScan(scan)) {
                         changed = true;
                         node = std::move(op);

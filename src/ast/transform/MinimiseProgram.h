@@ -50,6 +50,9 @@ private:
     static bool isValidPermutation(const analysis::NormalisedClause& left,
             const analysis::NormalisedClause& right, const std::vector<unsigned int>& permutation);
 
+    // Check whether two relations have the same qualifiers, representation and attribute types.
+    static bool areEquivalentRelations(const Relation* firstRelation, const Relation* secondRelation);
+
     // Checks whether a permutation encoded in the given matrix has a valid corresponding variable mapping.
     static bool existsValidPermutation(const analysis::NormalisedClause& left,
             const analysis::NormalisedClause& right,

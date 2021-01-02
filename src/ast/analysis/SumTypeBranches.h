@@ -44,8 +44,8 @@ public:
         }
     }
 
-    const Type& unsafeGetType(const std::string& branch) const {
-        return *branchToType.at(branch);
+    const AlgebraicDataType& unsafeGetType(const std::string& branch) const {
+        return *as<AlgebraicDataType>(branchToType.at(branch));
     }
 
 private:

@@ -82,9 +82,9 @@
 #include "ram/UnpackRecord.h"
 #include "ram/UnsignedConstant.h"
 #include "ram/UserDefinedOperator.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
 #include "ram/analysis/Index.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/BinaryConstraintOps.h"
 #include "souffle/RamTypes.h"
 #include "souffle/SymbolTable.h"
@@ -117,6 +117,7 @@ namespace souffle::synthesiser {
 using json11::Json;
 using ram::analysis::IndexAnalysis;
 using namespace ram;
+using namespace stream_write_qualified_char_as_number;
 
 /** Lookup frequency counter */
 unsigned Synthesiser::lookupFreqIdx(const std::string& txt) {
@@ -180,6 +181,10 @@ const std::string Synthesiser::getRelationName(const ram::Relation& rel) {
     return "rel_" + convertRamIdent(rel.getName());
 }
 
+const std::string Synthesiser::getRelationName(const ram::Relation* rel) {
+    return "rel_" + convertRamIdent(rel->getName());
+}
+
 /** Get context name */
 const std::string Synthesiser::getOpContextName(const ram::Relation& rel) {
     return getRelationName(rel) + "_op_ctxt";
@@ -202,15 +207,15 @@ std::set<const ram::Relation*> Synthesiser::getReferencedRelations(const Operati
     std::set<const ram::Relation*> res;
     visitDepthFirst(op, [&](const Node& node) {
         if (auto scan = dynamic_cast<const RelationOperation*>(&node)) {
-            res.insert(&scan->getRelation());
+            res.insert(lookup(scan->getRelation()));
         } else if (auto agg = dynamic_cast<const Aggregate*>(&node)) {
-            res.insert(&agg->getRelation());
+            res.insert(lookup(agg->getRelation()));
         } else if (auto exists = dynamic_cast<const ExistenceCheck*>(&node)) {
-            res.insert(&exists->getRelation());
+            res.insert(lookup(exists->getRelation()));
         } else if (auto provExists = dynamic_cast<const ProvenanceExistenceCheck*>(&node)) {
-            res.insert(&provExists->getRelation());
+            res.insert(lookup(provExists->getRelation()));
         } else if (auto project = dynamic_cast<const Project*>(&node)) {
-            res.insert(&project->getRelation());
+            res.insert(lookup(project->getRelation()));
         }
     });
     return res;
@@ -351,7 +356,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 out << "}\n";
                 out << "IOSystem::getInstance().getReader(";
                 out << "directiveMap, symTable, recordTable";
-                out << ")->readAll(*" << synthesiser.getRelationName(io.getRelation());
+                out << ")->readAll(*" << synthesiser.getRelationName(synthesiser.lookup(io.getRelation()));
                 out << ");\n";
                 out << "} catch (std::exception& e) {std::cerr << \"Error loading data: \" << e.what() "
                        "<< "
@@ -366,7 +371,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 out << "}\n";
                 out << "IOSystem::getInstance().getWriter(";
                 out << "directiveMap, symTable, recordTable";
-                out << ")->writeAll(*" << synthesiser.getRelationName(io.getRelation()) << ");\n";
+                out << ")->writeAll(*" << synthesiser.getRelationName(synthesiser.lookup(io.getRelation()))
+                    << ");\n";
                 out << "} catch (std::exception& e) {std::cerr << e.what();exit(1);}\n";
             } else {
                 assert("Wrong i/o operation");
@@ -469,10 +475,10 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visitClear(const Clear& clear, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
 
-            if (!clear.getRelation().isTemp()) {
+            if (!synthesiser.lookup(clear.getRelation())->isTemp()) {
                 out << "if (performIO) ";
             }
-            out << synthesiser.getRelationName(clear.getRelation()) << "->"
+            out << synthesiser.getRelationName(synthesiser.lookup(clear.getRelation())) << "->"
                 << "purge();\n";
 
             PRINT_END_COMMENT(out);
@@ -482,7 +488,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             PRINT_BEGIN_COMMENT(out);
             out << "ProfileEventSingleton::instance().makeQuantityEvent( R\"(";
             out << size.getMessage() << ")\",";
-            out << synthesiser.getRelationName(size.getRelation()) << "->size(),iter);";
+            out << synthesiser.getRelationName(synthesiser.lookup(size.getRelation())) << "->size(),iter);";
             PRINT_END_COMMENT(out);
         }
 
@@ -543,8 +549,10 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitSwap(const Swap& swap, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            const std::string& deltaKnowledge = synthesiser.getRelationName(swap.getFirstRelation());
-            const std::string& newKnowledge = synthesiser.getRelationName(swap.getSecondRelation());
+            const std::string& deltaKnowledge =
+                    synthesiser.getRelationName(synthesiser.lookup(swap.getFirstRelation()));
+            const std::string& newKnowledge =
+                    synthesiser.getRelationName(synthesiser.lookup(swap.getSecondRelation()));
 
             out << "std::swap(" << deltaKnowledge << ", " << newKnowledge << ");\n";
             PRINT_END_COMMENT(out);
@@ -552,9 +560,10 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitExtend(const Extend& extend, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            out << synthesiser.getRelationName(extend.getSourceRelation()) << "->"
+            out << synthesiser.getRelationName(synthesiser.lookup(extend.getSourceRelation())) << "->"
                 << "extend("
-                << "*" << synthesiser.getRelationName(extend.getTargetRelation()) << ");\n";
+                << "*" << synthesiser.getRelationName(synthesiser.lookup(extend.getTargetRelation()))
+                << ");\n";
             PRINT_END_COMMENT(out);
         }
 
@@ -584,7 +593,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             const std::string ext = fileExtension(Global::config().get("profile"));
 
-            const auto& rel = timer.getRelation();
+            const auto* rel = synthesiser.lookup(timer.getRelation());
             auto relName = synthesiser.getRelationName(rel);
 
             out << "\tLogger logger(R\"_(" << timer.getMessage() << ")_\",iter, [&](){return " << relName
@@ -616,7 +625,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitDebugInfo(const DebugInfo& dbg, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            out << "SignalHandler::instance()->setMsg(R\"_(";
+            out << "signalHandler->setMsg(R\"_(";
             out << dbg.getMessage();
             out << ")_\");\n";
 
@@ -629,7 +638,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitNestedOperation(const NestedOperation& nested, std::ostream& out) override {
             visit(nested.getOperation(), out);
-            if (Global::config().has("profile") && !nested.getProfileText().empty()) {
+            if (Global::config().has("profile") && Global::config().has("profile-frequency") &&
+                    !nested.getProfileText().empty()) {
                 out << "freqs[" << synthesiser.lookupFreqIdx(nested.getProfileText()) << "]++;\n";
             }
         }
@@ -641,12 +651,12 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         void visitParallelScan(const ParallelScan& pscan, std::ostream& out) override {
-            const auto& rel = pscan.getRelation();
+            const auto* rel = synthesiser.lookup(pscan.getRelation());
             const auto& relName = synthesiser.getRelationName(rel);
 
             assert(pscan.getTupleId() == 0 && "not outer-most loop");
 
-            assert(rel.getArity() > 0 && "AstToRamTranslator failed/no parallel scans for nullaries");
+            assert(rel->getArity() > 0 && "AstToRamTranslator failed/no parallel scans for nullaries");
 
             assert(!preambleIssued && "only first loop can be made parallel");
             preambleIssued = true;
@@ -663,20 +673,20 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             visitTupleOperation(pscan, out);
 
             out << "}\n";
-            out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
+            out << "} catch(std::exception &e) { signalHandler->error(e.what());}\n";
             out << "}\n";
 
             PRINT_END_COMMENT(out);
         }
 
         void visitScan(const Scan& scan, std::ostream& out) override {
-            const auto& rel = scan.getRelation();
+            const auto* rel = synthesiser.lookup(scan.getRelation());
             auto relName = synthesiser.getRelationName(rel);
             auto id = scan.getTupleId();
 
             PRINT_BEGIN_COMMENT(out);
 
-            assert(rel.getArity() > 0 && "AstToRamTranslator failed/no scans for nullaries");
+            assert(rel->getArity() > 0 && "AstToRamTranslator failed/no scans for nullaries");
 
             out << "for(const auto& env" << id << " : "
                 << "*" << relName << ") {\n";
@@ -689,11 +699,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         void visitChoice(const Choice& choice, std::ostream& out) override {
-            const auto& rel = choice.getRelation();
+            const auto* rel = synthesiser.lookup(choice.getRelation());
             auto relName = synthesiser.getRelationName(rel);
             auto identifier = choice.getTupleId();
 
-            assert(rel.getArity() > 0 && "AstToRamTranslator failed/no choice for nullaries");
+            assert(rel->getArity() > 0 && "AstToRamTranslator failed/no choice for nullaries");
 
             PRINT_BEGIN_COMMENT(out);
 
@@ -715,12 +725,12 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         void visitParallelChoice(const ParallelChoice& pchoice, std::ostream& out) override {
-            const auto& rel = pchoice.getRelation();
+            const auto* rel = synthesiser.lookup(pchoice.getRelation());
             auto relName = synthesiser.getRelationName(rel);
 
             assert(pchoice.getTupleId() == 0 && "not outer-most loop");
 
-            assert(rel.getArity() > 0 && "AstToRamTranslator failed/no parallel choice for nullaries");
+            assert(rel->getArity() > 0 && "AstToRamTranslator failed/no parallel choice for nullaries");
 
             assert(!preambleIssued && "only first loop can be made parallel");
             preambleIssued = true;
@@ -744,18 +754,19 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "break;\n";
             out << "}\n";
             out << "}\n";
-            out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
+            out << "} catch(std::exception &e) { signalHandler->error(e.what());}\n";
             out << "}\n";
 
             PRINT_END_COMMENT(out);
         }
 
         void visitIndexScan(const IndexScan& iscan, std::ostream& out) override {
-            const auto& rel = iscan.getRelation();
+            const auto* rel = synthesiser.lookup(iscan.getRelation());
             auto relName = synthesiser.getRelationName(rel);
             auto identifier = iscan.getTupleId();
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&iscan));
-            auto arity = rel.getArity();
+
+            auto keys = isa->getSearchSignature(&iscan);
+            auto arity = rel->getArity();
 
             const auto& rangePatternLower = iscan.getRangePattern().first;
             const auto& rangePatternUpper = iscan.getRangePattern().second;
@@ -763,8 +774,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             assert(arity > 0 && "AstToRamTranslator failed/no index scans for nullaries");
 
             PRINT_BEGIN_COMMENT(out);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
+            auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
 
             out << "auto range = " << relName << "->"
                 << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
@@ -778,10 +789,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         void visitParallelIndexScan(const ParallelIndexScan& piscan, std::ostream& out) override {
-            const auto& rel = piscan.getRelation();
+            const auto* rel = synthesiser.lookup(piscan.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto arity = rel.getArity();
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&piscan));
+
+            auto arity = rel->getArity();
+            auto keys = isa->getSearchSignature(&piscan);
 
             const auto& rangePatternLower = piscan.getRangePattern().first;
             const auto& rangePatternUpper = piscan.getRangePattern().second;
@@ -794,7 +806,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             preambleIssued = true;
 
             PRINT_BEGIN_COMMENT(out);
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+            auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
             out << "auto range = " << relName
                 << "->"
                 // TODO (b-scholz): context may be missing here?
@@ -810,7 +822,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             visitTupleOperation(piscan, out);
 
             out << "}\n";
-            out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
+            out << "} catch(std::exception &e) { signalHandler->error(e.what());}\n";
             out << "}\n";
 
             PRINT_END_COMMENT(out);
@@ -818,18 +830,18 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitIndexChoice(const IndexChoice& ichoice, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            const auto& rel = ichoice.getRelation();
+            const auto* rel = synthesiser.lookup(ichoice.getRelation());
             auto relName = synthesiser.getRelationName(rel);
             auto identifier = ichoice.getTupleId();
-            auto arity = rel.getArity();
+            auto arity = rel->getArity();
             const auto& rangePatternLower = ichoice.getRangePattern().first;
             const auto& rangePatternUpper = ichoice.getRangePattern().second;
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&ichoice));
+            auto keys = isa->getSearchSignature(&ichoice);
 
             // check list of keys
             assert(arity > 0 && "AstToRamTranslator failed");
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
+            auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
 
             out << "auto range = " << relName << "->"
                 << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
@@ -852,12 +864,12 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitParallelIndexChoice(const ParallelIndexChoice& pichoice, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            const auto& rel = pichoice.getRelation();
+            const auto* rel = synthesiser.lookup(pichoice.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto arity = rel.getArity();
+            auto arity = rel->getArity();
             const auto& rangePatternLower = pichoice.getRangePattern().first;
             const auto& rangePatternUpper = pichoice.getRangePattern().second;
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&pichoice));
+            auto keys = isa->getSearchSignature(&pichoice);
 
             assert(pichoice.getTupleId() == 0 && "not outer-most loop");
 
@@ -867,7 +879,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             preambleIssued = true;
 
             PRINT_BEGIN_COMMENT(out);
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+            auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
             out << "auto range = " << relName
                 << "->"
                 // TODO (b-scholz): context may be missing here?
@@ -890,19 +902,19 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "break;\n";
             out << "}\n";
             out << "}\n";
-            out << "} catch(std::exception &e) { SignalHandler::instance()->error(e.what());}\n";
+            out << "} catch(std::exception &e) { signalHandler->error(e.what());}\n";
             out << "}\n";
 
             PRINT_END_COMMENT(out);
         }
 
-        void visitUnpackRecord(const UnpackRecord& lookup, std::ostream& out) override {
+        void visitUnpackRecord(const UnpackRecord& unpack, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            auto arity = lookup.getArity();
+            auto arity = unpack.getArity();
 
             // look up reference
             out << "RamDomain const ref = ";
-            visit(lookup.getExpression(), out);
+            visit(unpack.getExpression(), out);
             out << ";\n";
 
             // Handle nil case.
@@ -910,14 +922,14 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
             // Unpack tuple
             out << "const RamDomain *"
-                << "env" << lookup.getTupleId() << " = "
+                << "env" << unpack.getTupleId() << " = "
                 << "recordTable.unpack(ref," << arity << ");"
                 << "\n";
 
             out << "{\n";
 
             // continue with condition checks and nested body
-            visitTupleOperation(lookup, out);
+            visitTupleOperation(unpack, out);
 
             out << "}\n";
             PRINT_END_COMMENT(out);
@@ -930,10 +942,10 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             preambleIssued = true;
             PRINT_BEGIN_COMMENT(out);
             // get some properties
-            const auto& rel = aggregate.getRelation();
-            auto arity = rel.getArity();
+            const auto* rel = synthesiser.lookup(aggregate.getRelation());
+            auto arity = rel->getArity();
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             auto identifier = aggregate.getTupleId();
 
             // aggregate tuple storing the result of aggregate
@@ -943,7 +955,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
             // get range to aggregate
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&aggregate));
+            auto keys = isa->getSearchSignature(&aggregate);
 
             // special case: counting number elements over an unrestricted predicate
             if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
@@ -1039,7 +1051,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 const auto& rangePatternLower = aggregate.getRangePattern().first;
                 const auto& rangePatternUpper = aggregate.getRangePattern().second;
 
-                auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+                auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
                 out << "auto range = " << relName << "->"
                     << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
                     << rangeBounds.second.str() << "," << ctxName << ");\n";
@@ -1125,13 +1137,30 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "}\n";
             PRINT_END_COMMENT(out);
         }
+
+        bool isGuaranteedToBeMinimum(const IndexAggregate& aggregate) {
+            return false;
+
+            /*
+            auto identifier = aggregate.getTupleId();
+                auto keys = isa->getSearchSignature(&aggregate);
+                RelationRepresentation repr =
+            synthesiser.lookup(aggregate.getRelation())->getRepresentation();
+
+                const auto* tupleElem = dynamic_cast<const TupleElement*>(&aggregate.getExpression());
+                return tupleElem && tupleElem->getTupleId() == identifier &&
+                       keys[tupleElem->getElement()] != ram::analysis::AttributeConstraint::None &&
+                       (repr == RelationRepresentation::BTREE || repr == RelationRepresentation::DEFAULT);
+                */
+        }
+
         void visitIndexAggregate(const IndexAggregate& aggregate, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
             // get some properties
-            const auto& rel = aggregate.getRelation();
-            auto arity = rel.getArity();
+            const auto* rel = synthesiser.lookup(aggregate.getRelation());
+            auto arity = rel->getArity();
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             auto identifier = aggregate.getTupleId();
 
             // aggregate tuple storing the result of aggregate
@@ -1141,7 +1170,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             out << "Tuple<RamDomain,1> env" << identifier << ";\n";
 
             // get range to aggregate
-            auto keys = ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&aggregate));
+            auto keys = isa->getSearchSignature(&aggregate);
 
             // special case: counting number elements over an unrestricted predicate
             if (aggregate.getFunction() == AggregateOp::COUNT && keys.empty() &&
@@ -1202,7 +1231,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 const auto& rangePatternLower = aggregate.getRangePattern().first;
                 const auto& rangePatternUpper = aggregate.getRangePattern().second;
 
-                auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+                auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
 
                 out << "auto range = " << relName << "->"
                     << "lowerUpperRange_" << keys << "(" << rangeBounds.first.str() << ","
@@ -1227,6 +1256,9 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                     out << "res0 = std::min(res0,ramBitCast<" << type << ">(";
                     visit(aggregate.getExpression(), out);
                     out << "));\n";
+                    if (isGuaranteedToBeMinimum(aggregate)) {
+                        out << "break;\n";
+                    }
                     break;
                 case AggregateOp::FMAX:
                 case AggregateOp::UMAX:
@@ -1279,9 +1311,9 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visitParallelAggregate(const ParallelAggregate& aggregate, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
             // get some properties
-            const auto& rel = aggregate.getRelation();
+            const auto* rel = synthesiser.lookup(aggregate.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             auto identifier = aggregate.getTupleId();
 
             assert(aggregate.getTupleId() == 0 && "not outer-most loop");
@@ -1455,9 +1487,9 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visitAggregate(const Aggregate& aggregate, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
             // get some properties
-            const auto& rel = aggregate.getRelation();
+            const auto* rel = synthesiser.lookup(aggregate.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
             auto identifier = aggregate.getTupleId();
 
             // declare environment variable
@@ -1499,7 +1531,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                     break;
             }
 
-            char const* type;
+            std::string type;
             switch (getTypeAttributeAggregate(aggregate.getFunction())) {
                 case TypeAttribute::Signed: type = "RamSigned"; break;
                 case TypeAttribute::Unsigned: type = "RamUnsigned"; break;
@@ -1507,7 +1539,8 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
                 case TypeAttribute::Symbol:
                 case TypeAttribute::ADT:
-                case TypeAttribute::Record: type = "RamDomain"; break;
+                case TypeAttribute::Record:
+                default: type = "RamDomain"; break;
             }
             out << type << " res0 = " << init << ";\n";
 
@@ -1600,12 +1633,39 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             PRINT_END_COMMENT(out);
         }
 
+        void visitGuardedProject(const GuardedProject& guardedProject, std::ostream& out) override {
+            PRINT_BEGIN_COMMENT(out);
+            const auto* rel = synthesiser.lookup(guardedProject.getRelation());
+            auto arity = rel->getArity();
+            auto relName = synthesiser.getRelationName(rel);
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
+
+            auto condition = guardedProject.getCondition();
+            // guarded conditions
+            out << "if( ";
+            visit(condition, out);
+            out << ") {\n";
+
+            // create projected tuple
+            out << "Tuple<RamDomain," << arity << "> tuple{{" << join(guardedProject.getValues(), ",", rec)
+                << "}};\n";
+
+            // insert tuple
+            out << relName << "->"
+                << "insert(tuple," << ctxName << ");\n";
+
+            // end of conseq body.
+            out << "}\n";
+
+            PRINT_END_COMMENT(out);
+        }
+
         void visitProject(const Project& project, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            const auto& rel = project.getRelation();
-            auto arity = rel.getArity();
+            const auto* rel = synthesiser.lookup(project.getRelation());
+            auto arity = rel->getArity();
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
 
             // create projected tuple
             out << "Tuple<RamDomain," << arity << "> tuple{{" << join(project.getValues(), ",", rec)
@@ -1735,14 +1795,15 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
 
         void visitEmptinessCheck(const EmptinessCheck& emptiness, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            out << synthesiser.getRelationName(emptiness.getRelation()) << "->"
+            out << synthesiser.getRelationName(synthesiser.lookup(emptiness.getRelation())) << "->"
                 << "empty()";
             PRINT_END_COMMENT(out);
         }
 
         void visitRelationSize(const RelationSize& size, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
-            out << "(RamDomain)" << synthesiser.getRelationName(size.getRelation()) << "->"
+            out << "(RamDomain)" << synthesiser.getRelationName(synthesiser.lookup(size.getRelation()))
+                << "->"
                 << "size()";
             PRINT_END_COMMENT(out);
         }
@@ -1750,14 +1811,15 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         void visitExistenceCheck(const ExistenceCheck& exists, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
             // get some details
-            const auto& rel = exists.getRelation();
+            const auto* rel = synthesiser.lookup(exists.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto arity = rel.getArity();
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
+            auto arity = rel->getArity();
             assert(arity > 0 && "AstToRamTranslator failed");
             std::string after;
-            if (Global::config().has("profile") && !exists.getRelation().isTemp()) {
-                out << R"_((reads[)_" << synthesiser.lookupReadIdx(rel.getName()) << R"_(]++,)_";
+            if (Global::config().has("profile") && Global::config().has("profile-frequency") &&
+                    !synthesiser.lookup(exists.getRelation())->isTemp()) {
+                out << R"_((reads[)_" << synthesiser.lookupReadIdx(rel->getName()) << R"_(]++,)_";
                 after = ")";
             }
 
@@ -1773,11 +1835,11 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             auto rangePatternLower = exists.getValues();
             auto rangePatternUpper = exists.getValues();
 
-            auto rangeBounds = getPaddedRangeBounds(rel, rangePatternLower, rangePatternUpper);
+            auto rangeBounds = getPaddedRangeBounds(*rel, rangePatternLower, rangePatternUpper);
             // else we conduct a range query
             out << "!" << relName << "->"
                 << "lowerUpperRange";
-            out << "_" << ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&exists));
+            out << "_" << isa->getSearchSignature(&exists);
             out << "(" << rangeBounds.first.str() << "," << rangeBounds.second.str() << "," << ctxName
                 << ").empty()" << after;
             PRINT_END_COMMENT(out);
@@ -1787,17 +1849,17 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 const ProvenanceExistenceCheck& provExists, std::ostream& out) override {
             PRINT_BEGIN_COMMENT(out);
             // get some details
-            const auto& rel = provExists.getRelation();
+            const auto* rel = synthesiser.lookup(provExists.getRelation());
             auto relName = synthesiser.getRelationName(rel);
-            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(rel) + ")";
-            auto arity = rel.getArity();
-            auto auxiliaryArity = rel.getAuxiliaryArity();
+            auto ctxName = "READ_OP_CONTEXT(" + synthesiser.getOpContextName(*rel) + ")";
+            auto arity = rel->getArity();
+            auto auxiliaryArity = rel->getAuxiliaryArity();
 
             // provenance not exists is never total, conduct a range query
             out << "[&]() -> bool {\n";
             out << "auto existenceCheck = " << relName << "->"
                 << "lowerUpperRange";
-            out << "_" << ram::analysis::SearchSignature::getFixed(isa->getSearchSignature(&provExists));
+            out << "_" << isa->getSearchSignature(&provExists);
 
             // parts refers to payload + rule number
             size_t parts = arity - auxiliaryArity + 1;
@@ -1813,7 +1875,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             }
 
             auto valsCopy = std::vector<Expression*>(vals.begin(), vals.begin() + parts);
-            auto rangeBounds = getPaddedRangeBounds(rel, valsCopy, valsCopy);
+            auto rangeBounds = getPaddedRangeBounds(*rel, valsCopy, valsCopy);
 
             // remove the ending }} from both strings
             rangeBounds.first.seekp(-2, std::ios_base::end);
@@ -1993,10 +2055,21 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
                 UNARY_OP_INTEGRAL(LNOT, (RamDomain)!)
 
                 /** numeric coersions follow C++ semantics. */
+                // identities
+                case FunctorOp::F2F:
+                case FunctorOp::I2I:
+                case FunctorOp::U2U:
+                case FunctorOp::S2S: {
+                    visit(args[0], out);
+                    break;
+                }
+
                 UNARY_OP(F2I, RamFloat   , static_cast<RamSigned>)
                 UNARY_OP(F2U, RamFloat   , static_cast<RamUnsigned>)
+
                 UNARY_OP(I2U, RamSigned  , static_cast<RamUnsigned>)
                 UNARY_OP(I2F, RamSigned  , static_cast<RamFloat>)
+
                 UNARY_OP(U2I, RamUnsigned, static_cast<RamSigned>)
                 UNARY_OP(U2F, RamUnsigned, static_cast<RamFloat>)
 
@@ -2122,9 +2195,9 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             auto args = op.getArguments();
             if (op.isStateful()) {
                 out << name << "(&symTable, &recordTable";
-                for (size_t i = 0; i < args.size(); i++) {
+                for (auto& arg : args) {
                     out << ",";
-                    visit(args[i], out);
+                    visit(arg, out);
                 }
                 out << ")";
             } else {
@@ -2305,29 +2378,11 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     // synthesise data-structures for relations
     for (auto rel : prog.getRelations()) {
         bool isProvInfo = rel->getRepresentation() == RelationRepresentation::INFO;
-        auto relationType = Relation::getSynthesiserRelation(
-                *rel, idxAnalysis->getIndexes(*rel), Global::config().has("provenance") && !isProvInfo);
-
-        // Print all the spatial primitive searches for a relation
-        /*const auto& spatialSearches = idxAnalysis->getIndexes(*rel).getAllSpatialSearches();
-        if (spatialSearches.empty()) {
-            continue;
-        }
-        std::cout << rel->getName() << " " << join(spatialSearches, ",") << "\n";
-	*/
-
-	// Print number of B-Tree and R-Tree indexes
-	const auto& chains = idxAnalysis->getIndexes(*rel).getAllChains();
-	if (rel->getRepresentation() == RelationRepresentation::RTREE) {
-	    std::cout << "RTREE" << std::endl;
-	} else {
-	    for (size_t i = 0; i < chains.size(); ++i) {
-	        std::cout << "BTREE" << std::endl;
-	    }
-	}
+        auto relationType =
+                Relation::getSynthesiserRelation(*rel, idxAnalysis->getIndexSelection(rel->getName()),
+                        Global::config().has("provenance") && !isProvInfo);
         generateRelationTypeStruct(os, std::move(relationType));
     }
-    std::cout << "Relations ~ " << prog.getRelations().size() << std::endl;
     os << '\n';
 
     os << "class " << classname << " : public SouffleProgram {\n";
@@ -2393,8 +2448,19 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     }
 
     // print relation definitions
-    std::string initCons;     // initialization of constructor
-    std::string registerRel;  // registration of relations
+    std::stringstream initCons;     // initialization of constructor
+    std::stringstream registerRel;  // registration of relations
+    auto initConsSep = [&, empty = true]() mutable -> std::stringstream& {
+        initCons << (empty ? "\n: " : "\n, ");
+        empty = false;
+        return initCons;
+    };
+
+    // `pf` must be a ctor param (see below)
+    if (Global::config().has("profile")) {
+        initConsSep() << "profiling_fname(std::move(pf))";
+    }
+
     int relCtr = 0;
     std::set<std::string> storeRelations;
     std::set<std::string> loadRelations;
@@ -2405,10 +2471,10 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     visitDepthFirst(prog, [&](const IO& io) {
         auto op = io.get("operation");
         if (op == "input") {
-            loadRelations.insert(io.getRelation().getName());
+            loadRelations.insert(io.getRelation());
             loadIOs.insert(&io);
         } else if (op == "printsize" || op == "output") {
-            storeRelations.insert(io.getRelation().getName());
+            storeRelations.insert(io.getRelation());
             storeIOs.insert(&io);
         } else {
             assert("wrong I/O operation");
@@ -2417,14 +2483,13 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
     for (auto rel : prog.getRelations()) {
         // get some table details
-        int arity = rel->getArity();
-        int auxiliaryArity = rel->getAuxiliaryArity();
         const std::string& datalogName = rel->getName();
         const std::string& cppName = getRelationName(*rel);
 
         bool isProvInfo = rel->getRepresentation() == RelationRepresentation::INFO;
-        auto relationType = Relation::getSynthesiserRelation(
-                *rel, idxAnalysis->getIndexes(*rel), Global::config().has("provenance") && !isProvInfo);
+        auto relationType =
+                Relation::getSynthesiserRelation(*rel, idxAnalysis->getIndexSelection(datalogName),
+                        Global::config().has("provenance") && !isProvInfo);
         const std::string& type = relationType->getTypeName();
 
         // defining table
@@ -2432,44 +2497,22 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
 
         os << "Own<" << type << "> " << cppName << " = mk<" << type << ">();\n";
         if (!rel->isTemp()) {
-            os << "souffle::RelationWrapper<";
-            os << relCtr++ << ",";
-            os << type << ",";
-            os << "Tuple<RamDomain," << arity << ">,";
-            os << arity << ",";
-            os << auxiliaryArity;
-            os << "> wrapper_" << cppName << ";\n";
+            tfm::format(os, "souffle::RelationWrapper<%s> wrapper_%s;\n", type, cppName);
 
-            // construct types
-            std::string tupleType = "std::array<const char *," + std::to_string(arity) + ">{{";
-            std::string tupleName = "std::array<const char *," + std::to_string(arity) + ">{{";
+            auto strLitAry = [](auto&& xs) {
+                std::stringstream ss;
+                ss << "std::array<const char *," << xs.size() << ">{{"
+                   << join(xs, ",", [](auto&& os, auto&& x) { os << '"' << x << '"'; }) << "}}";
+                return ss.str();
+            };
 
-            if (rel->getArity() != 0u) {
-                const auto& attrib = rel->getAttributeNames();
-                const auto& attribType = rel->getAttributeTypes();
-                tupleType += "\"" + attribType[0] + "\"";
+            auto foundIn = [&](auto&& set) { return contains(set, rel->getName()) ? "true" : "false"; };
 
-                for (int i = 1; i < arity; i++) {
-                    tupleType += ",\"" + attribType[i] + "\"";
-                }
-                tupleName += "\"" + attrib[0] + "\"";
-                for (int i = 1; i < arity; i++) {
-                    tupleName += ",\"" + attrib[i] + "\"";
-                }
-            }
-            tupleType += "}}";
-            tupleName += "}}";
-
-            if (!initCons.empty()) {
-                initCons += ",\n";
-            }
-            initCons += "\nwrapper_" + cppName + "(" + "*" + cppName + ",symTable,\"" + datalogName + "\"," +
-                        tupleType + "," + tupleName + ")";
-            registerRel += "addRelation(\"" + datalogName + "\",&wrapper_" + cppName + ",";
-            registerRel += (loadRelations.count(rel->getName()) > 0) ? "true" : "false";
-            registerRel += ",";
-            registerRel += (storeRelations.count(rel->getName()) > 0) ? "true" : "false";
-            registerRel += ");\n";
+            tfm::format(initConsSep(), "wrapper_%s(%s, *%s, *this, \"%s\", %s, %s, %s)", cppName, relCtr++,
+                    cppName, datalogName, strLitAry(rel->getAttributeTypes()),
+                    strLitAry(rel->getAttributeNames()), rel->getAuxiliaryArity());
+            tfm::format(registerRel, "addRelation(\"%s\", wrapper_%s, %s, %s);\n", datalogName, cppName,
+                    foundIn(loadRelations), foundIn(storeRelations));
         }
     }
     os << "public:\n";
@@ -2477,54 +2520,51 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     // -- constructor --
 
     os << classname;
-    if (Global::config().has("profile")) {
-        os << "(std::string pf=\"profile.log\") : profiling_fname(pf)";
-        if (!initCons.empty()) {
-            os << ",\n" << initCons;
-        }
-    } else {
-        os << "()";
-        if (!initCons.empty()) {
-            os << " : " << initCons;
-        }
-    }
+    os << (Global::config().has("profile") ? "(std::string pf=\"profile.log\")" : "()");
+    os << initCons.str() << '\n';
     os << "{\n";
     if (Global::config().has("profile")) {
         os << "ProfileEventSingleton::instance().setOutputFile(profiling_fname);\n";
     }
-    os << registerRel;
+    os << registerRel.str();
     os << "}\n";
     // -- destructor --
 
     os << "~" << classname << "() {\n";
     os << "}\n";
 
-    os << "private:\n";
     // issue state variables for the evaluation
-    os << "std::string inputDirectory;\n";
-    os << "std::string outputDirectory;\n";
-    os << "bool performIO;\n";
-    os << "std::atomic<RamDomain> ctr{};\n\n";
-    os << "std::atomic<size_t> iter{};\n";
+    //
+    // Improve compile time by storing the signal handler in one loc instead of
+    // emitting thousands of `SignalHandler::instance()`. The volume of calls
+    // makes GVN and register alloc very expensive, even if the call is inlined.
+    os << R"_(
+private:
+std::string             inputDirectory;
+std::string             outputDirectory;
+SignalHandler*          signalHandler {SignalHandler::instance()};
+std::atomic<RamDomain>  ctr {};
+std::atomic<size_t>     iter {};
+bool                    performIO = false;
 
-    os << "void runFunction(std::string inputDirectoryArg = \"\", "
-          "std::string outputDirectoryArg = \"\", bool performIOArg = false) "
-          "{\n";
-
-    os << "this->inputDirectory = inputDirectoryArg;\n";
-    os << "this->outputDirectory = outputDirectoryArg;\n";
-    os << "this->performIO = performIOArg;\n";
-
-    os << "SignalHandler::instance()->set();\n";
-    if (Global::config().has("verbose")) {
-        os << "SignalHandler::instance()->enableLogging();\n";
-    }
+void runFunction(std::string  inputDirectoryArg   = "",
+                 std::string  outputDirectoryArg  = "",
+                 bool         performIOArg        = false) {
+    this->inputDirectory  = std::move(inputDirectoryArg);
+    this->outputDirectory = std::move(outputDirectoryArg);
+    this->performIO       = performIOArg;
 
     // set default threads (in embedded mode)
     // if this is not set, and omp is used, the default omp setting of number of cores is used.
-    os << "#if defined(_OPENMP)\n";
-    os << "if (getNumThreads() > 0) {omp_set_num_threads(getNumThreads());}\n";
-    os << "#endif\n\n";
+#if defined(_OPENMP)
+    if (0 < getNumThreads()) { omp_set_num_threads(getNumThreads()); }
+#endif
+
+    signalHandler->set();
+)_";
+    if (Global::config().has("verbose")) {
+        os << "signalHandler->enableLogging();\n";
+    }
 
     // add actual program body
     os << "// -- query evaluation --\n";
@@ -2566,7 +2606,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         }
     }
 
-    os << "SignalHandler::instance()->reset();\n";
+    os << "signalHandler->reset();\n";
 
     os << "}\n";  // end of runFunction() method
 
@@ -2612,7 +2652,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         os << "}\n";
         os << "IOSystem::getInstance().getWriter(";
         os << "directiveMap, symTable, recordTable";
-        os << ")->writeAll(*" << getRelationName(store->getRelation()) << ");\n";
+        os << ")->writeAll(*" << getRelationName(lookup(store->getRelation())) << ");\n";
 
         os << "} catch (std::exception& e) {std::cerr << e.what();exit(1);}\n";
     }
@@ -2632,7 +2672,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
         os << "}\n";
         os << "IOSystem::getInstance().getReader(";
         os << "directiveMap, symTable, recordTable";
-        os << ")->readAll(*" << getRelationName(load->getRelation());
+        os << ")->readAll(*" << getRelationName(lookup(load->getRelation()));
         os << ");\n";
         os << "} catch (std::exception& e) {std::cerr << \"Error loading data: \" << e.what() << "
               "'\\n';}\n";
@@ -2668,7 +2708,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     os << "public:\n";
     os << "void dumpInputs() override {\n";
     for (auto load : loadIOs) {
-        dumpRelation(load->getRelation());
+        dumpRelation(*lookup(load->getRelation()));
     }
     os << "}\n";  // end of dumpInputs() method
 
@@ -2676,7 +2716,7 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     os << "public:\n";
     os << "void dumpOutputs() override {\n";
     for (auto store : storeIOs) {
-        dumpRelation(store->getRelation());
+        dumpRelation(*lookup(store->getRelation()));
     }
     os << "}\n";  // end of dumpOutputs() method
 
@@ -2684,6 +2724,10 @@ void Synthesiser::generateCode(std::ostream& os, const std::string& id, bool& wi
     os << "SymbolTable& getSymbolTable() override {\n";
     os << "return symTable;\n";
     os << "}\n";  // end of getSymbolTable() method
+
+    os << "RecordTable& getRecordTable() override {\n";
+    os << "return recordTable;\n";
+    os << "}\n";  // end of getRecordTable() method
 
     if (!prog.getSubroutines().empty()) {
         // generate subroutine adapter

@@ -14,6 +14,7 @@
 
 #include "ast/transform/NameUnnamedVariables.h"
 #include "ast/Clause.h"
+#include "ast/Negation.h"
 #include "ast/Node.h"
 #include "ast/Program.h"
 #include "ast/Relation.h"
@@ -39,6 +40,9 @@ bool NameUnnamedVariablesTransformer::transform(TranslationUnit& translationUnit
         nameVariables() = default;
 
         Own<Node> operator()(Own<Node> node) const override {
+            if (isA<Negation>(node.get())) {
+                return node;
+            }
             if (isA<UnnamedVariable>(node.get())) {
                 changed = true;
                 std::stringstream name;

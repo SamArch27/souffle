@@ -148,38 +148,4 @@ protected:
     const std::vector<std::string> attributeTypes;
 };
 
-/**
- * @class RelationReference
- * @brief A RAM Relation in the RAM intermediate representation.
- */
-class RelationReference : public Node {
-public:
-    RelationReference(const Relation* relation) : relation(relation) {
-        assert(relation != nullptr && "null relation");
-    }
-
-    /** @brief Get reference */
-    const Relation* get() const {
-        return relation;
-    }
-
-    RelationReference* clone() const override {
-        return new RelationReference(relation);
-    }
-
-protected:
-    void print(std::ostream& out) const override {
-        out << relation->getName();
-    }
-
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const RelationReference&>(node);
-        return equal_ptr(relation, other.relation);
-    }
-
-protected:
-    /** Name of relation */
-    const Relation* relation;
-};
-
 }  // namespace souffle::ram

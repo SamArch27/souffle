@@ -3,6 +3,7 @@
 #include "souffle/utility/ParallelUtil.h"
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <cstring>
 #include <iostream>
 #include <iterator>
@@ -12,7 +13,7 @@
  * Some versions of MSVC do not provide a builtin for counting leading zeroes
  * like gcc, so we have to implement it ourselves.
  */
-#if _MSC_VER < 1924
+#if defined(_MSC_VER)
 unsigned long __inline __builtin_clzll(unsigned long long value) {
     unsigned long msb = 0;
 
@@ -21,7 +22,7 @@ unsigned long __inline __builtin_clzll(unsigned long long value) {
     else
         return 64;
 }
-#endif  // _MSC_VER < 1924
+#endif  // _MSC_VER
 #endif  // _WIN32
 
 using std::size_t;

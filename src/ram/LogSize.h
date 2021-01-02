@@ -33,8 +33,7 @@ namespace souffle::ram {
  */
 class LogSize : public RelationStatement {
 public:
-    LogSize(Own<RelationReference> relRef, std::string message)
-            : RelationStatement(std::move(relRef)), message(std::move(message)) {}
+    LogSize(std::string rel, std::string message) : RelationStatement(rel), message(std::move(message)) {}
 
     /** @brief Get logging message */
     const std::string& getMessage() const {
@@ -42,12 +41,12 @@ public:
     }
 
     LogSize* clone() const override {
-        return new LogSize(souffle::clone(relationRef), message);
+        return new LogSize(relation, message);
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        os << times(" ", tabpos) << "LOGSIZE " << getRelation().getName();
+        os << times(" ", tabpos) << "LOGSIZE " << relation;
         os << " TEXT "
            << "\"" << stringify(message) << "\"";
         os << std::endl;
@@ -58,8 +57,8 @@ protected:
         return RelationStatement::equal(other) && message == other.message;
     }
 
-    /** logging message */
-    std::string message;
+    /** Logging message */
+    const std::string message;
 };
 
 }  // namespace souffle::ram

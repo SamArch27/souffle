@@ -46,7 +46,7 @@
 #include "ram/UndefValue.h"
 #include "ram/UnpackRecord.h"
 #include "ram/UserDefinedOperator.h"
-#include "ram/Visitor.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -144,6 +144,16 @@ int LevelAnalysis::getLevel(const Node* node) const {
         // break
         int visitBreak(const Break& b) override {
             return visit(b.getCondition());
+        }
+
+        // guarded project
+        int visitGuardedProject(const GuardedProject& guardedProject) override {
+            int level = -1;
+            for (auto& exp : guardedProject.getValues()) {
+                level = std::max(level, visit(exp));
+            }
+            level = std::max(level, visit(guardedProject.getCondition()));
+            return level;
         }
 
         // project

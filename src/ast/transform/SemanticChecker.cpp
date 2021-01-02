@@ -56,16 +56,18 @@
 #include "ast/UnnamedVariable.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/Variable.h"
+#include "ast/analysis/Aggregate.h"
+#include "ast/analysis/Functor.h"
 #include "ast/analysis/Ground.h"
 #include "ast/analysis/IOType.h"
 #include "ast/analysis/PrecedenceGraph.h"
 #include "ast/analysis/RecursiveClauses.h"
 #include "ast/analysis/SCCGraph.h"
-#include "ast/analysis/SumTypeBranches.h"
 #include "ast/analysis/Type.h"
 #include "ast/analysis/TypeEnvironment.h"
 #include "ast/analysis/TypeSystem.h"
 #include "ast/transform/GroundedTermsChecker.h"
+#include "ast/transform/TypeChecker.h"
 #include "ast/utility/NodeMapper.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
@@ -104,11 +106,9 @@ private:
     const IOTypeAnalysis& ioTypes = *tu.getAnalysis<IOTypeAnalysis>();
     const PrecedenceGraphAnalysis& precedenceGraph = *tu.getAnalysis<PrecedenceGraphAnalysis>();
     const RecursiveClausesAnalysis& recursiveClauses = *tu.getAnalysis<RecursiveClausesAnalysis>();
-    const TypeEnvironmentAnalysis& typeEnvAnalysis = *tu.getAnalysis<TypeEnvironmentAnalysis>();
     const SCCGraphAnalysis& sccGraph = *tu.getAnalysis<SCCGraphAnalysis>();
-    const SumTypeBranchesAnalysis& sumTypesBranches = *tu.getAnalysis<SumTypeBranchesAnalysis>();
 
-    const TypeEnvironment& typeEnv = typeEnvAnalysis.getTypeEnvironment();
+    const TypeEnvironment& typeEnv = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
     const Program& program = tu.getProgram();
     ErrorReport& report = tu.getErrorReport();
 
@@ -122,16 +122,8 @@ private:
     void checkClause(const Clause& clause);
     void checkComplexRule(std::set<const Clause*> multiRule);
     void checkRelationDeclaration(const Relation& relation);
+    void checkRelationFunctionalDependencies(const Relation& relation);
     void checkRelation(const Relation& relation);
-
-    void checkTypesDeclarations();
-    void checkRecordType(const ast::RecordType& type);
-    void checkSubsetType(const ast::SubsetType& type);
-    void checkUnionType(const ast::UnionType& type);
-    void checkADT(const ast::AlgebraicDataType& type);
-
-    /** check if all the branches refer to the existing types. */
-    void checkBranchInits();
 
     void checkNamespaces();
     void checkIO();
@@ -143,39 +135,6 @@ bool SemanticChecker::transform(TranslationUnit& translationUnit) {
     SemanticCheckerImpl{translationUnit};
     return false;
 }
-
-class TypeChecker : Visitor<void> {
-public:
-    TypeChecker(TranslationUnit& tu) : tu(tu){};
-
-    /** Analyse types, clause by clause */
-    void run() {
-        const Program& program = tu.getProgram();
-        for (auto* clause : program.getClauses()) {
-            visitDepthFirstPreOrder(*clause, *this);
-        }
-    }
-
-private:
-    TranslationUnit& tu;
-    ErrorReport& report = tu.getErrorReport();
-    const TypeAnalysis& typeAnalysis = *tu.getAnalysis<TypeAnalysis>();
-    const TypeEnvironment& typeEnv = tu.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
-    const Program& program = tu.getProgram();
-
-    void visitAtom(const Atom& atom) override;
-    void visitVariable(const ast::Variable& var) override;
-    void visitStringConstant(const StringConstant& constant) override;
-    void visitNumericConstant(const NumericConstant& constant) override;
-    void visitNilConstant(const NilConstant& constant) override;
-    void visitRecordInit(const RecordInit& rec) override;
-    void visitBranchInit(const BranchInit& adt) override;
-    void visitTypeCast(const ast::TypeCast& cast) override;
-    void visitIntrinsicFunctor(const IntrinsicFunctor& fun) override;
-    void visitUserDefinedFunctor(const UserDefinedFunctor& fun) override;
-    void visitBinaryConstraint(const BinaryConstraint& constraint) override;
-    void visitAggregator(const Aggregator& aggregator) override;
-};
 
 SemanticCheckerImpl::SemanticCheckerImpl(TranslationUnit& tu) : tu(tu) {
     // suppress warnings for given relations
@@ -209,10 +168,6 @@ SemanticCheckerImpl::SemanticCheckerImpl(TranslationUnit& tu) : tu(tu) {
         }
     }
 
-    checkTypesDeclarations();
-
-    checkBranchInits();
-
     // check rules
     for (auto* rel : program.getRelations()) {
         checkRelation(*rel);
@@ -244,7 +199,7 @@ SemanticCheckerImpl::SemanticCheckerImpl(TranslationUnit& tu) : tu(tu) {
     GroundedTermsChecker().verify(tu);
 
     // Check types
-    TypeChecker{tu}.run();
+    TypeChecker().verify(tu);
 
     // - stratification --
     // check for cyclic dependencies
@@ -296,26 +251,6 @@ void SemanticCheckerImpl::checkAtom(const Atom& atom) {
     }
 }
 
-void SemanticCheckerImpl::checkBranchInits() {
-    visitDepthFirst(program.getClauses(), [&](const BranchInit& adt) {
-        auto* type = sumTypesBranches.getType(adt.getConstructor());
-        if (type == nullptr) {
-            report.addError("Undeclared branch", adt.getSrcLoc());
-            return;
-        }
-
-        size_t declaredArity =
-                as<analysis::AlgebraicDataType>(type)->getBranchTypes(adt.getConstructor()).size();
-        size_t branchArity = adt.getArguments().size();
-        if (declaredArity != branchArity) {
-            report.addError(tfm::format("Invalid arity, the declared arity of %s is %s", adt.getConstructor(),
-                                    declaredArity),
-                    adt.getSrcLoc());
-            return;
-        }
-    });
-}
-
 namespace {
 
 /**
@@ -362,6 +297,10 @@ void SemanticCheckerImpl::checkLiteral(const Literal& literal) {
             }
         });
 
+        // Don't worry about underscores if either side is an aggregate (because of witness exporting)
+        if (isA<Aggregator>(*constraint->getLHS()) || isA<Aggregator>(*constraint->getRHS())) {
+            return;
+        }
         // Check if constraint contains unnamed variables.
         for (auto* unnamed : getUnnamedVariables(*constraint)) {
             if (!contains(unnamedInRecord, unnamed)) {
@@ -441,6 +380,15 @@ void SemanticCheckerImpl::checkArgument(const Argument& arg) {
     } else if (const auto* func = dynamic_cast<const Functor*>(&arg)) {
         for (auto arg : func->getArguments()) {
             checkArgument(*arg);
+        }
+
+        if (auto const* udFunc = dynamic_cast<UserDefinedFunctor const*>(func)) {
+            auto const& name = udFunc->getName();
+            auto const* udfd = getFunctorDeclaration(program, name);
+
+            if (udfd == nullptr) {
+                report.addError("Undefined user-defined functor " + name, udFunc->getSrcLoc());
+            }
         }
     }
 }
@@ -621,6 +569,25 @@ void SemanticCheckerImpl::checkRelationDeclaration(const Relation& relation) {
     }
 }
 
+/* check that each functional dependency (keys) actually appears in the relation */
+void SemanticCheckerImpl::checkRelationFunctionalDependencies(const Relation& relation) {
+    const auto attributes = relation.getAttributes();
+    for (const auto& fd : relation.getFunctionalDependencies()) {
+        // Check that keys appear in relation arguments
+        const auto keys = fd->getKeys();
+        for (const auto& key : keys) {
+            auto found = std::find_if(
+                    attributes.begin(), attributes.end(), [&key](const ast::Attribute* attribute) {
+                        return key->getName() == attribute->getName();
+                    });
+            if (found == attributes.end()) {
+                report.addError("Attribute " + key->getName() + " not found in relation definition.",
+                        fd->getSrcLoc());
+            }
+        }
+    }
+}
+
 void SemanticCheckerImpl::checkRelation(const Relation& relation) {
     if (relation.getRepresentation() == RelationRepresentation::EQREL) {
         if (relation.getArity() == 2) {
@@ -641,170 +608,14 @@ void SemanticCheckerImpl::checkRelation(const Relation& relation) {
     // start with declaration
     checkRelationDeclaration(relation);
 
+    // check dependencies of relation are valid (i.e. attribute names occur in relation)
+    checkRelationFunctionalDependencies(relation);
+
     // check whether this relation is empty
     if (getClauses(program, relation).empty() && !ioTypes.isInput(&relation) &&
             !relation.hasQualifier(RelationQualifier::SUPPRESSED)) {
         report.addWarning("No rules/facts defined for relation " + toString(relation.getQualifiedName()),
                 relation.getSrcLoc());
-    }
-}
-
-// ----- types --------
-
-void SemanticCheckerImpl::checkUnionType(const ast::UnionType& type) {
-    // check presence of all the element types and that all element types are based off a primitive
-    for (const QualifiedName& sub : type.getTypes()) {
-        if (typeEnv.isPrimitiveType(sub)) {
-            continue;
-        }
-        const ast::Type* subtype = getIf(
-                program.getTypes(), [&](const ast::Type* type) { return type->getQualifiedName() == sub; });
-        if (subtype == nullptr) {
-            report.addError(tfm::format("Undefined type %s in definition of union type %s", sub,
-                                    type.getQualifiedName()),
-                    type.getSrcLoc());
-        } else if (!isA<ast::UnionType>(subtype) && !isA<ast::SubsetType>(subtype)) {
-            report.addError(tfm::format("Union type %s contains the non-primitive type %s",
-                                    type.getQualifiedName(), sub),
-                    type.getSrcLoc());
-        }
-    }
-
-    // Check if the union is recursive.
-    if (typeEnvAnalysis.isCyclic(type.getQualifiedName())) {
-        report.addError("Infinite descent in the definition of type " + toString(type.getQualifiedName()),
-                type.getSrcLoc());
-    }
-
-    /* check that union types do not mix different primitive types */
-    for (const auto* type : program.getTypes()) {
-        // We are only interested in unions here.
-        if (!isA<ast::UnionType>(type)) {
-            continue;
-        }
-
-        const auto& name = type->getQualifiedName();
-
-        const auto& predefinedTypesInUnion = typeEnvAnalysis.getPrimitiveTypesInUnion(name);
-
-        // Report error (if size == 0, then the union is cyclic)
-        if (predefinedTypesInUnion.size() > 1) {
-            report.addError(
-                    tfm::format("Union type %s is defined over {%s} (multiple primitive types in union)",
-                            name, join(predefinedTypesInUnion, ", ")),
-                    type->getSrcLoc());
-        }
-    }
-}
-
-void SemanticCheckerImpl::checkRecordType(const ast::RecordType& type) {
-    auto&& fields = type.getFields();
-    // check proper definition of all field types
-    for (auto&& field : fields) {
-        if (!typeEnv.isType(field->getTypeName())) {
-            report.addError(tfm::format("Undefined type %s in definition of field %s", field->getTypeName(),
-                                    field->getName()),
-                    field->getSrcLoc());
-        }
-    }
-
-    // check that field names are unique
-    for (std::size_t i = 0; i < fields.size(); i++) {
-        auto&& cur_name = fields[i]->getName();
-        for (std::size_t j = 0; j < i; j++) {
-            if (fields[j]->getName() == cur_name) {
-                report.addError(tfm::format("Doubly defined field name %s in definition of type %s", cur_name,
-                                        type.getQualifiedName()),
-                        fields[i]->getSrcLoc());
-            }
-        }
-    }
-}
-
-void SemanticCheckerImpl::checkADT(const ast::AlgebraicDataType& type) {
-    // check if all branches contain properly defined types.
-    for (auto* branch : type.getBranches()) {
-        for (auto* field : branch->getFields()) {
-            if (!typeEnv.isType(field->getTypeName())) {
-                report.addError(tfm::format("Undefined type %s in definition of branch %s",
-                                        field->getTypeName(), branch->getConstructor()),
-                        field->getSrcLoc());
-            }
-        }
-    }
-}
-
-void SemanticCheckerImpl::checkSubsetType(const ast::SubsetType& astType) {
-    if (typeEnvAnalysis.isCyclic(astType.getQualifiedName())) {
-        report.addError(
-                tfm::format("Infinite descent in the definition of type %s", astType.getQualifiedName()),
-                astType.getSrcLoc());
-        return;
-    }
-
-    if (!typeEnv.isType(astType.getBaseType())) {
-        report.addError(tfm::format("Undefined base type %s in definition of type %s", astType.getBaseType(),
-                                astType.getQualifiedName()),
-                astType.getSrcLoc());
-        return;
-    }
-
-    auto& rootType = typeEnv.getType(astType.getBaseType());
-
-    if (isA<analysis::UnionType>(rootType)) {
-        report.addError(tfm::format("Subset type %s can't be derived from union %s",
-                                astType.getQualifiedName(), rootType.getName()),
-                astType.getSrcLoc());
-    }
-}
-
-void SemanticCheckerImpl::checkTypesDeclarations() {
-    // The redefinitions of types is checked by checkNamespaces
-
-    for (auto* type : program.getTypes()) {
-        if (typeEnv.isPrimitiveType(type->getQualifiedName())) {
-            report.addError("Redefinition of the predefined type", type->getSrcLoc());
-            continue;
-        }
-
-        if (isA<ast::UnionType>(type)) {
-            checkUnionType(*as<ast::UnionType>(type));
-        } else if (isA<ast::RecordType>(type)) {
-            checkRecordType(*as<ast::RecordType>(type));
-        } else if (isA<ast::SubsetType>(type)) {
-            checkSubsetType(*as<ast::SubsetType>(type));
-        } else if (isA<ast::AlgebraicDataType>(type)) {
-            checkADT(*as<ast::AlgebraicDataType>(type));
-        } else {
-            fatal("unsupported type construct: %s", typeid(type).name());
-        }
-    }
-
-    // Check if all the branch names are unique in sum types.
-    std::map<std::string, std::vector<SrcLocation>> branchToLocation;
-    visitDepthFirst(program.getTypes(), [&](const ast::AlgebraicDataType& type) {
-        for (auto* branch : type.getBranches()) {
-            branchToLocation[branch->getConstructor()].push_back(branch->getSrcLoc());
-        }
-    });
-
-    for (auto& branchLocs : branchToLocation) {
-        auto& branch = branchLocs.first;
-        auto& locs = branchLocs.second;
-
-        // If a branch is used only once, then everything is fine.
-        if (locs.size() == 1) continue;
-
-        auto primaryDiagnostic =
-                DiagnosticMessage(tfm::format("Branch %s is defined multiple times", branch));
-
-        std::vector<DiagnosticMessage> branchDeclarations;
-        for (auto& loc : locs) {
-            branchDeclarations.push_back(DiagnosticMessage(tfm::format("Branch %s defined", branch), loc));
-        }
-
-        report.addDiagnostic(Diagnostic(
-                Diagnostic::Type::ERROR, std::move(primaryDiagnostic), std::move(branchDeclarations)));
     }
 }
 
@@ -821,148 +632,76 @@ void SemanticCheckerImpl::checkIO() {
     }
 }
 
-static const std::vector<SrcLocation> usesInvalidWitness(TranslationUnit& tu,
-        const std::vector<Literal*>& literals, const std::set<Own<Argument>>& groundedArguments) {
-    // Node-mapper that replaces aggregators with new (unique) variables
-    struct M : public NodeMapper {
-        // Variables introduced to replace aggregators
-        mutable std::set<std::string> aggregatorVariables;
+/**
+ *  A witness is considered "invalid" if it is trying to export a witness
+ *  out of a count, sum, or mean aggregate.
+ *
+ *  However we need to be careful: Sometimes a witness variables occurs within the body
+ *  of a count, sum, or mean aggregate, but this is valid, because the witness
+ *  actually belongs to an inner min or max aggregate.
+ *
+ *  We just need to check that that witness only occurs on this level.
+ *
+ **/
+static const std::vector<SrcLocation> usesInvalidWitness(
+        TranslationUnit& tu, const Clause& clause, const Aggregator& aggregate) {
+    std::vector<SrcLocation> invalidWitnessLocations;
 
-        const std::set<std::string>& getAggregatorVariables() {
-            return aggregatorVariables;
-        }
+    if (aggregate.getBaseOperator() == AggregateOp::MIN || aggregate.getBaseOperator() == AggregateOp::MAX) {
+        return invalidWitnessLocations;  // ie empty result
+    }
 
+    auto aggregateSubclause = mk<Clause>();
+    aggregateSubclause->setHead(mk<Atom>("*"));
+    for (const Literal* lit : aggregate.getBodyLiterals()) {
+        aggregateSubclause->addToBody(souffle::clone(lit));
+    }
+    struct InnerAggregateMasker : public NodeMapper {
+        mutable int numReplaced = 0;
         Own<Node> operator()(Own<Node> node) const override {
-            static int numReplaced = 0;
             if (isA<Aggregator>(node.get())) {
-                // Replace the aggregator with a variable
-                std::stringstream newVariableName;
-                newVariableName << "+aggr_var_" << numReplaced++;
-
-                // Keep track of which variables are bound to aggregators
-                aggregatorVariables.insert(newVariableName.str());
-
-                return mk<ast::Variable>(newVariableName.str());
+                std::string newVariableName = "+aggr_var_" + toString(numReplaced++);
+                return mk<Variable>(newVariableName);
             }
             node->apply(*this);
             return node;
         }
     };
+    InnerAggregateMasker update;
+    aggregateSubclause->apply(update);
 
-    std::vector<SrcLocation> result;
-
-    // Create two versions of the original clause
-
-    // Clause 1 - will remain equivalent to the original clause in terms of variable groundedness
-    auto originalClause = mk<Clause>();
-    originalClause->setHead(mk<Atom>("*"));
-
-    // Clause 2 - will have aggregators replaced with intrinsically grounded variables
-    auto aggregatorlessClause = mk<Clause>();
-    aggregatorlessClause->setHead(mk<Atom>("*"));
-
-    // Construct both clauses in the same manner to match the original clause
-    // Must keep track of the subnode in Clause 1 that each subnode in Clause 2 matches to
-    std::map<const Argument*, const Argument*> identicalSubnodeMap;
-    for (const Literal* lit : literals) {
-        auto firstClone = souffle::clone(lit);
-        auto secondClone = souffle::clone(lit);
-
-        // Construct the mapping between equivalent literal subnodes
-        std::vector<const Argument*> firstCloneArguments;
-        visitDepthFirst(*firstClone, [&](const Argument& arg) { firstCloneArguments.push_back(&arg); });
-
-        std::vector<const Argument*> secondCloneArguments;
-        visitDepthFirst(*secondClone, [&](const Argument& arg) { secondCloneArguments.push_back(&arg); });
-
-        for (size_t i = 0; i < firstCloneArguments.size(); i++) {
-            identicalSubnodeMap[secondCloneArguments[i]] = firstCloneArguments[i];
-        }
-
-        // Actually add the literal clones to each clause
-        originalClause->addToBody(std::move(firstClone));
-        aggregatorlessClause->addToBody(std::move(secondClone));
-    }
-
-    // Replace the aggregators in Clause 2 with variables
-    M update;
-    aggregatorlessClause->apply(update);
-
-    // Create a dummy atom to force certain arguments to be grounded in the aggregatorlessClause
-    auto groundingAtomAggregatorless = mk<Atom>("grounding_atom");
-    auto groundingAtomOriginal = mk<Atom>("grounding_atom");
-
-    // Force the new aggregator variables to be grounded in the aggregatorless clause
-    const std::set<std::string>& aggregatorVariables = update.getAggregatorVariables();
-    for (const std::string& str : aggregatorVariables) {
-        groundingAtomAggregatorless->addArgument(mk<ast::Variable>(str));
-    }
-
-    // Force the given grounded arguments to be grounded in both clauses
-    for (const Own<Argument>& arg : groundedArguments) {
-        groundingAtomAggregatorless->addArgument(souffle::clone(arg));
-        groundingAtomOriginal->addArgument(souffle::clone(arg));
-    }
-
-    aggregatorlessClause->addToBody(std::move(groundingAtomAggregatorless));
-    originalClause->addToBody(std::move(groundingAtomOriginal));
-
-    // Compare the grounded analysis of both generated clauses
-    // All added arguments in Clause 2 were forced to be grounded, so if an ungrounded argument
-    // appears in Clause 2, it must also appear in Clause 1. Consequently, have two cases:
-    //   - The argument is also ungrounded in Clause 1 - handled by another check
-    //   - The argument is grounded in Clause 1 => the argument was grounded in the
-    //     first clause somewhere along the line by an aggregator-body - not allowed!
-    std::set<Own<Argument>> newlyGroundedArguments;
-    auto originalGrounded = getGroundedTerms(tu, *originalClause);
-    for (auto&& pair : getGroundedTerms(tu, *aggregatorlessClause)) {
-        if (!pair.second && originalGrounded[identicalSubnodeMap[pair.first]]) {
-            result.push_back(pair.first->getSrcLoc());
-        }
-
-        // Otherwise, it can now be considered grounded
-        newlyGroundedArguments.insert(souffle::clone(pair.first));
-    }
-
-    // All previously grounded are still grounded
-    for (const Own<Argument>& arg : groundedArguments) {
-        newlyGroundedArguments.insert(souffle::clone(arg));
-    }
-
-    // Everything on this level is fine, check subaggregators of each literal
-    for (const Literal* lit : literals) {
-        visitDepthFirst(*lit, [&](const Aggregator& aggr) {
-            // Check recursively if an invalid witness is used
-            for (auto&& argloc : usesInvalidWitness(tu, aggr.getBodyLiterals(), newlyGroundedArguments)) {
-                result.push_back(argloc);
+    // Find the witnesses of the original aggregate.
+    // If we can find occurrences of the witness in
+    // this masked version of the aggregate subclause,
+    // AND the aggregate is a sum / count / mean (we know this because
+    // of the early exit for a min/max aggregate)
+    // then we have an invalid witness and we'll add the source location
+    // of the variable to the invalidWitnessLocations vector.
+    auto witnesses = analysis::getWitnessVariables(tu, clause, aggregate);
+    for (const auto& witness : witnesses) {
+        visitDepthFirst(*aggregateSubclause, [&](const Variable& var) {
+            if (var.getName() == witness) {
+                invalidWitnessLocations.push_back(var.getSrcLoc());
             }
         });
     }
-
-    return result;
+    return invalidWitnessLocations;
 }
 
 void SemanticCheckerImpl::checkWitnessProblem() {
-    // Visit each clause to check if an invalid aggregator witness is used
+    // Check whether there is the use of a witness in
+    // an aggregate where it doesn't make sense to use it, i.e.
+    // count, sum, mean
     visitDepthFirst(program, [&](const Clause& clause) {
-        // Body literals of the clause to check
-        std::vector<Literal*> bodyLiterals = clause.getBodyLiterals();
-
-        // Add in all head variables as new ungrounded body literals
-        auto headVariables = mk<Atom>("*");
-        visitDepthFirst(*clause.getHead(),
-                [&](const ast::Variable& var) { headVariables->addArgument(souffle::clone(&var)); });
-        auto headNegation = mk<Negation>(std::move(headVariables));
-        bodyLiterals.push_back(headNegation.get());
-
-        // Perform the check
-        std::set<Own<Argument>> groundedArguments;
-        for (auto&& invalidArgument : usesInvalidWitness(tu, bodyLiterals, groundedArguments)) {
-            report.addError(
-                    "Witness problem: argument grounded by an aggregator's inner scope is used ungrounded in "
-                    "outer scope",
-                    invalidArgument);
-        }
+        visitDepthFirst(clause, [&](const Aggregator& agg) {
+            for (auto&& invalidArgument : usesInvalidWitness(tu, clause, agg)) {
+                report.addError(
+                        "Witness problem: argument grounded by an aggregator's inner scope is used "
+                        "ungrounded in "
+                        "outer scope in a count/sum/mean aggregate",
+                        invalidArgument);
+            }
+        });
     });
 }
 
@@ -1275,288 +1014,4 @@ void SemanticCheckerImpl::checkNamespaces() {
     }
 }
 
-void TypeChecker::visitAtom(const Atom& atom) {
-    auto relation = getAtomRelation(&atom, &program);
-    if (relation == nullptr) {
-        return;  // error unrelated to types.
-    }
-
-    auto attributes = relation->getAttributes();
-    auto arguments = atom.getArguments();
-    if (attributes.size() != arguments.size()) {
-        return;  // error in input program
-    }
-
-    for (size_t i = 0; i < attributes.size(); ++i) {
-        auto& typeName = attributes[i]->getTypeName();
-        if (typeEnv.isType(typeName)) {
-            auto argTypes = typeAnalysis.getTypes(arguments[i]);
-            auto& attributeType = typeEnv.getType(typeName);
-
-            if (argTypes.isAll() || argTypes.empty()) {
-                continue;  // This will be reported later.
-            }
-
-            // Attribute and argument type agree if, argument type is a subtype of declared type
-            // or is of the appropriate constant type or the (constant) record type.
-            bool validAttribute = all_of(argTypes, [&attributeType](const analysis::Type& type) {
-                if (isSubtypeOf(type, attributeType)) return true;
-                if (!isSubtypeOf(attributeType, type)) return false;
-                if (isA<ConstantType>(type)) return true;
-                return isA<analysis::RecordType>(type) && !isA<analysis::SubsetType>(type);
-            });
-            if (!validAttribute && !Global::config().has("legacy")) {
-                auto primaryDiagnostic =
-                        DiagnosticMessage("Atom's argument type is not a subtype of its declared type",
-                                arguments[i]->getSrcLoc());
-
-                auto declaredTypeInfo =
-                        DiagnosticMessage(tfm::format("The argument's declared type is %s", typeName),
-                                attributes[i]->getSrcLoc());
-
-                report.addDiagnostic(Diagnostic(Diagnostic::Type::ERROR, std::move(primaryDiagnostic),
-                        {std::move(declaredTypeInfo)}));
-            }
-        }
-    }
-}
-
-void TypeChecker::visitVariable(const ast::Variable& var) {
-    if (typeAnalysis.getTypes(&var).empty()) {
-        report.addError("Unable to deduce type for variable " + var.getName(), var.getSrcLoc());
-    }
-}
-
-void TypeChecker::visitStringConstant(const StringConstant& constant) {
-    TypeSet types = typeAnalysis.getTypes(&constant);
-    if (!isOfKind(types, TypeAttribute::Symbol)) {
-        report.addError("Symbol constant (type mismatch)", constant.getSrcLoc());
-    }
-}
-
-void TypeChecker::visitNumericConstant(const NumericConstant& constant) {
-    TypeSet types = typeAnalysis.getTypes(&constant);
-
-    // No type could be assigned.
-    if (!constant.getType().has_value()) {
-        report.addError("Ambiguous constant (unable to deduce type)", constant.getSrcLoc());
-        return;
-    }
-
-    switch (*constant.getType()) {
-        case NumericConstant::Type::Int:
-            if (!isOfKind(types, TypeAttribute::Signed)) {
-                report.addError("Number constant (type mismatch)", constant.getSrcLoc());
-            }
-            break;
-        case NumericConstant::Type::Uint:
-            if (!isOfKind(types, TypeAttribute::Unsigned)) {
-                report.addError("Unsigned constant (type mismatch)", constant.getSrcLoc());
-            }
-            break;
-        case NumericConstant::Type::Float:
-            if (!isOfKind(types, TypeAttribute::Float)) {
-                report.addError("Float constant (type mismatch)", constant.getSrcLoc());
-            }
-            break;
-    }
-}
-
-void TypeChecker::visitNilConstant(const NilConstant& constant) {
-    TypeSet types = typeAnalysis.getTypes(&constant);
-    if (!isOfKind(types, TypeAttribute::Record)) {
-        report.addError("Nil constant used as a non-record", constant.getSrcLoc());
-        return;
-    }
-}
-
-void TypeChecker::visitRecordInit(const RecordInit& rec) {
-    TypeSet types = typeAnalysis.getTypes(&rec);
-
-    if (!isOfKind(types, TypeAttribute::Record) || types.size() != 1) {
-        report.addError("Ambiguous record", rec.getSrcLoc());
-        return;
-    }
-
-    // At this point we know that there is exactly one type in set, so we can take it.
-    auto& recordType = *as<analysis::RecordType>(*types.begin());
-
-    if (recordType.getFields().size() != rec.getArguments().size()) {
-        report.addError("Wrong number of arguments given to record", rec.getSrcLoc());
-        return;
-    }
-}
-
-void TypeChecker::visitBranchInit(const BranchInit& adt) {
-    TypeSet types = typeAnalysis.getTypes(&adt);
-
-    if (!isOfKind(types, TypeAttribute::ADT) || types.isAll() || types.size() != 1) {
-        report.addError("Ambiguous branch", adt.getSrcLoc());
-        return;
-    }
-
-    // We know now that the set "types" is a singleton
-    auto& sumType = *as<analysis::AlgebraicDataType>(*types.begin());
-
-    auto& argsDeclaredTypes = sumType.getBranchTypes(adt.getConstructor());
-    auto args = adt.getArguments();
-
-    if (argsDeclaredTypes.size() != args.size()) {
-        // Invalid branchInit arity, handled by checkBranchInits.
-        return;
-    }
-
-    for (size_t i = 0; i < args.size(); ++i) {
-        auto argTypes = typeAnalysis.getTypes(args[i]);
-        bool correctType = all_of(
-                argTypes, [&](const analysis::Type& t) { return isSubtypeOf(t, *argsDeclaredTypes[i]); });
-        if (!correctType) {
-            // TODO (darth_tytus): Give better error
-            report.addError("Branch argument's type doesn't match its declared type", args[i]->getSrcLoc());
-        }
-    }
-}
-
-void TypeChecker::visitTypeCast(const ast::TypeCast& cast) {
-    if (!typeEnv.isType(cast.getType())) {
-        report.addError(
-                tfm::format("Type cast to the undeclared type \"%s\"", cast.getType()), cast.getSrcLoc());
-        return;
-    }
-
-    auto& castTypes = typeAnalysis.getTypes(&cast);
-    auto& argTypes = typeAnalysis.getTypes(cast.getValue());
-
-    if (castTypes.isAll() || castTypes.size() != 1) {
-        report.addError("Unable to deduce type of the argument (cast)", cast.getSrcLoc());
-        return;
-    }
-
-    // This should be reported elsewhere
-    if (argTypes.isAll() || castTypes.size() != 1 || argTypes.isAll() || argTypes.size() != 1) {
-        return;
-    }
-}
-
-void TypeChecker::visitIntrinsicFunctor(const IntrinsicFunctor& fun) {
-    if (!fun.getFunctionInfo()) {  // no info => no overload found during inference
-        auto args = fun.getArguments();
-        if (!isValidFunctorOpArity(fun.getFunction(), args.size())) {
-            report.addError("invalid overload (arity mismatch)", fun.getSrcLoc());
-            return;
-        }
-
-        assert(validOverloads(typeAnalysis, fun).empty() && "polymorphic transformation wasn't applied?");
-        report.addError("no valid overloads", fun.getSrcLoc());
-    }
-}
-
-void TypeChecker::visitUserDefinedFunctor(const UserDefinedFunctor& fun) {
-    // check type of result
-    const TypeSet& resultType = typeAnalysis.getTypes(&fun);
-
-    if (!isOfKind(resultType, fun.getReturnType())) {
-        switch (fun.getReturnType()) {
-            case TypeAttribute::Signed:
-                report.addError("Non-numeric use for numeric functor", fun.getSrcLoc());
-                break;
-            case TypeAttribute::Unsigned:
-                report.addError("Non-unsigned use for unsigned functor", fun.getSrcLoc());
-                break;
-            case TypeAttribute::Float:
-                report.addError("Non-float use for float functor", fun.getSrcLoc());
-                break;
-            case TypeAttribute::Symbol:
-                report.addError("Non-symbolic use for symbolic functor", fun.getSrcLoc());
-                break;
-            case TypeAttribute::Record: fatal("Invalid return type");
-            case TypeAttribute::ADT: fatal("Invalid return type");
-        }
-    }
-
-    size_t i = 0;
-    for (auto arg : fun.getArguments()) {
-        if (!isOfKind(typeAnalysis.getTypes(arg), fun.getArgType(i))) {
-            switch (fun.getArgType(i)) {
-                case TypeAttribute::Signed:
-                    report.addError("Non-numeric argument for functor", arg->getSrcLoc());
-                    break;
-                case TypeAttribute::Symbol:
-                    report.addError("Non-symbolic argument for functor", arg->getSrcLoc());
-                    break;
-                case TypeAttribute::Unsigned:
-                    report.addError("Non-unsigned argument for functor", arg->getSrcLoc());
-                    break;
-                case TypeAttribute::Float:
-                    report.addError("Non-float argument for functor", arg->getSrcLoc());
-                    break;
-                case TypeAttribute::Record: fatal("Invalid argument type");
-                case TypeAttribute::ADT: fatal("Invalid argument type");
-            }
-        }
-        ++i;
-    }
-}
-
-void TypeChecker::visitBinaryConstraint(const BinaryConstraint& constraint) {
-    auto op = constraint.getOperator();
-    auto left = constraint.getLHS();
-    auto right = constraint.getRHS();
-    auto opTypesAttrs = getBinaryConstraintTypes(op);
-
-    auto leftTypes = typeAnalysis.getTypes(left);
-    auto rightTypes = typeAnalysis.getTypes(right);
-
-    // Skip checks if either side is `Bottom` b/c it just adds noise.
-    // The unable-to-deduce-type checker will point out the issue.
-    if (leftTypes.empty() || rightTypes.empty() || leftTypes.isAll() || rightTypes.isAll()) return;
-
-    assert((leftTypes.size() == 1) && (rightTypes.size() == 1));
-
-    // Extract types from singleton sets.
-    auto& leftType = *typeAnalysis.getTypes(left).begin();
-    auto& rightType = *typeAnalysis.getTypes(right).begin();
-
-    // give them a slightly nicer error
-    if (isOrderedBinaryConstraintOp(op) && !areEquivalentTypes(leftType, rightType)) {
-        report.addError("Cannot compare different types", constraint.getSrcLoc());
-    } else {
-        auto checkTyAttr = [&](Argument const& side) {
-            auto opMatchesType = any_of(opTypesAttrs,
-                    [&](auto& typeAttr) { return isOfKind(typeAnalysis.getTypes(&side), typeAttr); });
-
-            if (!opMatchesType) {
-                std::stringstream ss;
-                ss << "Constraint requires an operand of type "
-                   << join(opTypesAttrs, " or ", [&](auto& out, auto& typeAttr) {
-                          switch (typeAttr) {
-                              case TypeAttribute::Signed: out << "`number`"; break;
-                              case TypeAttribute::Symbol: out << "`symbol`"; break;
-                              case TypeAttribute::Unsigned: out << "`unsigned`"; break;
-                              case TypeAttribute::Float: out << "`float`"; break;
-                              case TypeAttribute::Record: out << "a record"; break;
-                              case TypeAttribute::ADT: out << "a sum"; break;
-                          }
-                      });
-                report.addError(ss.str(), side.getSrcLoc());
-            }
-        };
-
-        checkTyAttr(*left);
-        checkTyAttr(*right);
-    }
-}
-
-void TypeChecker::visitAggregator(const Aggregator& aggregator) {
-    auto op = aggregator.getOperator();
-
-    auto aggregatorType = typeAnalysis.getTypes(&aggregator);
-
-    TypeAttribute opType = getTypeAttributeAggregate(op);
-
-    // Check if operation type and return type agree.
-    if (!isOfKind(aggregatorType, opType)) {
-        report.addError("Couldn't assign types to the aggregator", aggregator.getSrcLoc());
-    }
-}
 }  // namespace souffle::ast::transform

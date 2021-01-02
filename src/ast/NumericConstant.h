@@ -20,6 +20,7 @@
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
 #include "souffle/RamTypes.h"
+#include <cassert>
 #include <optional>
 #include <string>
 #include <utility>
@@ -37,39 +38,35 @@ class NumericConstant : public Constant {
 public:
     enum class Type { Int, Uint, Float };
 
-    NumericConstant(RamSigned value) : Constant(std::to_string(value)), type(Type::Int) {}
+    NumericConstant(RamSigned value) : Constant(std::to_string(value)), fixedType(Type::Int) {}
 
     NumericConstant(std::string constant, SrcLocation loc) : Constant(std::move(constant)) {
         setSrcLoc(std::move(loc));
     }
 
-    NumericConstant(std::string constant, std::optional<Type> type = std::nullopt, SrcLocation loc = {})
-            : Constant(std::move(constant)), type(type) {
+    NumericConstant(std::string constant, std::optional<Type> fixedType = std::nullopt, SrcLocation loc = {})
+            : Constant(std::move(constant)), fixedType(fixedType) {
         setSrcLoc(std::move(loc));
     }
 
     NumericConstant* clone() const override {
-        auto* copy = new NumericConstant(getConstant(), getType());
+        auto* copy = new NumericConstant(getConstant(), getFixedType());
         copy->setSrcLoc(getSrcLoc());
         return copy;
     }
 
-    const std::optional<Type>& getType() const {
-        return type;
-    }
-
-    void setType(Type newType) {
-        type = newType;
+    const std::optional<Type>& getFixedType() const {
+        return fixedType;
     }
 
 protected:
     bool equal(const Node& node) const override {
         const auto& other = static_cast<const NumericConstant&>(node);
-        return Constant::equal(node) && type == other.type;
+        return Constant::equal(node) && fixedType == other.fixedType;
     }
 
 private:
-    std::optional<Type> type;
+    std::optional<Type> fixedType;
 };
 
 }  // namespace souffle::ast

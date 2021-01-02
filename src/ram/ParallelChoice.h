@@ -46,12 +46,12 @@ namespace souffle::ram {
  */
 class ParallelChoice : public Choice, public AbstractParallel {
 public:
-    ParallelChoice(Own<RelationReference> rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
+    ParallelChoice(std::string rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
             std::string profileText = "")
-            : Choice(std::move(rel), ident, std::move(cond), std::move(nested), profileText) {}
+            : Choice(rel, ident, std::move(cond), std::move(nested), profileText) {}
 
     ParallelChoice* clone() const override {
-        return new ParallelChoice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
+        return new ParallelChoice(relation, getTupleId(), souffle::clone(condition),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
@@ -59,7 +59,7 @@ protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "PARALLEL CHOICE t" << getTupleId();
-        os << " IN " << getRelation().getName();
+        os << " IN " << relation;
         os << " WHERE " << getCondition();
         os << std::endl;
         RelationOperation::print(os, tabpos + 1);

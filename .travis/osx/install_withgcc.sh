@@ -11,10 +11,10 @@ set -x
 rm /usr/local/include/c++ || true
 
 brew unlink gcc
-brew install gcc@9
+brew install gcc@10
 # Using 'g++' will call the xcode link to clang
-export CC=gcc-9
-export CXX=g++-9
+export CC=gcc-10
+export CXX=g++-10
 
 $CXX --version
 $CC --version

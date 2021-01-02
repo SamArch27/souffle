@@ -67,8 +67,8 @@ TEST(IO1, CloneAndEquals) {
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     std::map<std::string, std::string> ioEmptyA;
     std::map<std::string, std::string> ioEmptyB;
-    IO a(mk<RelationReference>(&A), std::move(ioEmptyA));
-    IO b(mk<RelationReference>(&A), std::move(ioEmptyB));
+    IO a("A", std::move(ioEmptyA));
+    IO b("A", std::move(ioEmptyB));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -81,8 +81,8 @@ TEST(IO1, CloneAndEquals) {
 TEST(Clear, CloneAndEquals) {
     // CLEAR A
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
-    Clear a(mk<RelationReference>(&A));
-    Clear b(mk<RelationReference>(&A));
+    Clear a("A");
+    Clear b("A");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -96,8 +96,8 @@ TEST(Extend, CloneAndEquals) {
     // MERGE B WITH A
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     Relation B("B", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
-    Extend a(mk<RelationReference>(&B), mk<RelationReference>(&A));
-    Extend b(mk<RelationReference>(&B), mk<RelationReference>(&A));
+    Extend a("B", "A");
+    Extend b("B", "A");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -111,8 +111,8 @@ TEST(Swap, CloneAndEquals) {
     // SWAP(A,B)
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     Relation B("B", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
-    Swap a(mk<RelationReference>(&A), mk<RelationReference>(&B));
-    Swap b(mk<RelationReference>(&A), mk<RelationReference>(&B));
+    Swap a("A", "B");
+    Swap b("A", "B");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -133,14 +133,14 @@ TEST(Query, CloneAndEquals) {
     VecOwn<Expression> a_expressions;
     a_expressions.emplace_back(new TupleElement(0, 0));
     a_expressions.emplace_back(new TupleElement(0, 2));
-    auto a_project = mk<Project>(mk<RelationReference>(&B), std::move(a_expressions));
-    auto a_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(a_project), "");
+    auto a_project = mk<Project>("B", std::move(a_expressions));
+    auto a_scan = mk<Scan>("A", 0, std::move(a_project), "");
 
     VecOwn<Expression> b_expressions;
     b_expressions.emplace_back(new TupleElement(0, 0));
     b_expressions.emplace_back(new TupleElement(0, 2));
-    auto b_project = mk<Project>(mk<RelationReference>(&B), std::move(b_expressions));
-    auto b_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(b_project), "");
+    auto b_project = mk<Project>("B", std::move(b_expressions));
+    auto b_scan = mk<Scan>("A", 0, std::move(b_project), "");
 
     Query a(std::move(a_scan));
     Query b(std::move(b_scan));
@@ -162,16 +162,14 @@ TEST(Query, CloneAndEquals) {
     auto d_return = mk<SubroutineReturn>(std::move(d_return_value));
     // condition t1.0 = 0
     auto d_cond = mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 0), mk<SignedConstant>(0));
-    auto d_parallel_choice =
-            mk<ParallelChoice>(mk<RelationReference>(&A), 1, std::move(d_cond), std::move(d_return), "");
+    auto d_parallel_choice = mk<ParallelChoice>("A", 1, std::move(d_cond), std::move(d_return), "");
 
     VecOwn<Expression> e_return_value;
     e_return_value.emplace_back(new TupleElement(1, 0));
     auto e_return = mk<SubroutineReturn>(std::move(e_return_value));
     // condition t1.0 = 0
     auto e_cond = mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 0), mk<SignedConstant>(0));
-    auto e_parallel_choice =
-            mk<ParallelChoice>(mk<RelationReference>(&A), 1, std::move(e_cond), std::move(e_return), "");
+    auto e_parallel_choice = mk<ParallelChoice>("A", 1, std::move(e_cond), std::move(e_return), "");
     Query d(std::move(d_parallel_choice));
     Query e(std::move(e_parallel_choice));
     EXPECT_EQ(d, e);
@@ -198,8 +196,8 @@ TEST(Sequence, CloneAndEquals) {
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     // one statement in the sequence
     // CLEAR A
-    Sequence d(mk<Clear>(mk<RelationReference>(&A)));
-    Sequence e(mk<Clear>(mk<RelationReference>(&A)));
+    Sequence d(mk<Clear>("A"));
+    Sequence e(mk<Clear>("A"));
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
@@ -213,10 +211,8 @@ TEST(Sequence, CloneAndEquals) {
     // CLEAR A
     std::map<std::string, std::string> g_load_IODir;
     std::map<std::string, std::string> h_load_IODir;
-    Sequence g(
-            mk<IO>(mk<RelationReference>(&A), std::move(g_load_IODir)), mk<Clear>(mk<RelationReference>(&A)));
-    Sequence h(
-            mk<IO>(mk<RelationReference>(&A), std::move(h_load_IODir)), mk<Clear>(mk<RelationReference>(&A)));
+    Sequence g(mk<IO>("A", std::move(g_load_IODir)), mk<Clear>("A"));
+    Sequence h(mk<IO>("A", std::move(h_load_IODir)), mk<Clear>("A"));
     EXPECT_EQ(g, h);
     EXPECT_NE(&g, &h);
 
@@ -241,22 +237,22 @@ TEST(Parallel, CloneAndEquals) {
     VecOwn<Expression> a_expressions;
     a_expressions.emplace_back(new TupleElement(0, 0));
     a_expressions.emplace_back(new TupleElement(0, 2));
-    auto a_project = mk<Project>(mk<RelationReference>(&B), std::move(a_expressions));
+    auto a_project = mk<Project>("B", std::move(a_expressions));
     auto a_cond =
             mk<Filter>(mk<Constraint>(BinaryConstraintOp::GE, mk<TupleElement>(0, 0), mk<SignedConstant>(0)),
                     std::move(a_project), "");
-    auto a_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(a_cond), "");
+    auto a_scan = mk<Scan>("A", 0, std::move(a_cond), "");
     auto a_query = mk<Query>(std::move(a_scan));
     Parallel a(std::move(a_query));
 
     VecOwn<Expression> b_expressions;
     b_expressions.emplace_back(new TupleElement(0, 0));
     b_expressions.emplace_back(new TupleElement(0, 2));
-    auto b_project = mk<Project>(mk<RelationReference>(&B), std::move(b_expressions));
+    auto b_project = mk<Project>("B", std::move(b_expressions));
     auto b_cond =
             mk<Filter>(mk<Constraint>(BinaryConstraintOp::GE, mk<TupleElement>(0, 0), mk<SignedConstant>(0)),
                     std::move(b_project), "");
-    auto b_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(b_cond), "");
+    auto b_scan = mk<Scan>("A", 0, std::move(b_cond), "");
     auto b_query = mk<Query>(std::move(b_scan));
     Parallel b(std::move(b_query));
 
@@ -281,21 +277,21 @@ TEST(Loop, CloneAndEquals) {
      * */
     VecOwn<Expression> a_expressions;
     a_expressions.emplace_back(new TupleElement(0, 0));
-    auto a_project = mk<Project>(mk<RelationReference>(&B), std::move(a_expressions));
+    auto a_project = mk<Project>("B", std::move(a_expressions));
     auto a_break =
             mk<Break>(mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(0, 0), mk<SignedConstant>(4)),
                     std::move(a_project), "");
-    auto a_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(a_break), "");
+    auto a_scan = mk<Scan>("A", 0, std::move(a_break), "");
     auto a_query = mk<Query>(std::move(a_scan));
     Loop a(std::move(a_query));
 
     VecOwn<Expression> b_expressions;
     b_expressions.emplace_back(new TupleElement(0, 0));
-    auto b_project = mk<Project>(mk<RelationReference>(&B), std::move(b_expressions));
+    auto b_project = mk<Project>("B", std::move(b_expressions));
     auto b_break =
             mk<Break>(mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(0, 0), mk<SignedConstant>(4)),
                     std::move(b_project), "");
-    auto b_scan = mk<Scan>(mk<RelationReference>(&A), 0, std::move(b_break), "");
+    auto b_scan = mk<Scan>("A", 0, std::move(b_break), "");
     auto b_query = mk<Query>(std::move(b_scan));
     Loop b(std::move(b_query));
     EXPECT_EQ(a, b);
@@ -309,8 +305,8 @@ TEST(Loop, CloneAndEquals) {
 TEST(Exit, CloneAndEquals) {
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     // EXIT (A = ∅)
-    Exit a(mk<EmptinessCheck>(mk<RelationReference>(&A)));
-    Exit b(mk<EmptinessCheck>(mk<RelationReference>(&A)));
+    Exit a(mk<EmptinessCheck>("A"));
+    Exit b(mk<EmptinessCheck>("A"));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -329,10 +325,8 @@ TEST(LogRelationTimer, CloneAndEquals) {
      * */
     std::map<std::string, std::string> a_IODir;
     std::map<std::string, std::string> b_IODir;
-    LogRelationTimer a(mk<IO>(mk<RelationReference>(&A), std::move(a_IODir)), "file.dl [8:1-8:8]",
-            mk<RelationReference>(&A));
-    LogRelationTimer b(mk<IO>(mk<RelationReference>(&A), std::move(b_IODir)), "file.dl [8:1-8:8]",
-            mk<RelationReference>(&A));
+    LogRelationTimer a(mk<IO>("A", std::move(a_IODir)), "file.dl [8:1-8:8]", "A");
+    LogRelationTimer b(mk<IO>("A", std::move(b_IODir)), "file.dl [8:1-8:8]", "A");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -351,8 +345,8 @@ TEST(LogTimer, CloneAndEquals) {
      * */
     std::map<std::string, std::string> a_IODir;
     std::map<std::string, std::string> b_IODir;
-    LogTimer a(mk<IO>(mk<RelationReference>(&A), std::move(a_IODir)), "@runtime");
-    LogTimer b(mk<IO>(mk<RelationReference>(&A), std::move(a_IODir)), "@runtime");
+    LogTimer a(mk<IO>("A", std::move(a_IODir)), "@runtime");
+    LogTimer b(mk<IO>("A", std::move(a_IODir)), "@runtime");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -379,18 +373,18 @@ TEST(DebugInfo, CloneAndEquals) {
     a_project_add.emplace_back(new TupleElement(0, 3));
     a_project_add.emplace_back(new SignedConstant(1));
     a_project_list.emplace_back(new IntrinsicOperator(FunctorOp::ADD, std::move(a_project_add)));
-    auto a_project = mk<Project>(mk<RelationReference>(&path), std::move(a_project_list));
+    auto a_project = mk<Project>("path", std::move(a_project_list));
     VecOwn<Expression> a_filter1_list;
     a_filter1_list.emplace_back(new TupleElement(0, 0));
     a_filter1_list.emplace_back(new TupleElement(0, 1));
     a_filter1_list.emplace_back(new UndefValue);
     a_filter1_list.emplace_back(new UndefValue);
-    auto a_existence_check1 = mk<ExistenceCheck>(mk<RelationReference>(&path), std::move(a_filter1_list));
+    auto a_existence_check1 = mk<ExistenceCheck>("path", std::move(a_filter1_list));
     auto a_cond1 = mk<Negation>(std::move(a_existence_check1));
     auto a_filter1 = mk<Filter>(std::move(a_cond1), std::move(a_project), "");
-    auto a_cond2 = mk<Negation>(mk<EmptinessCheck>(mk<RelationReference>(&edge)));
+    auto a_cond2 = mk<Negation>(mk<EmptinessCheck>("edge"));
     auto a_filter2 = mk<Filter>(std::move(a_cond2), std::move(a_filter1), "");
-    auto a_scan = mk<Scan>(mk<RelationReference>(&edge), 0, std::move(a_filter2), "");
+    auto a_scan = mk<Scan>("edge", 0, std::move(a_filter2), "");
     auto a_query = mk<Query>(std::move(a_scan));
     DebugInfo a(std::move(a_query),
             "path(x,y,1,(@level_num_0+1)) :- \n   edge(x,y,_,@level_num_0).\nin file /edge.dl [17:1-17:26];");
@@ -403,18 +397,18 @@ TEST(DebugInfo, CloneAndEquals) {
     b_project_add.emplace_back(new TupleElement(0, 3));
     b_project_add.emplace_back(new SignedConstant(1));
     b_project_list.emplace_back(new IntrinsicOperator(FunctorOp::ADD, std::move(b_project_add)));
-    auto b_project = mk<Project>(mk<RelationReference>(&path), std::move(b_project_list));
+    auto b_project = mk<Project>("path", std::move(b_project_list));
     VecOwn<Expression> b_filter1_list;
     b_filter1_list.emplace_back(new TupleElement(0, 0));
     b_filter1_list.emplace_back(new TupleElement(0, 1));
     b_filter1_list.emplace_back(new UndefValue);
     b_filter1_list.emplace_back(new UndefValue);
-    auto b_existence_check1 = mk<ExistenceCheck>(mk<RelationReference>(&path), std::move(b_filter1_list));
+    auto b_existence_check1 = mk<ExistenceCheck>("path", std::move(b_filter1_list));
     auto b_cond1 = mk<Negation>(std::move(b_existence_check1));
     auto b_filter1 = mk<Filter>(std::move(b_cond1), std::move(b_project), "");
-    auto b_cond2 = mk<Negation>(mk<EmptinessCheck>(mk<RelationReference>(&edge)));
+    auto b_cond2 = mk<Negation>(mk<EmptinessCheck>("edge"));
     auto b_filter2 = mk<Filter>(std::move(b_cond2), std::move(b_filter1), "");
-    auto b_scan = mk<Scan>(mk<RelationReference>(&edge), 0, std::move(b_filter2), "");
+    auto b_scan = mk<Scan>("edge", 0, std::move(b_filter2), "");
     auto b_query = mk<Query>(std::move(b_scan));
     DebugInfo b(std::move(b_query),
             "path(x,y,1,(@level_num_0+1)) :- \n   edge(x,y,_,@level_num_0).\nin file /edge.dl [17:1-17:26];");
@@ -430,8 +424,8 @@ TEST(DebugInfo, CloneAndEquals) {
 
 TEST(LogSize, CloneAndEquals) {
     Relation A("A", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
-    LogSize a(mk<RelationReference>(&A), "Log message");
-    LogSize b(mk<RelationReference>(&A), "Log message");
+    LogSize a("A", "Log message");
+    LogSize b("A", "Log message");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 

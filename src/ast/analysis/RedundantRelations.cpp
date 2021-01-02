@@ -67,7 +67,7 @@ void RedundantRelationsAnalysis::run(const TranslationUnit& translationUnit) {
     redundantRelations.clear();
     for (const Relation* r : relations) {
         if (notRedundant.count(r) == 0u) {
-            redundantRelations.insert(r);
+            redundantRelations.insert(r->getQualifiedName());
         }
     }
 }

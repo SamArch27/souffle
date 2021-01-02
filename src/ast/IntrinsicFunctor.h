@@ -26,6 +26,7 @@
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <cstddef>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -50,8 +51,8 @@ public:
     IntrinsicFunctor(std::string op, VecOwn<Argument> args, SrcLocation loc = {})
             : Functor(std::move(args), std::move(loc)), function(std::move(op)) {}
 
-    /** Get function */
-    const std::string& getFunction() const {
+    /** Get (base type) function */
+    const std::string& getBaseFunctionOp() const {
         return function;
     }
 
@@ -60,58 +61,32 @@ public:
         function = std::move(functor);
     }
 
-    /** Get function information */
-    const IntrinsicFunctorInfo* getFunctionInfo() const {
-        return info;
-    }
-
-    /** Set function information */
-    void setFunctionInfo(const IntrinsicFunctorInfo& info) {
-        this->info = &info;
-    }
-
-    /** Get the return type of the functor. */
-    TypeAttribute getReturnType() const override {
-        assert(info && "functor info not yet available");
-        return info->result;
-    }
-
-    /** Get type of the functor argument*/
-    TypeAttribute getArgType(const size_t arg) const override {
-        assert(info && "functor info not yet available");
-        return info->params.at(info->variadic ? 0 : arg);
-    }
-
     IntrinsicFunctor* clone() const override {
-        return new IntrinsicFunctor(function, info, souffle::clone(args), getSrcLoc());
+        return new IntrinsicFunctor(function, souffle::clone(args), getSrcLoc());
     }
 
 protected:
-    IntrinsicFunctor(
-            std::string op, const IntrinsicFunctorInfo* info, VecOwn<Argument> args, SrcLocation loc = {})
-            : Functor(std::move(args), std::move(loc)), function(std::move(op)), info(info) {
-        assert((!info || info->symbol == function) && "functor info must match symbol");
-    }
-
     void print(std::ostream& os) const override {
         if (isInfixFunctorOp(function)) {
             os << "(" << join(args, function) << ")";
         } else {
-            os << function;
+            // Negation is handled differently to all other functors so we need a special case.
+            if (function == FUNCTOR_INTRINSIC_PREFIX_NEGATE_NAME) {
+                os << "-";
+            } else {
+                os << function;
+            }
             os << "(" << join(args) << ")";
         }
     }
 
     bool equal(const Node& node) const override {
         const auto& other = static_cast<const IntrinsicFunctor&>(node);
-        return function == other.function && info == other.info && Functor::equal(node);
+        return function == other.function && Functor::equal(node);
     }
 
     /** Function */
     std::string function;
-
-    /** Functor information */
-    const IntrinsicFunctorInfo* info = nullptr;
 };
 
 }  // namespace souffle::ast

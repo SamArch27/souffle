@@ -48,7 +48,7 @@
  */
 #define __builtin_popcountll __popcnt64
 
-#if _MSC_VER < 1924
+#if defined(_MSC_VER)
 constexpr unsigned long __builtin_ctz(unsigned long value) {
     unsigned long trailing_zeroes = 0;
     while ((value = value >> 1) ^ 1) {
@@ -66,8 +66,8 @@ inline unsigned long __builtin_ctzll(unsigned long long value) {
         return 64;
     }
 }
-#endif  // _MSC_VER < 1924
-#endif
+#endif  // _MSC_VER
+#endif  // _WIN32
 
 // -------------------------------------------------------------------------------
 //                               Timing Utils

@@ -32,6 +32,7 @@
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
+#include "ast/analysis/Functor.h"
 #include "ast/analysis/RelationDetailCache.h"
 #include "ast/analysis/Type.h"
 #include "ast/analysis/TypeSystem.h"
@@ -81,10 +82,10 @@ std::vector<Clause*> getClauses(const Program& program, const Relation& rel) {
     return getClauses(program, rel.getQualifiedName());
 }
 
-std::vector<Directive*> getDirectives(const Program& program, const QualifiedName& relationName) {
+std::vector<Directive*> getDirectives(const Program& program, const QualifiedName& name) {
     std::vector<Directive*> directives;
     for (Directive* dir : program.getDirectives()) {
-        if (dir->getQualifiedName() == relationName) {
+        if (dir->getQualifiedName() == name) {
             directives.push_back(dir);
         }
     }
@@ -93,6 +94,11 @@ std::vector<Directive*> getDirectives(const Program& program, const QualifiedNam
 
 Relation* getRelation(const Program& program, const QualifiedName& name) {
     return getIf(program.getRelations(), [&](const Relation* r) { return r->getQualifiedName() == name; });
+}
+
+FunctorDeclaration* getFunctorDeclaration(const Program& program, const std::string& name) {
+    return getIf(program.getFunctorDeclarations(),
+            [&](const FunctorDeclaration* r) { return r->getName() == name; });
 }
 
 void removeRelation(TranslationUnit& tu, const QualifiedName& name) {
@@ -107,9 +113,17 @@ void removeRelation(TranslationUnit& tu, const QualifiedName& name) {
 void removeRelationClauses(TranslationUnit& tu, const QualifiedName& name) {
     Program& program = tu.getProgram();
     const auto& relDetail = *tu.getAnalysis<analysis::RelationDetailCacheAnalysis>();
+
+    // Make copies of the clauses to avoid use-after-delete for equivalent clauses
+    std::set<Own<Clause>> clausesToRemove;
     for (const auto* clause : relDetail.getClauses(name)) {
-        program.removeClause(clause);
+        clausesToRemove.insert(souffle::clone(clause));
     }
+    for (const auto& clause : clausesToRemove) {
+        program.removeClause(clause.get());
+    }
+
+    tu.invalidateAnalyses();
 }
 
 void removeRelationIOs(TranslationUnit& tu, const QualifiedName& name) {
@@ -217,15 +231,13 @@ bool isFact(const Clause& clause) {
     // and there are no aggregates
     bool hasAggregatesOrMultiResultFunctor = false;
     visitDepthFirst(*clause.getHead(), [&](const Argument& arg) {
-        if (dynamic_cast<const Aggregator*>(&arg)) {
+        if (isA<Aggregator>(arg)) {
             hasAggregatesOrMultiResultFunctor = true;
         }
 
-        auto func = dynamic_cast<const IntrinsicFunctor*>(&arg);
-        auto info = func ? func->getFunctionInfo() : nullptr;
-        if (info && info->multipleResults) {
-            hasAggregatesOrMultiResultFunctor = true;
-        }
+        auto* func = as<IntrinsicFunctor>(arg);
+        hasAggregatesOrMultiResultFunctor |=
+                (func != nullptr) && analysis::FunctorAnalysis::isMultiResult(*func);
     });
     return !hasAggregatesOrMultiResultFunctor;
 }
@@ -254,6 +266,23 @@ Clause* cloneHead(const Clause* clause) {
         clone->setExecutionPlan(souffle::clone(clause->getExecutionPlan()));
     }
     return clone;
+}
+
+std::vector<Atom*> reorderAtoms(const std::vector<Atom*>& atoms, const std::vector<unsigned int>& newOrder) {
+    // Validate given order
+    assert(newOrder.size() == atoms.size());
+    std::vector<unsigned int> nopOrder;
+    for (unsigned int i = 0; i < atoms.size(); i++) {
+        nopOrder.push_back(i);
+    }
+    assert(std::is_permutation(nopOrder.begin(), nopOrder.end(), newOrder.begin()));
+
+    // Create the result
+    std::vector<Atom*> result(atoms.size());
+    for (size_t i = 0; i < atoms.size(); i++) {
+        result[i] = atoms[newOrder[i]];
+    }
+    return result;
 }
 
 Clause* reorderAtoms(const Clause* clause, const std::vector<unsigned int>& newOrder) {
@@ -293,45 +322,10 @@ void negateConstraintInPlace(Constraint& constraint) {
     if (auto* bcstr = dynamic_cast<BooleanConstraint*>(&constraint)) {
         bcstr->set(!bcstr->isTrue());
     } else if (auto* cstr = dynamic_cast<BinaryConstraint*>(&constraint)) {
-        cstr->setOperator(souffle::negatedConstraintOp(cstr->getOperator()));
+        cstr->setBaseOperator(souffle::negatedConstraintOp(cstr->getBaseOperator()));
     } else {
         fatal("Unknown ast-constraint type");
     }
-}
-
-IntrinsicFunctors validOverloads(const analysis::TypeAnalysis& typing, const ast::IntrinsicFunctor& func) {
-    auto typeAttrs = [&](const Argument* arg) -> std::set<TypeAttribute> {
-        auto&& types = typing.getTypes(arg);
-        if (types.isAll())
-            return {TypeAttribute::Signed, TypeAttribute::Unsigned, TypeAttribute::Float,
-                    TypeAttribute::Symbol, TypeAttribute::Record};
-
-        std::set<TypeAttribute> tyAttrs;
-        for (auto&& ty : types)
-            tyAttrs.insert(getTypeAttribute(ty));
-        return tyAttrs;
-    };
-    auto retTys = typeAttrs(&func);
-    auto argTys = map(func.getArguments(), typeAttrs);
-
-    auto candidates =
-            filterNot(functorBuiltIn(func.getFunction()), [&](const IntrinsicFunctorInfo& x) -> bool {
-                if (!x.variadic && argTys.size() != x.params.size()) return true;  // arity mismatch?
-
-                for (size_t i = 0; i < argTys.size(); ++i)
-                    if (!contains(argTys[i], x.params[x.variadic ? 0 : i])) return true;
-
-                return !contains(retTys, x.result);
-            });
-
-    std::sort(candidates.begin(), candidates.end(),
-            [&](const IntrinsicFunctorInfo& a, const IntrinsicFunctorInfo& b) {
-                if (a.result != b.result) return a.result < b.result;
-                if (a.variadic != b.variadic) return a.variadic < b.variadic;
-                return std::lexicographical_compare(
-                        a.params.begin(), a.params.end(), b.params.begin(), b.params.end());
-            });
-    return candidates;
 }
 
 bool renameAtoms(Node& node, const std::map<QualifiedName, QualifiedName>& oldToNew) {

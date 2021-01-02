@@ -161,7 +161,7 @@ protected:
 /**
  * A record type combining a list of fields into a new, aggregated type.
  */
-struct RecordType : virtual public Type {
+struct RecordType : public Type {
 public:
     void setFields(std::vector<const Type*> newFields) {
         fields = std::move(newFields);
@@ -181,29 +181,6 @@ protected:
     RecordType(const TypeEnvironment& environment, const QualifiedName& name,
             const std::vector<const Type*> fields = {})
             : Type(environment, name), fields(fields) {}
-};
-
-/**
- * Type representing a subset type derived from the record type.
- */
-struct SubsetRecordType : public SubsetType, public RecordType {
-public:
-    void print(std::ostream& out) const override {
-        SubsetType::print(out);
-    }
-
-protected:
-    friend class TypeEnvironment;
-
-    SubsetRecordType(
-            const TypeEnvironment& environment, const QualifiedName& name, const RecordType& baseType)
-            : Type(environment, name), SubsetType(environment, name, baseType),
-              RecordType(environment, name, baseType.getFields()) {
-        // Update fields, replacing each occurrence of base with derived.
-        // so that if .type base = [a, base] and derived <: base, then derived = [a, derived].
-        std::replace(fields.begin(), fields.end(), dynamic_cast<const Type*>(&baseType),
-                dynamic_cast<const Type*>(this));
-    };
 };
 
 /**
@@ -570,5 +547,10 @@ bool haveCommonSupertype(const Type& a, const Type& b);
  * That is, check if a <: b and b <: a
  */
 bool areEquivalentTypes(const Type& a, const Type& b);
+
+/**
+ * Determine if ADT is enumerations (are all constructors empty)
+ */
+bool isADTEnum(const AlgebraicDataType& type);
 
 }  // namespace souffle::ast::analysis

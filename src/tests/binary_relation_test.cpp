@@ -31,7 +31,6 @@
 #include <omp.h>
 #endif
 
-#include "souffle/CompiledTuple.h"
 #include "souffle/datastructure/EquivalenceRelation.h"
 
 namespace souffle {
@@ -110,7 +109,7 @@ TEST(EqRelTest, Duplicates) {
     EXPECT_FALSE(br.contains(1, 1));
 
     // check iteration of duplicate is fine
-    Tuple<RamDomain, 2> tup{};
+    Tuple<RamDomain, 2> tup;
     tup[0] = 0;
     tup[1] = 0;
     auto x = br.begin();

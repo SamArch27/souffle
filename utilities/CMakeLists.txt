@@ -63,7 +63,6 @@ ADD_EXECUTABLE(souffle
         ./src/ProfileDatabase.h
         ./src/SrcLocation.h
         ./src/RamTranslationUnit.h
-        ./src/CompiledTuple.h
         ./src/htmx86.h
         ./src/ComponentModel.h
         ./src/BinaryConstraintOps.h

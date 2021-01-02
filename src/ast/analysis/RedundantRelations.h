@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "ast/QualifiedName.h"
 #include "ast/analysis/Analysis.h"
 #include <set>
 #include <string>
@@ -43,14 +44,13 @@ public:
 
     void print(std::ostream& os) const override;
 
-    const std::set<const Relation*>& getRedundantRelations() const {
+    const std::set<QualifiedName>& getRedundantRelations() const {
         return redundantRelations;
     }
 
 private:
     PrecedenceGraphAnalysis* precedenceGraph = nullptr;
-
-    std::set<const Relation*> redundantRelations;
+    std::set<QualifiedName> redundantRelations;
 };
 
 }  // namespace analysis

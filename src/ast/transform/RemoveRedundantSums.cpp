@@ -39,7 +39,7 @@ bool RemoveRedundantSumsTransformer::transform(TranslationUnit& translationUnit)
             // Apply to all aggregates of the form
             // sum k : { .. } where k is a constant
             if (auto* agg = dynamic_cast<Aggregator*>(node.get())) {
-                if (agg->getOperator() == AggregateOp::SUM) {
+                if (agg->getBaseOperator() == AggregateOp::SUM) {
                     if (const auto* constant =
                                     dynamic_cast<const NumericConstant*>(agg->getTargetExpression())) {
                         changed = true;

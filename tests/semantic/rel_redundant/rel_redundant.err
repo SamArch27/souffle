@@ -1,0 +1,6 @@
+Warning: No rules/facts defined for relation hnwC in file rel_redundant.dl at line 38
+.decl hnwC(A:float)
+------^-------------
+Warning: No rules/facts defined for relation wvhB in file rel_redundant.dl at line 42
+.decl wvhB(A:float)
+------^-------------

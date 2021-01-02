@@ -138,6 +138,25 @@ bool MinimiseProgramTransformer::existsValidPermutation(const NormalisedClause& 
     return false;
 }
 
+bool MinimiseProgramTransformer::areEquivalentRelations(
+        const Relation* firstRelation, const Relation* secondRelation) {
+    // check whether relations have same qualifiers, representation, and attribute types
+    if (firstRelation->getQualifiers() == secondRelation->getQualifiers() &&
+            firstRelation->getRepresentation() == secondRelation->getRepresentation()) {
+        auto firstAttributes = firstRelation->getAttributes();
+        auto secondAttributes = secondRelation->getAttributes();
+        if (firstAttributes.size() == secondAttributes.size()) {
+            for (size_t i = 0; i < firstAttributes.size(); i++) {
+                if (firstAttributes[i]->getTypeName() != secondAttributes[i]->getTypeName()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 bool MinimiseProgramTransformer::isValidPermutation(const NormalisedClause& left,
         const NormalisedClause& right, const std::vector<unsigned int>& permutation) {
     const auto& leftElements = left.getElements();
@@ -316,8 +335,11 @@ bool MinimiseProgramTransformer::reduceSingletonRelations(TranslationUnit& trans
             if (areBijectivelyEquivalent(normedFirst, normedSecond)) {
                 QualifiedName firstName = first->getHead()->getQualifiedName();
                 QualifiedName secondName = second->getHead()->getQualifiedName();
-                redundantClauses.insert(second);
-                canonicalName.insert(std::pair(secondName, firstName));
+                if (areEquivalentRelations(
+                            getRelation(program, firstName), getRelation(program, secondName))) {
+                    redundantClauses.insert(second);
+                    canonicalName.insert(std::pair(secondName, firstName));
+                }
             }
         }
     }

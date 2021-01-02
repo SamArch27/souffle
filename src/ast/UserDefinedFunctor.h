@@ -49,41 +49,8 @@ public:
         return name;
     }
 
-    /** return an argument type */
-    TypeAttribute getArgType(const size_t arg) const override {
-        return argTypes->at(arg);
-    }
-
-    /** get the return type of the functor */
-    TypeAttribute getReturnType() const override {
-        return returnType.value();
-    }
-
-    /** set types of functor */
-    void setTypes(std::vector<TypeAttribute> argumentsTypes, TypeAttribute retType, bool state) {
-        assert(argumentsTypes.size() == args.size() && "Size of types must match size of arguments");
-        argTypes = std::move(argumentsTypes);
-        returnType = retType;
-        stateful = state;
-    }
-
-    /** get argument types */
-    const std::vector<TypeAttribute>& getArgsTypes() const {
-        return argTypes.value();
-    }
-
-    /** is stateful */
-    bool isStateful() const {
-        return stateful;
-    }
-
     UserDefinedFunctor* clone() const override {
-        auto res = new UserDefinedFunctor(name, souffle::clone(args), getSrcLoc());
-        // Only copy types if they have already been set.
-        if (returnType.has_value()) {
-            res->setTypes(argTypes.value(), returnType.value(), stateful);
-        }
-        return res;
+        return new UserDefinedFunctor(name, souffle::clone(args), getSrcLoc());
     }
 
 protected:
@@ -95,15 +62,6 @@ protected:
         const auto& other = static_cast<const UserDefinedFunctor&>(node);
         return name == other.name && Functor::equal(node);
     }
-
-    /** Argument types */
-    std::optional<std::vector<TypeAttribute>> argTypes;
-
-    /** Return type */
-    std::optional<TypeAttribute> returnType;
-
-    /** stateful */
-    bool stateful;
 
     /** Name */
     const std::string name;

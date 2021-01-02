@@ -96,4 +96,9 @@ void Program::addFunctorDeclaration(Own<FunctorDeclaration> f) {
     functors.push_back(std::move(f));
 }
 
+void Program::clearComponents() {
+    components.clear();
+    instantiations.clear();
+}
+
 }  // namespace souffle::ast

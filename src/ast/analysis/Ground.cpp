@@ -193,7 +193,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     // binary equality relations propagates groundness
     void visitBinaryConstraint(const BinaryConstraint& cur) override {
         // only target equality
-        if (!isEqConstraint(cur.getOperator())) {
+        if (!isEqConstraint(cur.getBaseOperator())) {
             return;
         }
 

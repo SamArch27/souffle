@@ -20,7 +20,6 @@
 #include "ast/BinaryConstraint.h"
 #include "ast/Clause.h"
 #include "ast/QualifiedName.h"
-#include "ast/TranslationUnit.h"
 #include "ast/transform/Pipeline.h"
 #include "ast/transform/RemoveRedundantRelations.h"
 #include "ast/transform/Transformer.h"
@@ -33,6 +32,11 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace souffle::ast {
+class Program;
+class TranslationUnit;
+}  // namespace souffle::ast
 
 namespace souffle::ast::transform {
 
@@ -73,10 +77,29 @@ private:
     static bool shouldRun(const TranslationUnit& tu);
 
     /**
-     * Gets set of relations to ignore during the MST process.
-     * Ignored relations are relations that should not be copied or altered beyond normalisation.
+     * Gets the set of relations that are trivially computable,
+     * and so should not be magic-set.
      */
-    static std::set<QualifiedName> getIgnoredRelations(const TranslationUnit& tu);
+    static std::set<QualifiedName> getTriviallyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to weakly ignore during the MST process.
+     * Weakly-ignored relations cannot be adorned/magic'd.
+     * Superset of strongly-ignored relations.
+     */
+    static std::set<QualifiedName> getWeaklyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to strongly ignore during the MST process.
+     * Strongly-ignored relations cannot be safely duplicated without affecting semantics.
+     */
+    static std::set<QualifiedName> getStronglyIgnoredRelations(const TranslationUnit& tu);
+
+    /**
+     * Gets the set of relations to not label.
+     * The union of strongly and trivially ignored.
+     */
+    static std::set<QualifiedName> getRelationsToNotLabel(const TranslationUnit& tu);
 };
 
 /**
@@ -222,7 +245,7 @@ private:
 
     VecOwn<Clause> adornedClauses;
     VecOwn<Clause> redundantClauses;
-    std::set<QualifiedName> relationsToIgnore;
+    std::set<QualifiedName> weaklyIgnoredRelations;
 
     bool transform(TranslationUnit& translationUnit) override;
 

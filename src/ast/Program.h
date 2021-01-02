@@ -101,6 +101,9 @@ public:
     /** Add a clause */
     void addClause(Own<Clause> clause);
 
+    /** Add a type declaration */
+    void addType(Own<Type> type);
+
     /** Remove a clause */
     bool removeClause(const Clause* clause);
 
@@ -116,6 +119,9 @@ public:
     std::vector<ComponentInit*> getComponentInstantiations() const {
         return toPtrVector(instantiations);
     }
+
+    /** Remove components and components' instantiations */
+    void clearComponents();
 
     Program* clone() const override {
         auto res = new Program();
@@ -232,10 +238,7 @@ protected:
     }
 
 protected:
-    friend class transform::ComponentInstantiationTransformer;
     friend class souffle::ParserDriver;
-
-    void addType(Own<Type> type);
 
     void addPragma(Own<Pragma> pragma);
 

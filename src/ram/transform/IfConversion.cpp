@@ -20,7 +20,7 @@
 #include "ram/Program.h"
 #include "ram/Relation.h"
 #include "ram/Statement.h"
-#include "ram/Visitor.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/utility/MiscUtil.h"
 #include <algorithm>
 #include <cstddef>
@@ -67,8 +67,7 @@ Own<Operation> IfConversionTransformer::rewriteIndexScan(const IndexScan* indexS
             newOp = indexScan->getOperation().clone();
         }
 
-        return mk<Filter>(
-                mk<ExistenceCheck>(mk<RelationReference>(&indexScan->getRelation()), std::move(newValues)),
+        return mk<Filter>(mk<ExistenceCheck>(indexScan->getRelation(), std::move(newValues)),
                 Own<Operation>(newOp), indexScan->getProfileText());
     }
     return nullptr;

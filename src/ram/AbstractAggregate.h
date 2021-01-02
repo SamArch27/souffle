@@ -94,7 +94,7 @@ protected:
     }
 
     /** Aggregation function */
-    AggregateOp function;
+    const AggregateOp function;
 
     /** Aggregation expression */
     Own<Expression> expression;

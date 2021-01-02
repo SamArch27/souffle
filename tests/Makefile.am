@@ -38,6 +38,6 @@ distclean-local:
 	rm -f atconfig
 
 AUTOTEST = $(AUTOM4TE) --language=autotest
-$(TESTSUITE): $(srcdir)/swig.at $(srcdir)/testsuite.at $(srcdir)/syntactic.at $(srcdir)/semantic.at $(srcdir)/evaluation.at $(srcdir)/interface.at $(srcdir)/profile.at $(srcdir)/provenance.at $(srcdir)/fastevaluation.at package.m4
+$(TESTSUITE): $(srcdir)/swig.at $(srcdir)/testsuite.at $(srcdir)/syntactic.at $(srcdir)/semantic.at $(srcdir)/evaluation.at $(srcdir)/interface.at $(srcdir)/profile.at $(srcdir)/provenance.at package.m4
 	$(AUTOTEST) -I '$(srcdir)' -o $@.tmp $@.at
 	mv $@.tmp $@

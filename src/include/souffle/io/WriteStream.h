@@ -72,7 +72,8 @@ protected:
 
     template <typename Tuple>
     void writeNext(const Tuple tuple) {
-        writeNextTuple(tuple.data);
+        using tcb::make_span;
+        writeNextTuple(make_span(tuple).data());
     }
 
     void outputRecord(std::ostream& destination, const RamDomain value, const std::string& name) {
@@ -124,24 +125,36 @@ protected:
         const size_t numBranches = adtInfo["arity"].long_value();
         assert(numBranches > 0);
 
-        // adt is encoded as [branchID, [branch_args]] when |branch_args| != 1
-        // and as [branchID, arg] when a branch takes a single argument.
-        const RamDomain* tuplePtr = recordTable.unpack(value, 2);
+        // adt is encoded in one of three possible ways:
+        // [branchID, [branch_args]] when |branch_args| != 1
+        // [branchID, arg] when a branch takes a single argument.
+        // branchID when ADT is an enumeration.
+        bool isEnum = adtInfo["enum"].bool_value();
 
-        const RamDomain branchId = tuplePtr[0];
-        const RamDomain rawBranchArgs = tuplePtr[1];
+        RamDomain branchId = value;
+        const RamDomain* branchArgs = nullptr;
+        json11::Json branchInfo;
+        json11::Json::array branchTypes;
 
-        auto branchInfo = adtInfo["branches"][branchId];
-        auto branchTypes = branchInfo["types"].array_items();
+        if (!isEnum) {
+            const RamDomain* tuplePtr = recordTable.unpack(value, 2);
 
-        // Prepare branch's arguments for output.
-        const RamDomain* branchArgs = [&]() -> const RamDomain* {
-            if (branchTypes.size() > 1) {
-                return recordTable.unpack(rawBranchArgs, branchTypes.size());
-            } else {
-                return &rawBranchArgs;
-            }
-        }();
+            branchId = tuplePtr[0];
+            branchInfo = adtInfo["branches"][branchId];
+            branchTypes = branchInfo["types"].array_items();
+
+            // Prepare branch's arguments for output.
+            branchArgs = [&]() -> const RamDomain* {
+                if (branchTypes.size() > 1) {
+                    return recordTable.unpack(tuplePtr[1], branchTypes.size());
+                } else {
+                    return &tuplePtr[1];
+                }
+            }();
+        } else {
+            branchInfo = adtInfo["branches"][branchId];
+            branchTypes = branchInfo["types"].array_items();
+        }
 
         destination << "$" << branchInfo["name"].string_value();
 

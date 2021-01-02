@@ -19,10 +19,10 @@
 #include "ram/AbstractChoice.h"
 #include "ram/Condition.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cstddef>
@@ -52,9 +52,9 @@ namespace souffle::ram {
  */
 class Choice : public RelationOperation, public AbstractChoice {
 public:
-    Choice(Own<RelationReference> rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
+    Choice(std::string rel, size_t ident, Own<Condition> cond, Own<Operation> nested,
             std::string profileText = "")
-            : RelationOperation(std::move(rel), ident, std::move(nested), std::move(profileText)),
+            : RelationOperation(rel, ident, std::move(nested), std::move(profileText)),
               AbstractChoice(std::move(cond)) {}
 
     void apply(const NodeMapper& map) override {
@@ -63,19 +63,19 @@ public:
     }
 
     Choice* clone() const override {
-        return new Choice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
-                souffle::clone(&getOperation()), getProfileText());
+        return new Choice(relation, getTupleId(), souffle::clone(condition), souffle::clone(&getOperation()),
+                getProfileText());
     }
 
     std::vector<const Node*> getChildNodes() const override {
-        return {nestedOperation.get(), relationRef.get(), AbstractChoice::getChildNodes().at(0)};
+        return {nestedOperation.get(), AbstractChoice::getChildNodes().at(0)};
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
         os << "CHOICE t" << getTupleId();
-        os << " IN " << getRelation().getName();
+        os << " IN " << getRelation();
         os << " WHERE " << getCondition();
         os << std::endl;
         RelationOperation::print(os, tabpos + 1);

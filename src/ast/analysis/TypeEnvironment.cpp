@@ -160,11 +160,6 @@ const Type* TypeEnvironmentAnalysis::createType(
             return nullptr;
         }
 
-        // Subset of a record is a special case.
-        if (isA<RecordType>(baseType)) {
-            return &env.createType<SubsetRecordType>(typeName, *as<RecordType>(baseType));
-        }
-
         return &env.createType<SubsetType>(typeName, *baseType);
 
     } else if (isA<ast::UnionType>(astType)) {
@@ -179,20 +174,18 @@ const Type* TypeEnvironmentAnalysis::createType(
         }
         return &env.createType<UnionType>(typeName, elements);
 
-    } else if (isA<ast::RecordType>(astType)) {
-        // Create anonymous base type first.
-        // The types need to be initialized upfront,
-        // because we may have mutually recursive record definitions.
-        auto& recordBase = env.createType<RecordType>(tfm::format("__%sConstant", typeName));
-        auto& recordType = env.createType<SubsetRecordType>(typeName, recordBase);
+    } else if (auto astRecordType = as<ast::RecordType>(astType)) {
+        // Create the corresponding type first, since it could be recursive.
+        auto& recordType = env.createType<RecordType>(typeName);
 
         std::vector<const Type*> elements;
-        for (const auto* field : as<ast::RecordType>(astType)->getFields()) {
+        for (const auto* field : astRecordType->getFields()) {
             if (field->getTypeName() == typeName) {
-                elements.push_back(&recordBase);
+                elements.push_back(&recordType);
                 continue;
             }
 
+            // Recursively create element's type.
             auto* elementType = createType(field->getTypeName(), nameToType);
             if (elementType == nullptr) {
                 return nullptr;
@@ -200,11 +193,7 @@ const Type* TypeEnvironmentAnalysis::createType(
             elements.push_back(elementType);
         }
 
-        recordBase.setFields(elements);
-        std::replace(elements.begin(), elements.end(), dynamic_cast<Type*>(&recordBase),
-                dynamic_cast<Type*>(&recordType));
         recordType.setFields(std::move(elements));
-
         return &recordType;
 
     } else if (isA<ast::AlgebraicDataType>(astType)) {

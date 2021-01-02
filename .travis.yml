@@ -1,5 +1,5 @@
 language: generic
-dist: bionic
+dist: focal
 arch: amd64
 
 # Do not change line endings when checking out code for windows jobs
@@ -16,8 +16,8 @@ _aliases:
     os: linux
     services: docker
     before_script:
-      - docker pull souffle/ubuntu:bionic-base
-      - docker run -d -t --name souf -w /souffle --mount src="$(pwd)",target=/souffle,type=bind souffle/ubuntu:bionic-base /bin/sh
+      - docker pull souffle/ubuntu:focal-base
+      - docker run -d -t --name souf -w /souffle --mount src="$(pwd)",target=/souffle,type=bind souffle/ubuntu:focal-base /bin/sh
     after_script: docker container stop souf
     after_failure: docker exec souf /bin/sh -c ".travis/after_failure.sh"
   - &osxgcc
@@ -53,7 +53,7 @@ jobs:
     <<: *docker
     workspaces:
       create:
-        name: bionic_gcc
+        name: focal_gcc
         paths: .
     script: docker exec souf /bin/sh -c "export CXX=g++ && .travis/init_test.sh '--enable-swig'"
   - stage: Warmup
@@ -61,7 +61,7 @@ jobs:
     <<: *docker
     workspaces:
       create:
-        name: bionic_gcc_64
+        name: focal_gcc_64
         paths: .
     script: docker exec souf /bin/sh -c "export CXX=g++ && .travis/init_test.sh '--enable-swig --enable-64bit-domain'"
   - stage: Warmup
@@ -69,9 +69,9 @@ jobs:
     <<: *docker
     workspaces :
       create:
-        name: bionic_clang
+        name: focal_clang
         paths: .
-    script: docker exec souf /bin/sh -c "export CXX=g++ && .travis/init_test.sh '--enable-swig'"
+    script: docker exec souf /bin/sh -c "export CXX=clang++ && .travis/init_test.sh '--enable-swig'"
 
 # MSVC souffle-interface
   - stage: Testing
@@ -106,7 +106,7 @@ jobs:
     name: "Linux clang non-eval"
     <<: *docker
     workspaces:
-      use: bionic_clang
+      use: focal_clang
     env:
     - SOUFFLE_CATEGORY=Unit,Syntactic,Semantic,Interface,Profile SOUFFLE_CONFS="-j8,-c -j8"
     script: docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
@@ -114,7 +114,7 @@ jobs:
     name: "Linux gcc non-eval"
     <<: *docker
     workspaces:
-      use: bionic_gcc
+      use: focal_gcc
     env:
     - SOUFFLE_CATEGORY=Unit,Syntactic,Semantic,Interface,Profile SOUFFLE_CONFS="-j8,-c -j8"
     script: docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
@@ -122,27 +122,27 @@ jobs:
 # Testing stage for Evaluation tests without OpenMP (,-c)
   - stage: Testing
     <<: *osxclang
-    name: "OSX clang fast evaluation tests without OMP"
+    name: "OSX clang evaluation tests without OMP"
     before_script: ".travis/init_test.sh --enable-swig"
     env:
-    - SOUFFLE_CATEGORY=Swig,FastEvaluation SOUFFLE_CONFS=",-c"
+    - SOUFFLE_CATEGORY=Swig,Evaluation SOUFFLE_CONFS=",-c"
 
 # Testing stage for Evaluation tests (-j8,-c -j8)
   - stage: Testing
-    name: "Linux gcc fast evaluation tests"
+    name: "Linux gcc evaluation tests"
     <<: *docker
     workspaces:
-      use: bionic_gcc
+      use: focal_gcc
     env:
-    - SOUFFLE_CATEGORY=Swig,FastEvaluation SOUFFLE_CONFS="-j8,-c -j8"
+    - SOUFFLE_CATEGORY=Swig,Evaluation SOUFFLE_CONFS="-j8,-c -j8"
     script: docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
   - stage: Testing
-    name: "Linux clang fast evaluation tests"
+    name: "Linux clang evaluation tests"
     <<: *docker
     workspaces:
-      use: bionic_clang
+      use: focal_clang
     env:
-    - SOUFFLE_CATEGORY=Swig,FastEvaluation SOUFFLE_CONFS="-j8,-c -j8"
+    - SOUFFLE_CATEGORY=Swig,Evaluation SOUFFLE_CONFS="-j8,-c -j8"
     script: docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
 
 # Testing stage with 64bit RamDomains (-j8,-c -j8)
@@ -150,7 +150,7 @@ jobs:
     name: "Linux gcc 64-bit non-eval"
     <<: *docker
     workspaces:
-      use: bionic_gcc_64
+      use: focal_gcc_64
     env:
     - SOUFFLE_CATEGORY=Unit,Syntactic,Semantic,Interface,Profile SOUFFLE_CONFS="-j8,-c -j8"
     script:
@@ -159,18 +159,18 @@ jobs:
     name: "Linux gcc 64-bit provenance"
     <<: *docker
     workspaces:
-      use: bionic_gcc_64
+      use: focal_gcc_64
     env:
     - SOUFFLE_CATEGORY=Provenance SOUFFLE_CONFS=",-c"
     script:
       - docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
   - stage: Testing
-    name: "Linux gcc 64-bit fast evaluation tests"
+    name: "Linux gcc 64-bit evaluation tests"
     <<: *docker
     workspaces:
-      use: bionic_gcc_64
+      use: focal_gcc_64
     env:
-    - SOUFFLE_CATEGORY=FastEvaluation SOUFFLE_CONFS="-j8,-c -j8"
+    - SOUFFLE_CATEGORY=Evaluation SOUFFLE_CONFS="-j8,-c -j8"
     script:
       - docker exec -e SOUFFLE_CATEGORY -e SOUFFLE_CONFS souf /bin/sh -c ".travis/run_test.sh"
 
@@ -181,13 +181,16 @@ jobs:
     name: "Debian make install"
     <<: *docker
     workspaces:
-      use: bionic_gcc
+      use: focal_gcc
     script: docker exec souf /bin/sh -c ".travis/test_make_install.sh"
-  # Make the linux deb packages and if successful upload to github releases and bintray
+  # Make the bionic deb packages and if successful upload to github releases and bintray
   # All PRs go to bintray unstable, tagged releases to bintray stable
   - stage: Packaging
     name: "Debian amd64 package"
     <<: *docker
+    before_script:
+      - docker pull souffle/ubuntu:bionic-base
+      - docker run -d -t --name souf -w /souffle --mount src="$(pwd)",target=/souffle,type=bind souffle/ubuntu:bionic-base /bin/sh
     script:
       - docker exec souf /bin/sh -c ".travis/linux/install_debian_deps.sh"
       - docker exec souf /bin/sh -c ".travis/linux/make_debian_package.sh"
@@ -341,8 +344,8 @@ jobs:
     name: "Documenting"
     <<: *docker
     workspaces:
-      use: bionic_gcc
-    script: docker run --mount src="$(pwd)",target=/souffle,type=bind souffle/ubuntu:bionic-base /bin/sh -c "cd /souffle && make doxygen-doc"
+      use: focal_gcc
+    script: docker run --mount src="$(pwd)",target=/souffle,type=bind souffle/ubuntu:focal-base /bin/sh -c "cd /souffle && make doxygen-doc"
     # update the gh-pages branch with doxygen output if the required github token has been set
     # https://pages.github.com/
     deploy:

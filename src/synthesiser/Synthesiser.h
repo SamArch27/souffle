@@ -20,6 +20,7 @@
 #include "ram/Relation.h"
 #include "ram/Statement.h"
 #include "ram/TranslationUnit.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/RecordTable.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "synthesiser/Relation.h"
@@ -55,6 +56,9 @@ private:
     /** Cache for generated types for relations */
     std::set<std::string> typeCache;
 
+    /** Relation map */
+    std::map<std::string, const ram::Relation*> relationMap;
+
 protected:
     /** Get record table */
     const RecordTable& getRecordTable();
@@ -64,6 +68,7 @@ protected:
 
     /** Get relation name */
     const std::string getRelationName(const ram::Relation& rel);
+    const std::string getRelationName(const ram::Relation* rel);
 
     /** Get context name */
     const std::string getOpContextName(const ram::Relation& rel);
@@ -83,8 +88,19 @@ protected:
     /** Lookup read counter */
     size_t lookupReadIdx(const std::string& txt);
 
+    /** Lookup relation by relation name */
+    const ram::Relation* lookup(const std::string& relName) {
+        auto it = relationMap.find(relName);
+        assert(it != relationMap.end() && "relation not found");
+        return it->second;
+    }
+
 public:
-    explicit Synthesiser(ram::TranslationUnit& tUnit) : translationUnit(tUnit) {}
+    explicit Synthesiser(ram::TranslationUnit& tUnit) : translationUnit(tUnit) {
+        ram::visitDepthFirst(tUnit.getProgram(),
+                [&](const ram::Relation& relation) { relationMap[relation.getName()] = &relation; });
+    }
+
     virtual ~Synthesiser() = default;
 
     /** Get translation unit */

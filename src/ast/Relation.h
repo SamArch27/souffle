@@ -18,6 +18,7 @@
 
 #include "RelationTag.h"
 #include "ast/Attribute.h"
+#include "ast/FunctionalConstraint.h"
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "ast/utility/NodeMapper.h"
@@ -108,6 +109,15 @@ public:
         return qualifiers.find(q) != qualifiers.end();
     }
 
+    /** Add functional dependency to this relation */
+    void addDependency(Own<FunctionalConstraint> fd) {
+        functionalDependencies.push_back(std::move(fd));
+    }
+
+    std::vector<FunctionalConstraint*> getFunctionalDependencies() const {
+        return toPtrVector(functionalDependencies);
+    }
+
     Relation* clone() const override {
         auto res = new Relation(name, getSrcLoc());
         res->attributes = souffle::clone(attributes);
@@ -149,6 +159,9 @@ protected:
 
     /** Qualifiers of relation */
     std::set<RelationQualifier> qualifiers;
+
+    /** Functional dependencies of the relation */
+    VecOwn<FunctionalConstraint> functionalDependencies;
 
     /** Datastructure to use for this relation */
     RelationRepresentation representation{RelationRepresentation::DEFAULT};

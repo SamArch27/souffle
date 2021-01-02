@@ -20,10 +20,10 @@
 #include "ram/Expression.h"
 #include "ram/IndexOperation.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
-#include "ram/Utils.h"
+#include "ram/utility/NodeMapper.h"
+#include "ram/utility/Utils.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <iosfwd>
@@ -46,9 +46,9 @@ namespace souffle::ram {
  */
 class IndexAggregate : public IndexOperation, public AbstractAggregate {
 public:
-    IndexAggregate(Own<Operation> nested, AggregateOp fun, Own<RelationReference> relRef,
-            Own<Expression> expression, Own<Condition> condition, RamPattern queryPattern, int ident)
-            : IndexOperation(std::move(relRef), ident, std::move(queryPattern), std::move(nested)),
+    IndexAggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+            Own<Condition> condition, RamPattern queryPattern, int ident)
+            : IndexOperation(rel, ident, std::move(queryPattern), std::move(nested)),
               AbstractAggregate(fun, std::move(expression), std::move(condition)) {}
 
     std::vector<const Node*> getChildNodes() const override {
@@ -66,7 +66,7 @@ public:
         for (const auto& i : queryPattern.second) {
             pattern.second.emplace_back(i->clone());
         }
-        return new IndexAggregate(souffle::clone(&getOperation()), function, souffle::clone(relationRef),
+        return new IndexAggregate(souffle::clone(&getOperation()), function, relation,
                 souffle::clone(expression), souffle::clone(condition), std::move(pattern), getTupleId());
     }
 
@@ -81,7 +81,7 @@ protected:
         os << times(" ", tabpos);
         os << "t" << getTupleId() << ".0=";
         AbstractAggregate::print(os, tabpos);
-        os << "SEARCH t" << getTupleId() << " ∈ " << getRelation().getName();
+        os << "SEARCH t" << getTupleId() << " ∈ " << relation;
         printIndex(os);
         if (!isTrue(condition.get())) {
             os << " WHERE " << getCondition();

@@ -17,8 +17,8 @@
 #include "ram/Operation.h"
 #include "ram/Program.h"
 #include "ram/Statement.h"
-#include "ram/Utils.h"
-#include "ram/Visitor.h"
+#include "ram/utility/Utils.h"
+#include "ram/utility/Visitor.h"
 #include "souffle/utility/MiscUtil.h"
 #include <functional>
 #include <memory>

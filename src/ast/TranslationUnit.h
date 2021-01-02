@@ -86,7 +86,7 @@ public:
     }
 
     /** Destroy all cached analyses of translation unit */
-    void invalidateAnalyses() {
+    void invalidateAnalyses() const {
         analyses.clear();
     }
 

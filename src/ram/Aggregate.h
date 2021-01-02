@@ -19,11 +19,11 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
-#include "ram/Utils.h"
+#include "ram/utility/NodeMapper.h"
+#include "ram/utility/Utils.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <iosfwd>
@@ -48,9 +48,9 @@ namespace souffle::ram {
  */
 class Aggregate : public RelationOperation, public AbstractAggregate {
 public:
-    Aggregate(Own<Operation> nested, AggregateOp fun, Own<RelationReference> relRef,
-            Own<Expression> expression, Own<Condition> condition, int ident)
-            : RelationOperation(std::move(relRef), ident, std::move(nested)),
+    Aggregate(Own<Operation> nested, AggregateOp fun, std::string rel, Own<Expression> expression,
+            Own<Condition> condition, int ident)
+            : RelationOperation(rel, ident, std::move(nested)),
               AbstractAggregate(fun, std::move(expression), std::move(condition)) {}
 
     std::vector<const Node*> getChildNodes() const override {
@@ -61,8 +61,8 @@ public:
     }
 
     Aggregate* clone() const override {
-        return new Aggregate(souffle::clone(&getOperation()), function, souffle::clone(relationRef),
-                souffle::clone(expression), souffle::clone(condition), getTupleId());
+        return new Aggregate(souffle::clone(&getOperation()), function, relation, souffle::clone(expression),
+                souffle::clone(condition), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {
@@ -76,7 +76,7 @@ protected:
         os << times(" ", tabpos);
         os << "t" << getTupleId() << ".0=";
         AbstractAggregate::print(os, tabpos);
-        os << "FOR ALL t" << getTupleId() << " ∈ " << getRelation().getName();
+        os << "FOR ALL t" << getTupleId() << " ∈ " << getRelation();
         if (!isTrue(condition.get())) {
             os << " WHERE " << getCondition();
         }

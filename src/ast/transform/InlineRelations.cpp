@@ -40,6 +40,7 @@
 #include "ast/UnnamedVariable.h"
 #include "ast/UserDefinedFunctor.h"
 #include "ast/Variable.h"
+#include "ast/analysis/PolymorphicObjects.h"
 #include "ast/utility/NodeMapper.h"
 #include "ast/utility/Utils.h"
 #include "ast/utility/Visitor.h"
@@ -83,7 +84,8 @@ NullableVector<std::vector<Literal*>> getInlinedLiteral(Program&, Literal*);
 /**
  * Replace constants in the head of inlined clauses with (constrained) variables.
  */
-void normaliseInlinedHeads(Program& program) {
+bool normaliseInlinedHeads(Program& program) {
+    bool changed = false;
     static int newVarCount = 0;
 
     // Go through the clauses of all inlined relations
@@ -111,15 +113,9 @@ void normaliseInlinedHeads(Program& program) {
                     newVar << "<new_var_" << newVarCount++ << ">";
                     clauseHead->addArgument(mk<ast::Variable>(newVar.str()));
 
-                    auto* const c_num = dynamic_cast<const NumericConstant*>(constant);
-                    assert((!c_num || c_num->getType()) && "numeric constant wasn't bound to a type");
-                    auto opEq = c_num && *c_num->getType() == NumericConstant::Type::Float
-                                        ? BinaryConstraintOp::FEQ
-                                        : BinaryConstraintOp::EQ;
-
                     // Add a body constraint to set the variable's value to be the original constant
-                    newClause->addToBody(mk<BinaryConstraint>(
-                            opEq, mk<ast::Variable>(newVar.str()), souffle::clone(constant)));
+                    newClause->addToBody(mk<BinaryConstraint>(BinaryConstraintOp::EQ,
+                            mk<ast::Variable>(newVar.str()), souffle::clone(constant)));
                 } else {
                     // Already a variable
                     clauseHead->addArgument(souffle::clone(arg));
@@ -131,15 +127,19 @@ void normaliseInlinedHeads(Program& program) {
             // Replace the old clause with this one
             program.addClause(std::move(newClause));
             program.removeClause(clause);
+            changed = true;
         }
     }
+
+    return changed;
 }
 
 /**
  * Removes all underscores in all atoms of inlined relations
  */
-void nameInlinedUnderscores(Program& program) {
+bool nameInlinedUnderscores(Program& program) {
     struct M : public NodeMapper {
+        mutable bool changed = false;
         const std::set<QualifiedName> inlinedRelations;
         bool replaceUnderscores;
 
@@ -157,6 +157,7 @@ void nameInlinedUnderscores(Program& program) {
                         // in all of its subnodes with named variables.
                         M replace(inlinedRelations, true);
                         node->apply(replace);
+                        changed |= replace.changed;
                         return node;
                     }
                 }
@@ -166,6 +167,7 @@ void nameInlinedUnderscores(Program& program) {
                 // general
                 std::stringstream newVarName;
                 newVarName << "<underscore_" << underscoreCount++ << ">";
+                changed = true;
                 return mk<ast::Variable>(newVarName.str());
             }
 
@@ -185,6 +187,7 @@ void nameInlinedUnderscores(Program& program) {
     // Apply the renaming procedure to the entire program
     M update(inlinedRelations, false);
     program.apply(update);
+    return update.changed;
 }
 
 /**
@@ -549,7 +552,7 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
 
                 // Create a new aggregator per version of the target expression
                 for (Argument* newArg : argumentVersions.getVector()) {
-                    auto* newAggr = new Aggregator(aggr->getOperator(), Own<Argument>(newArg));
+                    auto* newAggr = new Aggregator(aggr->getBaseOperator(), Own<Argument>(newArg));
                     VecOwn<Literal> newBody;
                     for (Literal* lit : aggr->getBodyLiterals()) {
                         newBody.push_back(souffle::clone(lit));
@@ -573,7 +576,7 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                     // Literal can be inlined!
                     changed = true;
 
-                    AggregateOp op = aggr->getOperator();
+                    AggregateOp op = aggr->getBaseOperator();
 
                     // Create an aggregator (with the same operation) for each possible body
                     std::vector<Aggregator*> aggrVersions;
@@ -582,7 +585,7 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                         if (aggr->getTargetExpression() != nullptr) {
                             target = souffle::clone(aggr->getTargetExpression());
                         }
-                        auto* newAggr = new Aggregator(aggr->getOperator(), std::move(target));
+                        auto* newAggr = new Aggregator(aggr->getBaseOperator(), std::move(target));
 
                         VecOwn<Literal> newBody;
                         // Add in everything except the current literal being replaced
@@ -653,7 +656,8 @@ NullableVector<Argument*> getInlinedArgument(Program& program, const Argument* a
                         ++j;
                     }
                     if (const auto* intrFunc = dynamic_cast<const IntrinsicFunctor*>(arg)) {
-                        auto* newFunctor = new IntrinsicFunctor(intrFunc->getFunction(), std::move(argsCopy));
+                        auto* newFunctor =
+                                new IntrinsicFunctor(intrFunc->getBaseFunctionOp(), std::move(argsCopy));
                         newFunctor->setSrcLoc(functor->getSrcLoc());
                         versions.push_back(newFunctor);
                     } else if (const auto* userFunc = dynamic_cast<const UserDefinedFunctor*>(arg)) {
@@ -859,7 +863,7 @@ NullableVector<std::vector<Literal*>> getInlinedLiteral(Program& program, Litera
         if (lhsVersions.isValid()) {
             changed = true;
             for (Argument* newLhs : lhsVersions.getVector()) {
-                Literal* newLit = new BinaryConstraint(constraint->getOperator(), Own<Argument>(newLhs),
+                Literal* newLit = new BinaryConstraint(constraint->getBaseOperator(), Own<Argument>(newLhs),
                         souffle::clone(constraint->getRHS()));
                 versions.push_back(newLit);
             }
@@ -868,7 +872,7 @@ NullableVector<std::vector<Literal*>> getInlinedLiteral(Program& program, Litera
             if (rhsVersions.isValid()) {
                 changed = true;
                 for (Argument* newRhs : rhsVersions.getVector()) {
-                    Literal* newLit = new BinaryConstraint(constraint->getOperator(),
+                    Literal* newLit = new BinaryConstraint(constraint->getBaseOperator(),
                             souffle::clone(constraint->getLHS()), Own<Argument>(newRhs));
                     versions.push_back(newLit);
                 }
@@ -995,10 +999,10 @@ bool InlineRelationsTransformer::transform(TranslationUnit& translationUnit) {
 
     // Replace constants in the head of inlined clauses with (constrained) variables.
     // This is done to simplify atom unification, particularly when negations are involved.
-    normaliseInlinedHeads(program);
+    changed |= normaliseInlinedHeads(program);
 
     // Remove underscores in inlined atoms in the program to avoid issues during atom unification
-    nameInlinedUnderscores(program);
+    changed |= nameInlinedUnderscores(program);
 
     // Keep trying to inline things until we reach a fixed point.
     // Since we know there are no cyclic dependencies between inlined relations, this will necessarily
@@ -1037,6 +1041,7 @@ bool InlineRelationsTransformer::transform(TranslationUnit& translationUnit) {
         // Delete all clauses that were replaced
         for (const Clause* clause : clausesToDelete) {
             program.removeClause(clause);
+            changed = true;
         }
     }
 

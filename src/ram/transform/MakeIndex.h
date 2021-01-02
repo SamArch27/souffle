@@ -25,6 +25,7 @@
 #include "ram/Scan.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Level.h"
+#include "ram/analysis/Relation.h"
 #include "ram/transform/Transformer.h"
 #include <cstddef>
 #include <memory>
@@ -79,7 +80,8 @@ public:
     using ExpressionPair = std::pair<Own<Expression>, Own<Expression>>;
 
     ExpressionPair getExpressionPair(const Constraint* binRelOp, size_t& element, int identifier);
-    ExpressionPair getLowerUpperExpression(Condition* c, size_t& element, int level);
+    ExpressionPair getLowerUpperExpression(
+            Condition* c, size_t& element, int level, RelationRepresentation rep);
 
     /**
      * @param AttributeTypes to indicate type of each attribute in the relation
@@ -87,10 +89,11 @@ public:
      * @param Flag to indicate whether operation is indexable
      * @param A list of conditions that will be transformed to query patterns
      * @param Tuple identifier of the indexable operation
+     * @param RelationRepresentation identifying the data structure
      * @result Remaining conditions that could not be transformed to an index
      */
     Own<Condition> constructPattern(const std::vector<std::string>& attributeTypes, RamPattern& queryPattern,
-            bool& indexable, VecOwn<Condition> conditionList, int identifier);
+            bool& indexable, VecOwn<Condition> conditionList, int identifier, RelationRepresentation rep);
 
     /**
      * @brief Rewrite a scan operation to an indexed scan operation
@@ -125,10 +128,14 @@ public:
 
 protected:
     analysis::LevelAnalysis* rla{nullptr};
+
     bool transform(TranslationUnit& translationUnit) override {
         rla = translationUnit.getAnalysis<analysis::LevelAnalysis>();
+        relAnalysis = translationUnit.getAnalysis<analysis::RelationAnalysis>();
         return makeIndex(translationUnit.getProgram());
     }
+
+    analysis::RelationAnalysis* relAnalysis{nullptr};
 };
 
 }  // namespace souffle::ram::transform

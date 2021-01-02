@@ -9,6 +9,7 @@
 #include "synthesiser/Relation.h"
 #include "RelationTag.h"
 #include "ram/analysis/Index.h"
+#include "souffle/SouffleInterface.h"
 #include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -20,8 +21,9 @@
 
 namespace souffle::synthesiser {
 
+using namespace stream_write_qualified_char_as_number;
 using namespace ram;
-using ram::analysis::MinIndexSelection;
+using ram::analysis::LexOrder;
 using ram::analysis::SearchSignature;
 
 std::string Relation::getTypeAttributeString(const std::vector<std::string>& attributeTypes,
@@ -41,40 +43,40 @@ std::string Relation::getTypeAttributeString(const std::vector<std::string>& att
 }
 
 Own<Relation> Relation::getSynthesiserRelation(
-        const ram::Relation& ramRel, const MinIndexSelection& indexSet, bool isProvenance) {
+        const ram::Relation& ramRel, const ram::analysis::IndexCluster& indexSelection, bool isProvenance) {
     Relation* rel;
 
     // Handle the qualifier in souffle code
     if (isProvenance) {
-        rel = new DirectRelation(ramRel, indexSet, isProvenance);
+        rel = new DirectRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.isNullary()) {
-        rel = new NullaryRelation(ramRel, indexSet, isProvenance);
+        rel = new NullaryRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::BTREE) {
-        rel = new DirectRelation(ramRel, indexSet, isProvenance);
+        rel = new DirectRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::RTREE) {
-        rel = new RtreeRelation(ramRel, indexSet, isProvenance);
+        rel = new RtreeRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::BRIE) {
-        rel = new BrieRelation(ramRel, indexSet, isProvenance);
+        rel = new BrieRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::EQREL) {
-        rel = new EqrelRelation(ramRel, indexSet, isProvenance);
+        rel = new EqrelRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::INFO) {
-        rel = new InfoRelation(ramRel, indexSet, isProvenance);
+        rel = new InfoRelation(ramRel, indexSelection, isProvenance);
     } else {
         std::string ds = Global::config().get("default-datastructure");
         if (!Global::config().has("default-datastructure") || ds == "btree") {
             // Handle the data structure command line flag
             if (ramRel.getArity() > 6) {
-                rel = new IndirectRelation(ramRel, indexSet, isProvenance);
+                rel = new IndirectRelation(ramRel, indexSelection, isProvenance);
             } else {
-                rel = new DirectRelation(ramRel, indexSet, isProvenance);
+                rel = new DirectRelation(ramRel, indexSelection, isProvenance);
             }
         } else {
             if (ds == "rtree") {
-                rel = new RtreeRelation(ramRel, indexSet, isProvenance);
+                rel = new RtreeRelation(ramRel, indexSelection, isProvenance);
             } else if (ramRel.getArity() > 6) {
-                rel = new IndirectRelation(ramRel, indexSet, isProvenance);
+                rel = new IndirectRelation(ramRel, indexSelection, isProvenance);
             } else {
-                rel = new DirectRelation(ramRel, indexSet, isProvenance);
+                rel = new DirectRelation(ramRel, indexSelection, isProvenance);
             }
         }
     }
@@ -127,7 +129,7 @@ void NullaryRelation::generateTypeStruct(std::ostream&) {
 /** Generate index set for a direct indexed relation */
 void DirectRelation::computeIndices() {
     // Generate and set indices
-    MinIndexSelection::OrderCollection inds = indices.getAllOrders();
+    auto inds = indexSelection.getAllOrders();
 
     // generate a full index if no indices exist
     assert(!inds.empty() && "no full index in relation");
@@ -188,7 +190,7 @@ std::string DirectRelation::getTypeName() {
         res << "__" << join(ind, "_");
     }
 
-    for (auto& search : getMinIndexSelection().getSearches()) {
+    for (auto& search : indexSelection.getSearches()) {
         res << "__" << search;
     }
 
@@ -202,11 +204,12 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     auto types = relation.getAttributeTypes();
     const auto& inds = getIndices();
     size_t numIndexes = inds.size();
-    std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
+    std::map<LexOrder, int> indexToNumMap;
 
     bool hintsOff = Global::config().get("hints") != "on";
     // struct definition
     out << "struct " << getTypeName() << " {\n";
+    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // stored tuple type
     out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
@@ -228,8 +231,8 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     for (size_t i = 0; i < inds.size(); i++) {
         auto& ind = inds[i];
 
-        if (i < getMinIndexSelection().getAllOrders().size()) {
-            indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
+        if (i < indexSelection.getAllOrders().size()) {
+            indexToNumMap[indexSelection.getAllOrders()[i]] = i;
         }
 
         std::vector<std::string> typecasts;
@@ -438,8 +441,8 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // lowerUpperRange methods for each pattern which is used to search this relation
-    for (auto search : getMinIndexSelection().getSearches()) {
-        auto& lexOrder = getMinIndexSelection().getLexOrder(search);
+    for (auto search : indexSelection.getSearches()) {
+        auto& lexOrder = indexSelection.getLexOrder(search);
         size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
@@ -553,7 +556,7 @@ void IndirectRelation::computeIndices() {
     assert(!isProvenance && "indirect indexes cannot used for provenance");
 
     // Generate and set indices
-    MinIndexSelection::OrderCollection inds = indices.getAllOrders();
+    auto inds = indexSelection.getAllOrders();
 
     // generate a full index if no indices exist
     assert(!inds.empty() && "no full index in relation");
@@ -587,7 +590,7 @@ std::string IndirectRelation::getTypeName() {
         res << "__" << join(ind, "_");
     }
 
-    for (auto& search : getMinIndexSelection().getSearches()) {
+    for (auto& search : indexSelection.getSearches()) {
         res << "__" << search;
     }
 
@@ -600,11 +603,12 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     const auto& inds = getIndices();
     auto types = relation.getAttributeTypes();
     size_t numIndexes = inds.size();
-    std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
+    std::map<LexOrder, int> indexToNumMap;
     bool hintsOff = Global::config().get("hints") != "on";
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
+    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // stored tuple type
     out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
@@ -617,8 +621,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     for (size_t i = 0; i < inds.size(); i++) {
         auto ind = inds[i];
 
-        if (i < getMinIndexSelection().getAllOrders().size()) {
-            indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
+        if (i < indexSelection.getAllOrders().size()) {
+            indexToNumMap[indexSelection.getAllOrders()[i]] = i;
         }
 
         std::vector<std::string> typecasts;
@@ -812,8 +816,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // lowerUpperRange methods for each pattern which is used to search this relation
-    for (auto search : getMinIndexSelection().getSearches()) {
-        auto& lexOrder = getMinIndexSelection().getLexOrder(search);
+    for (auto search : indexSelection.getSearches()) {
+        auto& lexOrder = indexSelection.getLexOrder(search);
         size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<iterator_" << indNum << "> lowerUpperRange_" << search;
@@ -921,7 +925,7 @@ void BrieRelation::computeIndices() {
     assert(!isProvenance && "bries cannot be used with provenance");
 
     // Generate and set indices
-    MinIndexSelection::OrderCollection inds = indices.getAllOrders();
+    auto inds = indexSelection.getAllOrders();
 
     // generate a full index if no indices exist
     assert(!inds.empty() && "No full index in relation");
@@ -964,7 +968,7 @@ std::string BrieRelation::getTypeName() {
         res << "__" << join(ind, "_");
     }
 
-    for (auto& search : getMinIndexSelection().getSearches()) {
+    for (auto& search : indexSelection.getSearches()) {
         res << "__" << search;
     }
 
@@ -976,15 +980,16 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     size_t arity = getArity();
     const auto& inds = getIndices();
     size_t numIndexes = inds.size();
-    std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
+    std::map<LexOrder, int> indexToNumMap;
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
+    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // define trie structures
     for (size_t i = 0; i < inds.size(); i++) {
-        if (i < getMinIndexSelection().getAllOrders().size()) {
-            indexToNumMap[getMinIndexSelection().getAllOrders()[i]] = i;
+        if (i < indexSelection.getAllOrders().size()) {
+            indexToNumMap[indexSelection.getAllOrders()[i]] = i;
         }
         out << "using t_ind_" << i << " = Trie<" << inds[i].size() << ">;\n";
         out << "t_ind_" << i << " ind_" << i << ";\n";
@@ -1117,8 +1122,8 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // loweUpperRange methods
-    for (auto search : getMinIndexSelection().getSearches()) {
-        auto& lexOrder = getMinIndexSelection().getLexOrder(search);
+    for (auto search : indexSelection.getSearches()) {
+        auto& lexOrder = indexSelection.getLexOrder(search);
         size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<iterator_" << indNum << "> lowerUpperRange_" << search;
@@ -1225,15 +1230,17 @@ std::string EqrelRelation::getTypeName() {
 
 /** Generate type struct of a eqrel relation */
 void EqrelRelation::generateTypeStruct(std::ostream& out) {
+    constexpr souffle::Relation::arity_type arity = 2;
     const auto& inds = getIndices();
     size_t numIndexes = inds.size();
-    std::map<MinIndexSelection::LexOrder, int> indexToNumMap;
+    std::map<LexOrder, int> indexToNumMap;
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
+    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // eqrel is only for binary relations
-    out << "using t_tuple = Tuple<RamDomain, 2>;\n";
+    out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
     out << "using t_ind_" << masterIndex << " = EquivalenceRelation<t_tuple>;\n";
     out << "t_ind_" << masterIndex << " ind_" << masterIndex << ";\n";
 
@@ -1334,7 +1341,6 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // lowerUpperRange methods, one for each of the 4 possible search patterns
-    size_t arity = 2;
     for (int i = 1; i < 4; i++) {
         SearchSignature s(arity);
         // if the bit is set then set it in the search signature
@@ -1433,7 +1439,7 @@ void RtreeRelation::computeIndices() {}
 std::string RtreeRelation::getTypeName() {
     std::stringstream res;
     res << "t_rtree_" << getArity();
-    for (auto& search : getMinIndexSelection().getSearches()) {
+    for (auto& search : indexSelection.getSearches()) {
         res << "__" << search;
     }
     return res.str();
@@ -1448,6 +1454,7 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
 
     // struct definition
     out << "struct " << getTypeName() << " {\n";
+    out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // stored tuple type
     out << "using t_tuple = Tuple<RamDomain, " << arity << ">;\n";
@@ -1534,9 +1541,10 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";  // end of insert(t_tuple&,context&)
 
     out << "bool insert(const RamDomain* ramDomain) {\n";
-    out << "t_tuple t;\n";
-    out << "std::copy(ramDomain,ramDomain+" << arity << ",t.data);\n";
-    out << "return insert(t);\n";
+    out << "RamDomain data[" << arity << "];\n";
+    out << "std::copy(ramDomain, ramDomain + " << arity << ", data);\n";
+    out << "const t_tuple& tuple = reinterpret_cast<const t_tuple&>(data);\n";
+    out << "return insert(tuple);\n";
     out << "}\n";  // end of insert(RamDomain*)
 
     std::vector<std::string> decls;
@@ -1569,7 +1577,7 @@ void RtreeRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // lowerUpperRange methods for each pattern which is used to search this relation
-    for (auto& search : getMinIndexSelection().getSearches()) {
+    for (auto& search : indexSelection.getSearches()) {
         out << "souffle::range<iterator> lowerUpperRange_" << search;
         out << "(const t_tuple& low, const t_tuple& high) const {\n";
         if (search == SearchSignature::getFullSearchSignature(search.arity())) {

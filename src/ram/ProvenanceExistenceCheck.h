@@ -34,15 +34,15 @@ namespace souffle::ram {
  */
 class ProvenanceExistenceCheck : public AbstractExistenceCheck {
 public:
-    ProvenanceExistenceCheck(Own<RelationReference> relRef, VecOwn<Expression> vals)
-            : AbstractExistenceCheck(std::move(relRef), std::move(vals)) {}
+    ProvenanceExistenceCheck(std::string rel, VecOwn<Expression> vals)
+            : AbstractExistenceCheck(rel, std::move(vals)) {}
 
     ProvenanceExistenceCheck* clone() const override {
         VecOwn<Expression> newValues;
         for (auto& cur : values) {
             newValues.emplace_back(cur->clone());
         }
-        return new ProvenanceExistenceCheck(souffle::clone(relationRef), std::move(newValues));
+        return new ProvenanceExistenceCheck(relation, std::move(newValues));
     }
 
 protected:

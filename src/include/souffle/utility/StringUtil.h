@@ -323,6 +323,13 @@ inline std::vector<std::string> splitString(const std::string& str, char delimit
 }
 
 /**
+ * Strips the prefix of a given string if it exists. No change otherwise.
+ */
+inline std::string stripPrefix(const std::string& prefix, const std::string& element) {
+    return isPrefix(prefix, element) ? element.substr(prefix.length()) : element;
+}
+
+/**
  * Stringify a string using escapes for escape, newline, tab, double-quotes and semicolons
  */
 inline std::string stringify(const std::string& input) {

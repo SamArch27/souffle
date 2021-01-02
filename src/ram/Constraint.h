@@ -20,7 +20,7 @@
 #include "ram/Condition.h"
 #include "ram/Expression.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/BinaryConstraintOps.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
@@ -94,7 +94,7 @@ protected:
     }
 
     /** Operator */
-    BinaryConstraintOp op;
+    const BinaryConstraintOp op;
 
     /** Left-hand side of constraint*/
     Own<Expression> lhs;

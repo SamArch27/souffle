@@ -27,6 +27,7 @@
 #include <cassert>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -59,12 +60,12 @@ public:
     }
 
     /** Return binary operator */
-    BinaryConstraintOp getOperator() const {
+    BinaryConstraintOp getBaseOperator() const {
         return operation;
     }
 
     /** Set binary operator */
-    void setOperator(BinaryConstraintOp op) {
+    void setBaseOperator(BinaryConstraintOp op) {
         operation = op;
     }
 
@@ -83,7 +84,11 @@ public:
 
 protected:
     void print(std::ostream& os) const override {
-        os << *lhs << " " << operation << " " << *rhs;
+        if (isInfixFunctorOp(operation)) {
+            os << *lhs << " " << operation << " " << *rhs;
+        } else {
+            os << operation << "(" << *lhs << ", " << *rhs << ")";
+        }
     }
 
     bool equal(const Node& node) const override {
@@ -92,7 +97,7 @@ protected:
         return operation == other.operation && equal_ptr(lhs, other.lhs) && equal_ptr(rhs, other.rhs);
     }
 
-    /** Constraint operator */
+    /** Constraint (base) operator */
     BinaryConstraintOp operation;
 
     /** Left-hand side argument of binary constraint */

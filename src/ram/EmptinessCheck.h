@@ -19,8 +19,8 @@
 
 #include "ram/Condition.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Relation.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include <cassert>
@@ -45,39 +45,29 @@ namespace souffle::ram {
  */
 class EmptinessCheck : public Condition {
 public:
-    EmptinessCheck(Own<RelationReference> relRef) : relationRef(std::move(relRef)) {
-        assert(relationRef != nullptr && "Relation reference is a nullptr");
-    }
+    EmptinessCheck(std::string rel) : relation(std::move(rel)) {}
 
     /** @brief Get relation */
-    const Relation& getRelation() const {
-        return *relationRef->get();
-    }
-
-    std::vector<const Node*> getChildNodes() const override {
-        return {relationRef.get()};
+    const std::string& getRelation() const {
+        return relation;
     }
 
     EmptinessCheck* clone() const override {
-        return new EmptinessCheck(souffle::clone(relationRef));
-    }
-
-    void apply(const NodeMapper& map) override {
-        relationRef = map(std::move(relationRef));
+        return new EmptinessCheck(relation);
     }
 
 protected:
     void print(std::ostream& os) const override {
-        os << "(" << getRelation().getName() << " = ∅)";
+        os << "(" << relation << " = ∅)";
     }
 
     bool equal(const Node& node) const override {
         const auto& other = static_cast<const EmptinessCheck&>(node);
-        return equal_ptr(relationRef, other.relationRef);
+        return relation == other.relation;
     }
 
     /** Relation */
-    Own<RelationReference> relationRef;
+    const std::string relation;
 };
 
 }  // namespace souffle::ram

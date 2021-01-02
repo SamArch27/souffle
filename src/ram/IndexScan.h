@@ -47,10 +47,10 @@ using RamPattern = std::pair<RamBound, RamBound>;
  */
 class IndexScan : public IndexOperation {
 public:
-    IndexScan(Own<RelationReference> r, int ident, RamPattern queryPattern, Own<Operation> nested,
+    IndexScan(std::string rel, int ident, RamPattern queryPattern, Own<Operation> nested,
             std::string profileText = "")
-            : IndexOperation(std::move(r), ident, std::move(queryPattern), std::move(nested),
-                      std::move(profileText)) {}
+            : IndexOperation(rel, ident, std::move(queryPattern), std::move(nested), std::move(profileText)) {
+    }
 
     IndexScan* clone() const override {
         RamPattern resQueryPattern;
@@ -60,16 +60,14 @@ public:
         for (const auto& i : queryPattern.second) {
             resQueryPattern.second.emplace_back(i->clone());
         }
-        return new IndexScan(souffle::clone(relationRef), getTupleId(), std::move(resQueryPattern),
+        return new IndexScan(relation, getTupleId(), std::move(resQueryPattern),
                 souffle::clone(&getOperation()), getProfileText());
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        const Relation& rel = getRelation();
         os << times(" ", tabpos);
-        os << "FOR t" << getTupleId() << " IN ";
-        os << rel.getName();
+        os << "FOR t" << getTupleId() << " IN " << relation;
         printIndex(os);
         os << std::endl;
         IndexOperation::print(os, tabpos + 1);

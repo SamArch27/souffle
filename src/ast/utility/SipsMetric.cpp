@@ -92,7 +92,7 @@ std::unique_ptr<SipsMetric> SipsMetric::create(const std::string& heuristic, con
 std::vector<double> StrictSips::evaluateCosts(
         const std::vector<Atom*> atoms, const BindingStore& /* bindingStore */) const {
     // Goal: Always choose the left-most atom
-    std::vector<double> cost(atoms.size());
+    std::vector<double> cost;
     for (const auto* atom : atoms) {
         cost.push_back(atom == nullptr ? std::numeric_limits<double>::max() : 0);
     }
@@ -341,4 +341,4 @@ std::vector<double> DeltaInputSips::evaluateCosts(
     return cost;
 }
 
-};  // namespace souffle::ast
+}  // namespace souffle::ast

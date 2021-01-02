@@ -22,9 +22,9 @@
 #include "ram/IndexOperation.h"
 #include "ram/NestedOperation.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Relation.h"
-#include "ram/Utils.h"
+#include "ram/utility/NodeMapper.h"
+#include "ram/utility/Utils.h"
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
@@ -54,10 +54,10 @@ namespace souffle::ram {
  */
 class ParallelIndexChoice : public IndexChoice, public AbstractParallel {
 public:
-    ParallelIndexChoice(Own<RelationReference> r, int ident, Own<Condition> cond, RamPattern queryPattern,
+    ParallelIndexChoice(std::string rel, int ident, Own<Condition> cond, RamPattern queryPattern,
             Own<Operation> nested, std::string profileText = "")
-            : IndexChoice(std::move(r), ident, std::move(cond), std::move(queryPattern), std::move(nested),
-                      profileText) {}
+            : IndexChoice(
+                      rel, ident, std::move(cond), std::move(queryPattern), std::move(nested), profileText) {}
 
     ParallelIndexChoice* clone() const override {
         RamPattern resQueryPattern;
@@ -67,17 +67,15 @@ public:
         for (const auto& i : queryPattern.second) {
             resQueryPattern.second.emplace_back(i->clone());
         }
-        auto* res =
-                new ParallelIndexChoice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
-                        std::move(resQueryPattern), souffle::clone(&getOperation()), getProfileText());
+        auto* res = new ParallelIndexChoice(relation, getTupleId(), souffle::clone(condition),
+                std::move(resQueryPattern), souffle::clone(&getOperation()), getProfileText());
         return res;
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        const Relation& rel = getRelation();
         os << times(" ", tabpos);
-        os << "PARALLEL CHOICE " << rel.getName() << " AS t" << getTupleId();
+        os << "PARALLEL CHOICE " << relation << " AS t" << getTupleId();
         printIndex(os);
         os << " WHERE " << getCondition();
         os << std::endl;

@@ -29,12 +29,6 @@ namespace souffle::ast {
 
 class Functor : public Term {
 public:
-    /** Return return type of functor */
-    virtual TypeAttribute getReturnType() const = 0;
-
-    /** Return argument type of functor */
-    virtual TypeAttribute getArgType(const size_t arg) const = 0;
-
     Functor* clone() const override = 0;
 
 protected:

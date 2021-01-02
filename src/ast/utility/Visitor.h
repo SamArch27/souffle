@@ -31,6 +31,7 @@
 #include "ast/Constant.h"
 #include "ast/Constraint.h"
 #include "ast/Counter.h"
+#include "ast/FunctionalConstraint.h"
 #include "ast/Functor.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Literal.h"
@@ -40,12 +41,10 @@
 #include "ast/NumericConstant.h"
 #include "ast/Pragma.h"
 #include "ast/Program.h"
-#include "ast/ProvenanceNegation.h"
 #include "ast/RecordInit.h"
 #include "ast/RecordType.h"
 #include "ast/Relation.h"
 #include "ast/StringConstant.h"
-#include "ast/SubroutineArgument.h"
 #include "ast/SubsetType.h"
 #include "ast/Term.h"
 #include "ast/Type.h"
@@ -120,14 +119,13 @@ struct Visitor : public ast_visitor_tag {
         FORWARD(RecordInit)
         FORWARD(BranchInit)
         FORWARD(Aggregator)
-        FORWARD(SubroutineArgument)
 
         // literals
         FORWARD(Atom)
-        FORWARD(ProvenanceNegation)
         FORWARD(Negation)
         FORWARD(BooleanConstraint)
         FORWARD(BinaryConstraint)
+        FORWARD(FunctionalConstraint)
 
         // components
         FORWARD(ComponentType);
@@ -166,7 +164,6 @@ protected:
     LINK(UnnamedVariable, Argument)
     LINK(Counter, Argument)
     LINK(TypeCast, Argument)
-    LINK(SubroutineArgument, Argument)
     LINK(BranchInit, Argument)
 
     LINK(NumericConstant, Constant)
@@ -188,12 +185,12 @@ protected:
 
     // literals
     LINK(Atom, Literal)
-    LINK(ProvenanceNegation, Negation)
     LINK(Negation, Literal)
     LINK(Literal, Node);
 
     LINK(BooleanConstraint, Constraint)
     LINK(BinaryConstraint, Constraint)
+    LINK(FunctionalConstraint, Constraint)
     LINK(Constraint, Literal)
 
     // components

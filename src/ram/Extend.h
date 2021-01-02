@@ -36,28 +36,27 @@ namespace souffle::ram {
  */
 class Extend : public BinRelationStatement {
 public:
-    Extend(Own<RelationReference> tRef, Own<RelationReference> sRef)
-            : BinRelationStatement(std::move(sRef), std::move(tRef)) {}
+    Extend(std::string tRef, const std::string& sRef) : BinRelationStatement(sRef, tRef) {}
 
     /** @brief Get source relation */
-    const Relation& getSourceRelation() const {
+    const std::string& getSourceRelation() const {
         return getFirstRelation();
     }
 
     /** @brief Get target relation */
-    const Relation& getTargetRelation() const {
+    const std::string& getTargetRelation() const {
         return getSecondRelation();
     }
 
     Extend* clone() const override {
-        auto* res = new Extend(souffle::clone(second), souffle::clone(first));
+        auto* res = new Extend(second, first);
         return res;
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
         os << times(" ", tabpos);
-        os << "EXTEND " << getTargetRelation().getName() << " WITH " << getSourceRelation().getName();
+        os << "EXTEND " << getTargetRelation() << " WITH " << getSourceRelation();
         os << std::endl;
     }
 };

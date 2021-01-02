@@ -196,46 +196,25 @@ bool isOfKind(const TypeSet& typeSet, TypeAttribute kind) {
 }
 
 std::string getTypeQualifier(const Type& type) {
-    struct visitor : public VisitOnceTypeVisitor<std::string> {
-        std::string visitUnionType(const UnionType& type) const override {
-            return tfm::format("%s[%s]", visitType(type),
-                    join(type.getElementTypes(), ", ",
-                            [&](std::ostream& out, const auto* elementType) { out << visit(*elementType); }));
+    std::string kind = [&]() {
+        if (isOfKind(type, TypeAttribute::Signed)) {
+            return "i";
+        } else if (isOfKind(type, TypeAttribute::Unsigned)) {
+            return "u";
+        } else if (isOfKind(type, TypeAttribute::Float)) {
+            return "f";
+        } else if (isOfKind(type, TypeAttribute::Symbol)) {
+            return "s";
+        } else if (isOfKind(type, TypeAttribute::Record)) {
+            return "r";
+        } else if (isOfKind(type, TypeAttribute::ADT)) {
+            return "+";
+        } else {
+            fatal("Unsupported kind");
         }
+    }();
 
-        std::string visitRecordType(const RecordType& type) const override {
-            return tfm::format("%s{%s}", visitType(type),
-                    join(type.getFields(), ", ",
-                            [&](std::ostream& out, const auto* field) { out << visit(*field); }));
-        }
-
-        std::string visitType(const Type& type) const override {
-            std::string str;
-
-            if (isOfKind(type, TypeAttribute::Signed)) {
-                str.append("i");
-            } else if (isOfKind(type, TypeAttribute::Unsigned)) {
-                str.append("u");
-            } else if (isOfKind(type, TypeAttribute::Float)) {
-                str.append("f");
-            } else if (isOfKind(type, TypeAttribute::Symbol)) {
-                str.append("s");
-            } else if (isOfKind(type, TypeAttribute::Record)) {
-                str.append("r");
-            } else if (isOfKind(type, TypeAttribute::ADT)) {
-                str.append("+");
-            } else {
-                fatal("Unsupported kind");
-            }
-
-            str.append(":");
-            str.append(toString(type.getName()));
-            seen[&type] = str;
-            return str;
-        }
-    };
-
-    return visitor().visit(type);
+    return tfm::format("%s:%s", kind, type.getName());
 }
 
 bool isSubtypeOf(const Type& a, const Type& b) {
@@ -367,7 +346,7 @@ bool haveCommonSupertype(const Type& a, const Type& b) {
 
 TypeAttribute getTypeAttribute(const Type& type) {
     for (auto typeAttribute : {TypeAttribute::Signed, TypeAttribute::Unsigned, TypeAttribute::Float,
-                 TypeAttribute::Record, TypeAttribute::Symbol}) {
+                 TypeAttribute::Record, TypeAttribute::Symbol, TypeAttribute::ADT}) {
         if (isOfKind(type, typeAttribute)) {
             return typeAttribute;
         }
@@ -387,6 +366,10 @@ std::optional<TypeAttribute> getTypeAttribute(const TypeSet& type) {
 
 bool areEquivalentTypes(const Type& a, const Type& b) {
     return isSubtypeOf(a, b) && isSubtypeOf(b, a);
+}
+
+bool isADTEnum(const AlgebraicDataType& type) {
+    return all_of(type.getBranches(), [](auto& branch) { return branch.types.empty(); });
 }
 
 }  // namespace souffle::ast::analysis

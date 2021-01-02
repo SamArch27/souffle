@@ -24,12 +24,10 @@ namespace souffle::ast::transform {
 bool RemoveRedundantRelationsTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
     auto* redundantRelationsAnalysis = translationUnit.getAnalysis<analysis::RedundantRelationsAnalysis>();
-    const std::set<const Relation*>& redundantRelations = redundantRelationsAnalysis->getRedundantRelations();
-    if (!redundantRelations.empty()) {
-        for (auto rel : redundantRelations) {
-            removeRelation(translationUnit, rel->getQualifiedName());
-            changed = true;
-        }
+    std::set<QualifiedName> redundantRelations = redundantRelationsAnalysis->getRedundantRelations();
+    for (auto name : redundantRelations) {
+        removeRelation(translationUnit, name);
+        changed = true;
     }
     return changed;
 }

@@ -1105,11 +1105,11 @@ public:
         field_index_type pos = 0;
 
     public:
-        typedef std::forward_iterator_tag iterator_category;
-        typedef Key value_type;
-        typedef ptrdiff_t difference_type;
-        typedef value_type* pointer;
-        typedef value_type& reference;
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = Key;
+        using difference_type = ptrdiff_t;
+        using pointer = value_type*;
+        using reference = value_type&;
 
         // default constructor -- creating an end-iterator
         iterator() : cur(nullptr) {}

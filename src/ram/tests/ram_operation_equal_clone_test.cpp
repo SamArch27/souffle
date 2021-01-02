@@ -62,12 +62,12 @@ TEST(RamScan, CloneAndEquals) {
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new SignedConstant(0));
     auto a_return = mk<SubroutineReturn>(std::move(a_return_args));
-    Scan a(mk<RelationReference>(&A), 0, std::move(a_return), "Scan test");
+    Scan a("A", 0, std::move(a_return), "Scan test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new SignedConstant(0));
     auto b_return = mk<SubroutineReturn>(std::move(b_return_args));
-    Scan b(mk<RelationReference>(&A), 0, std::move(b_return), "Scan test");
+    Scan b("A", 0, std::move(b_return), "Scan test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
@@ -85,12 +85,12 @@ TEST(RamParallelScan, CloneAndEquals) {
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new SignedConstant(0));
     auto a_return = mk<SubroutineReturn>(std::move(a_return_args));
-    ParallelScan a(mk<RelationReference>(&A), 0, std::move(a_return), "ParallelScan test");
+    ParallelScan a("A", 0, std::move(a_return), "ParallelScan test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new SignedConstant(0));
     auto b_return = mk<SubroutineReturn>(std::move(b_return_args));
-    ParallelScan b(mk<RelationReference>(&A), 0, std::move(b_return), "ParallelScan test");
+    ParallelScan b("A", 0, std::move(b_return), "ParallelScan test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
@@ -109,27 +109,25 @@ TEST(RamIndexScan, CloneAndEquals) {
     //  PROJECT (t1.0) INTO vertex
     VecOwn<Expression> a_project_args;
     a_project_args.emplace_back(new TupleElement(1, 0));
-    auto a_project = mk<Project>(mk<RelationReference>(&vertex), std::move(a_project_args));
+    auto a_project = mk<Project>("vertex", std::move(a_project_args));
     RamPattern a_criteria;
     a_criteria.first.emplace_back(new TupleElement(1, 1));
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new TupleElement(1, 1));
     a_criteria.second.emplace_back(new UndefValue);
 
-    IndexScan a(
-            mk<RelationReference>(&edge), 1, std::move(a_criteria), std::move(a_project), "IndexScan test");
+    IndexScan a("edge", 1, std::move(a_criteria), std::move(a_project), "IndexScan test");
 
     VecOwn<Expression> b_project_args;
     b_project_args.emplace_back(new TupleElement(1, 0));
-    auto b_project = mk<Project>(mk<RelationReference>(&vertex), std::move(b_project_args));
+    auto b_project = mk<Project>("vertex", std::move(b_project_args));
     RamPattern b_criteria;
     b_criteria.first.emplace_back(new TupleElement(1, 1));
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new TupleElement(1, 1));
     b_criteria.second.emplace_back(new UndefValue);
 
-    IndexScan b(
-            mk<RelationReference>(&edge), 1, std::move(b_criteria), std::move(b_project), "IndexScan test");
+    IndexScan b("edge", 1, std::move(b_criteria), std::move(b_project), "IndexScan test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -148,28 +146,26 @@ TEST(RamParallelIndexScan, CloneAndEquals) {
     VecOwn<Expression> a_project_args;
     a_project_args.emplace_back(new TupleElement(1, 0));
     a_project_args.emplace_back(new TupleElement(1, 1));
-    auto a_project = mk<Project>(mk<RelationReference>(&new_edge), std::move(a_project_args));
+    auto a_project = mk<Project>("new_edge", std::move(a_project_args));
     RamPattern a_criteria;
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.first.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
 
-    ParallelIndexScan a(mk<RelationReference>(&edge), 1, std::move(a_criteria), std::move(a_project),
-            "ParallelIndexScan test");
+    ParallelIndexScan a("edge", 1, std::move(a_criteria), std::move(a_project), "ParallelIndexScan test");
 
     VecOwn<Expression> b_project_args;
     b_project_args.emplace_back(new TupleElement(1, 0));
     b_project_args.emplace_back(new TupleElement(1, 1));
-    auto b_project = mk<Project>(mk<RelationReference>(&new_edge), std::move(b_project_args));
+    auto b_project = mk<Project>("new_edge", std::move(b_project_args));
     RamPattern b_criteria;
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.first.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
 
-    ParallelIndexScan b(mk<RelationReference>(&edge), 1, std::move(b_criteria), std::move(b_project),
-            "ParallelIndexScan test");
+    ParallelIndexScan b("edge", 1, std::move(b_criteria), std::move(b_project), "ParallelIndexScan test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -195,7 +191,7 @@ TEST(RamChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto a_neg2 = mk<Negation>(std::move(a_constraint2));
     auto a_cond = mk<Conjunction>(std::move(a_neg1), std::move(a_neg2));
-    Choice a(mk<RelationReference>(&edge), 1, std::move(a_cond), std::move(a_return), "Choice test");
+    Choice a("edge", 1, std::move(a_cond), std::move(a_return), "Choice test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -208,7 +204,7 @@ TEST(RamChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto b_neg2 = mk<Negation>(std::move(b_constraint2));
     auto b_cond = mk<Conjunction>(std::move(b_neg1), std::move(b_neg2));
-    Choice b(mk<RelationReference>(&edge), 1, std::move(b_cond), std::move(b_return), "Choice test");
+    Choice b("edge", 1, std::move(b_cond), std::move(b_return), "Choice test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
@@ -235,8 +231,7 @@ TEST(RamParallelChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto a_neg2 = mk<Negation>(std::move(a_constraint2));
     auto a_cond = mk<Conjunction>(std::move(a_neg1), std::move(a_neg2));
-    ParallelChoice a(
-            mk<RelationReference>(&edge), 1, std::move(a_cond), std::move(a_return), "ParallelChoice test");
+    ParallelChoice a("edge", 1, std::move(a_cond), std::move(a_return), "ParallelChoice test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -249,8 +244,7 @@ TEST(RamParallelChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto b_neg2 = mk<Negation>(std::move(b_constraint2));
     auto b_cond = mk<Conjunction>(std::move(b_neg1), std::move(b_neg2));
-    ParallelChoice b(
-            mk<RelationReference>(&edge), 1, std::move(b_cond), std::move(b_return), "ParallelChoice test");
+    ParallelChoice b("edge", 1, std::move(b_cond), std::move(b_return), "ParallelChoice test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
@@ -277,8 +271,8 @@ TEST(RamIndexChoice, CloneAndEquals) {
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
-    IndexChoice a(mk<RelationReference>(&edge), 1, std::move(a_neg), std::move(a_criteria),
-            std::move(a_return), "IndexChoice test");
+    IndexChoice a(
+            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexChoice test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -291,8 +285,8 @@ TEST(RamIndexChoice, CloneAndEquals) {
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
-    IndexChoice b(mk<RelationReference>(&edge), 1, std::move(b_neg), std::move(b_criteria),
-            std::move(b_return), "IndexChoice test");
+    IndexChoice b(
+            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexChoice test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -318,8 +312,8 @@ TEST(RamiParallelIndexChoice, CloneAndEquals) {
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
-    ParallelIndexChoice a(mk<RelationReference>(&edge), 1, std::move(a_neg), std::move(a_criteria),
-            std::move(a_return), "IndexChoice test");
+    ParallelIndexChoice a(
+            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexChoice test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -332,8 +326,8 @@ TEST(RamiParallelIndexChoice, CloneAndEquals) {
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
-    ParallelIndexChoice b(mk<RelationReference>(&edge), 1, std::move(b_neg), std::move(b_criteria),
-            std::move(b_return), "IndexChoice test");
+    ParallelIndexChoice b(
+            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexChoice test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -350,14 +344,12 @@ TEST(RamAggregate, CloneAndEquals) {
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new TupleElement(0, 0));
     auto a_return = mk<SubroutineReturn>(std::move(a_return_args));
-    Aggregate a(std::move(a_return), AggregateOp::COUNT, mk<RelationReference>(&edge), mk<TupleElement>(0, 0),
-            mk<True>(), 1);
+    Aggregate a(std::move(a_return), AggregateOp::COUNT, "edge", mk<TupleElement>(0, 0), mk<True>(), 1);
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(0, 0));
     auto b_return = mk<SubroutineReturn>(std::move(b_return_args));
-    Aggregate b(std::move(b_return), AggregateOp::COUNT, mk<RelationReference>(&edge), mk<TupleElement>(0, 0),
-            mk<True>(), 1);
+    Aggregate b(std::move(b_return), AggregateOp::COUNT, "edge", mk<TupleElement>(0, 0), mk<True>(), 1);
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -381,8 +373,8 @@ TEST(RamIndexAggregate, CloneAndEquals) {
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new UndefValue);
-    IndexAggregate a(std::move(a_return), AggregateOp::MIN, mk<RelationReference>(&sqrt),
-            mk<TupleElement>(1, 1), std::move(a_cond), std::move(a_criteria), 1);
+    IndexAggregate a(std::move(a_return), AggregateOp::MIN, "sqrt", mk<TupleElement>(1, 1), std::move(a_cond),
+            std::move(a_criteria), 1);
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(0, 0));
@@ -393,8 +385,8 @@ TEST(RamIndexAggregate, CloneAndEquals) {
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new UndefValue);
-    IndexAggregate b(std::move(b_return), AggregateOp::MIN, mk<RelationReference>(&sqrt),
-            mk<TupleElement>(1, 1), std::move(b_cond), std::move(b_criteria), 1);
+    IndexAggregate b(std::move(b_return), AggregateOp::MIN, "sqrt", mk<TupleElement>(1, 1), std::move(b_cond),
+            std::move(b_criteria), 1);
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -442,7 +434,7 @@ TEST(RamFilter, CloneAndEquals) {
     auto a_return = mk<SubroutineReturn>(std::move(a_return_args));
     VecOwn<Expression> a_existence_check_args;
     a_existence_check_args.emplace_back(new TupleElement(0, 1));
-    auto a_existence_check = mk<ExistenceCheck>(mk<RelationReference>(&A), std::move(a_existence_check_args));
+    auto a_existence_check = mk<ExistenceCheck>("A", std::move(a_existence_check_args));
     Filter a(mk<Negation>(std::move(a_existence_check)), std::move(a_return), "Filter test");
 
     VecOwn<Expression> b_return_args;
@@ -450,7 +442,7 @@ TEST(RamFilter, CloneAndEquals) {
     auto b_return = mk<SubroutineReturn>(std::move(b_return_args));
     VecOwn<Expression> b_existence_check_args;
     b_existence_check_args.emplace_back(new TupleElement(0, 1));
-    auto b_existence_check = mk<ExistenceCheck>(mk<RelationReference>(&A), std::move(b_existence_check_args));
+    auto b_existence_check = mk<ExistenceCheck>("A", std::move(b_existence_check_args));
     Filter b(mk<Negation>(std::move(b_existence_check)), std::move(b_return), "Filter test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
@@ -468,12 +460,12 @@ TEST(RamBreak, CloneAndEquals) {
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new SignedConstant(0));
     auto a_return = mk<SubroutineReturn>(std::move(a_return_args));
-    Break a(mk<EmptinessCheck>(mk<RelationReference>(&A)), std::move(a_return), "Break test");
+    Break a(mk<EmptinessCheck>("A"), std::move(a_return), "Break test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new SignedConstant(0));
     auto b_return = mk<SubroutineReturn>(std::move(b_return_args));
-    Break b(mk<EmptinessCheck>(mk<RelationReference>(&A)), std::move(b_return), "Break test");
+    Break b(mk<EmptinessCheck>("A"), std::move(b_return), "Break test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
@@ -489,12 +481,12 @@ TEST(RamProject, CloneAndEquals) {
     VecOwn<Expression> a_args;
     a_args.emplace_back(new TupleElement(0, 1));
     a_args.emplace_back(new TupleElement(0, 3));
-    Project a(mk<RelationReference>(&A), std::move(a_args));
+    Project a("A", std::move(a_args));
 
     VecOwn<Expression> b_args;
     b_args.emplace_back(new TupleElement(0, 1));
     b_args.emplace_back(new TupleElement(0, 3));
-    Project b(mk<RelationReference>(&A), std::move(b_args));
+    Project b("A", std::move(b_args));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 

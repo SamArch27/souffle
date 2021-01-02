@@ -16,6 +16,7 @@
 
 #include "ram/Program.h"
 #include "ram/TranslationUnit.h"
+#include "ram/analysis/Relation.h"
 #include "ram/transform/Transformer.h"
 #include <string>
 
@@ -57,8 +58,10 @@ public:
 
 protected:
     bool transform(TranslationUnit& translationUnit) override {
+        relAnalysis = translationUnit.getAnalysis<analysis::RelationAnalysis>();
         return parallelizeOperations(translationUnit.getProgram());
     }
+    analysis::RelationAnalysis* relAnalysis{nullptr};
 };
 
 }  // namespace souffle::ram::transform

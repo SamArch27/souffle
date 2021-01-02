@@ -525,10 +525,10 @@ TEST(BTreeSet, ChunkSplit) {
     }
 
     int last = -1;
-    for (const auto& cur : chunks) {
-        for (auto i = cur.begin(); i != cur.end(); ++i) {
-            EXPECT_EQ(last + 1, *i);
-            last = *i;
+    for (const auto& chunk : chunks) {
+        for (auto current : chunk) {
+            EXPECT_EQ(last + 1, current);
+            last = current;
         }
     }
 }
@@ -564,10 +564,10 @@ TEST(BTreeSet, ChunkSplitStress) {
             EXPECT_EQ(0, *chunks.front().begin());
 
             int last = -1;
-            for (const auto& cur : chunks) {
-                for (auto it = cur.begin(); it != cur.end(); ++it) {
-                    EXPECT_EQ(last + 1, *it);
-                    last = *it;
+            for (const auto& chunk : chunks) {
+                for (auto current : chunk) {
+                    EXPECT_EQ(last + 1, current);
+                    last = current;
                 }
             }
 

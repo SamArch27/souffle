@@ -19,10 +19,10 @@
 #include "ram/Expression.h"
 #include "ram/IndexOperation.h"
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Operation.h"
 #include "ram/Relation.h"
 #include "ram/RelationOperation.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
@@ -53,13 +53,12 @@ namespace souffle::ram {
  */
 class IndexChoice : public IndexOperation, public AbstractChoice {
 public:
-    IndexChoice(Own<RelationReference> r, int ident, Own<Condition> cond, RamPattern queryPattern,
+    IndexChoice(std::string rel, int ident, Own<Condition> cond, RamPattern queryPattern,
             Own<Operation> nested, std::string profileText = "")
-            : IndexOperation(std::move(r), ident, std::move(queryPattern), std::move(nested),
-                      std::move(profileText)),
+
+            : IndexOperation(rel, ident, std::move(queryPattern), std::move(nested), std::move(profileText)),
               AbstractChoice(std::move(cond)) {
-        assert(getRangePattern().first.size() == getRelation().getArity());
-        assert(getRangePattern().second.size() == getRelation().getArity());
+        assert(getRangePattern().first.size() == getRangePattern().second.size() && "Arity mismatch");
     }
 
     void apply(const NodeMapper& map) override {
@@ -87,16 +86,15 @@ public:
         for (const auto& i : queryPattern.second) {
             resQueryPattern.second.emplace_back(i->clone());
         }
-        auto* res = new IndexChoice(souffle::clone(relationRef), getTupleId(), souffle::clone(condition),
+        auto* res = new IndexChoice(relation, getTupleId(), souffle::clone(condition),
                 std::move(resQueryPattern), souffle::clone(&getOperation()), getProfileText());
         return res;
     }
 
 protected:
     void print(std::ostream& os, int tabpos) const override {
-        const Relation& rel = getRelation();
         os << times(" ", tabpos);
-        os << "CHOICE " << rel.getName() << " AS t" << getTupleId();
+        os << "CHOICE " << relation << " AS t" << getTupleId();
         printIndex(os);
         os << " WHERE " << getCondition();
         os << std::endl;

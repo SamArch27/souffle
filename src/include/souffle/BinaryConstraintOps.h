@@ -150,6 +150,25 @@ inline bool isWeakIneqConstraint(const BinaryConstraintOp constraintOp) {
     return false;
 }
 
+inline bool isIneqConstraint(const BinaryConstraintOp constraintOp) {
+    return isStrictIneqConstraint(constraintOp) || isWeakIneqConstraint(constraintOp);
+}
+
+inline bool isIndexableConstraint(const BinaryConstraintOp constraintOp) {
+    return isIneqConstraint(constraintOp) || isEqConstraint(constraintOp);
+}
+
+inline bool isSignedInequalityConstraint(const BinaryConstraintOp constraintOp) {
+    switch (constraintOp) {
+        case BinaryConstraintOp::LE:
+        case BinaryConstraintOp::GE:
+        case BinaryConstraintOp::LT:
+        case BinaryConstraintOp::GT: return true;
+        default: break;
+    }
+    return false;
+}
+
 inline BinaryConstraintOp convertStrictToWeakIneqConstraint(const BinaryConstraintOp constraintOp) {
     assert(isStrictIneqConstraint(constraintOp));
     switch (constraintOp) {
@@ -410,6 +429,21 @@ inline bool isOrderedBinaryConstraintOp(const BinaryConstraintOp op) {
     }
 
     UNREACHABLE_BAD_CASE_ANALYSIS
+}
+
+/**
+ * Determines whether a functor should be written using infix notation (e.g. `a + b + c`)
+ * or prefix notation (e.g. `+(a,b,c)`)
+ */
+inline bool isInfixFunctorOp(const BinaryConstraintOp op) {
+    switch (op) {
+        case BinaryConstraintOp::MATCH:
+        case BinaryConstraintOp::NOT_MATCH:
+        case BinaryConstraintOp::CONTAINS:
+        case BinaryConstraintOp::NOT_CONTAINS: return false;
+
+        default: return true;
+    }
 }
 
 /**

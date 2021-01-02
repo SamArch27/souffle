@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/StringUtil.h"
 #include <algorithm>
 #include <cassert>

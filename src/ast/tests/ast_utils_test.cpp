@@ -169,5 +169,27 @@ TEST(AstUtils, ReorderClauseAtoms) {
             toString(*reorderedClause1));
 }
 
+TEST(AstUtils, RemoveEquivalentClauses) {
+    ErrorReport e;
+    DebugReport d;
+
+    Own<TranslationUnit> tu = ParserDriver::parseTranslationUnit(
+            R"(
+                .decl a()
+                a(). a(). a(). a(). a(). a(). a(). a(). a(). a(). a(). a(). a(). a(). a().
+            )",
+            e, d);
+
+    Program& program = tu->getProgram();
+    EXPECT_EQ(1, program.getRelations().size());
+
+    Relation* a = getRelation(program, "a");
+    EXPECT_NE(a, nullptr);
+    EXPECT_EQ(15, getClauses(program, *a).size());
+
+    removeRelationClauses(*tu, "a");
+    EXPECT_EQ(0, getClauses(program, *a).size());
+}
+
 }  // namespace test
 }  // namespace souffle::ast

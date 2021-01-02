@@ -15,8 +15,8 @@
 #pragma once
 
 #include "ram/Node.h"
-#include "ram/NodeMapper.h"
 #include "ram/Statement.h"
+#include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <memory>
@@ -63,11 +63,11 @@ protected:
     }
 
 protected:
-    /** logging statement */
+    /** Logging statement */
     Own<Statement> statement;
 
-    /** logging message */
-    std::string message;
+    /** Logging message */
+    const std::string message;
 };
 
 }  // namespace souffle::ram

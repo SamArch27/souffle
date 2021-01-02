@@ -47,6 +47,10 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(TranslationUnit& tran
 
     // search for relations only defined by a single rule ..
     for (Relation* rel : program.getRelations()) {
+        // skip relations with functional dependencies
+        if (!rel->getFunctionalDependencies().empty()) {
+            continue;
+        }
         const auto& clauses = getClauses(program, *rel);
         if (!ioType->isIO(rel) && clauses.size() == 1u) {
             // .. of shape r(x,y,..) :- s(x,y,..)
@@ -63,6 +67,7 @@ bool RemoveRelationCopiesTransformer::removeRelationCopies(TranslationUnit& tran
                     //  5a) Variables
                     //  5b) Records unpacked into variables
                     // 6) (pending) Each variable must have a distinct name.
+                    // 7) (checked?) Head rule cannot have any functional dependency.
                     bool onlyDistinctHeadVars = true;
                     std::set<std::string> headVars;
 

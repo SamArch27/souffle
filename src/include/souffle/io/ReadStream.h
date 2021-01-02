@@ -136,7 +136,10 @@ protected:
             size_t* charactersRead = nullptr) {
         const size_t initial_position = pos;
 
-        // Branch will are encoded as [branchIdx, [branchValues...]].
+        // Branch will are encoded as one of the:
+        // [branchIdx, [branchValues...]]
+        // [branchIdx, branchValue]
+        // branchIdx
         RamDomain branchIdx = -1;
 
         auto&& adtInfo = types["ADTs"][adtName];
@@ -169,6 +172,11 @@ protected:
             if (charactersRead != nullptr) {
                 *charactersRead = pos - initial_position;
             }
+
+            if (adtInfo["enum"].bool_value()) {
+                return branchIdx;
+            }
+
             RamDomain emptyArgs = recordTable.pack(toVector<RamDomain>().data(), 0);
             return recordTable.pack(toVector<RamDomain>(branchIdx, emptyArgs).data(), 2);
         }

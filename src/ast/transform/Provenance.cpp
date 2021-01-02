@@ -30,7 +30,6 @@
 #include "ast/Node.h"
 #include "ast/NumericConstant.h"
 #include "ast/Program.h"
-#include "ast/ProvenanceNegation.h"
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/StringConstant.h"
@@ -138,8 +137,6 @@ Own<Relation> makeInfoRelation(
             atom = static_cast<Atom*>(lit);
         } else if (isA<Negation>(lit)) {
             atom = static_cast<Negation*>(lit)->getAtom();
-        } else if (isA<ProvenanceNegation>(lit)) {
-            atom = static_cast<ProvenanceNegation*>(lit)->getAtom();
         }
 
         // add an attribute for atoms and binary constraints
@@ -173,7 +170,7 @@ Own<Relation> makeInfoRelation(
 
         if (auto con = dynamic_cast<BinaryConstraint*>(lit)) {
             // for a constraint, add the constraint symbol and LHS and RHS
-            std::string constraintDescription = toBinaryConstraintSymbol(con->getOperator());
+            std::string constraintDescription = toBinaryConstraintSymbol(con->getBaseOperator());
 
             constraintDescription.append("," + getArgInfo(con->getLHS()));
             constraintDescription.append("," + getArgInfo(con->getRHS()));

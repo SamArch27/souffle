@@ -16,7 +16,6 @@
 
 #include "tests/test.h"
 
-#include "souffle/CompiledTuple.h"
 #include "souffle/RamTypes.h"
 #include "souffle/RecordTable.h"
 #include <functional>

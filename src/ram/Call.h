@@ -58,8 +58,8 @@ protected:
         return name == other.name;
     }
 
-    /** name of subroutine */
-    std::string name;
+    /** Name of subroutine */
+    const std::string name;
 };
 
 }  // namespace souffle::ram

@@ -19,6 +19,7 @@
 #include "ast/Constraint.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iostream>
 #include <string>

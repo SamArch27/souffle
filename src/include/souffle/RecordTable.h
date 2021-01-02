@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "souffle/CompiledTuple.h"
 #include "souffle/RamTypes.h"
+#include "souffle/utility/span.h"
 #include <cassert>
 #include <cstddef>
 #include <limits>
@@ -59,7 +59,7 @@ public:
 
     /** @brief converts record to a record reference */
     // TODO (b-scholz): replace vector<RamDomain> with something more memory-frugal
-    RamDomain pack(const std::vector<RamDomain>& vector) {
+    RamDomain pack(std::vector<RamDomain> vector) {
         RamDomain index;
 #pragma omp critical(record_pack)
         {
@@ -69,12 +69,10 @@ public:
             } else {
 #pragma omp critical(record_unpack)
                 {
-                    indexToRecord.push_back(vector);
-                    index = static_cast<RamDomain>(indexToRecord.size()) - 1;
+                    assert(indexToRecord.size() <= std::numeric_limits<RamUnsigned>::max());
+                    index = ramBitCast(RamUnsigned(indexToRecord.size()));
                     recordToIndex[vector] = index;
-
-                    // assert that new index is smaller than the range
-                    assert(index != std::numeric_limits<RamDomain>::max());
+                    indexToRecord.push_back(std::move(vector));
                 }
             }
         }
@@ -94,7 +92,7 @@ public:
         for (size_t i = 0; i < arity; i++) {
             tmp[i] = tuple[i];
         }
-        return pack(tmp);
+        return pack(std::move(tmp));
     }
 
     /** @brief convert record reference to a record pointer */
@@ -112,7 +110,7 @@ public:
     virtual ~RecordTable() = default;
 
     /** @brief convert record to record reference */
-    RamDomain pack(RamDomain* tuple, size_t arity) {
+    RamDomain pack(const RamDomain* tuple, size_t arity) {
         return lookupArity(arity).pack(tuple);
     }
     /** @brief convert record reference to a record */
@@ -145,8 +143,14 @@ private:
 
 /** @brief helper to convert tuple to record reference for the synthesiser */
 template <std::size_t Arity>
-inline RamDomain pack(RecordTable& recordTab, Tuple<RamDomain, Arity> tuple) {
-    return recordTab.pack(static_cast<RamDomain*>(tuple.data), Arity);
+RamDomain pack(RecordTable& recordTab, Tuple<RamDomain, Arity> const& tuple) {
+    return recordTab.pack(tuple.data(), Arity);
+}
+
+/** @brief helper to convert tuple to record reference for the synthesiser */
+template <std::size_t Arity>
+RamDomain pack(RecordTable& recordTab, span<const RamDomain, Arity> tuple) {
+    return recordTab.pack(tuple.data(), Arity);
 }
 
 }  // namespace souffle

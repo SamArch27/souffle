@@ -36,17 +36,5 @@ TEST(Relation, CloneAndEquals) {
     delete c;
 }
 
-TEST(RelationRepresentation, CloneAndEquals) {
-    Relation A("A", 1, 1, {"a"}, {"i"}, RelationRepresentation::DEFAULT);
-    RelationReference a(&A);
-    RelationReference b(&A);
-    EXPECT_EQ(a, b);
-    EXPECT_NE(&a, &b);
-
-    RelationReference* c = a.clone();
-    EXPECT_EQ(a, *c);
-    EXPECT_NE(&a, c);
-    delete c;
-}
 }  // end namespace test
 }  // namespace souffle::ram

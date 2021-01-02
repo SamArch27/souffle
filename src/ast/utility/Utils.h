@@ -29,6 +29,7 @@ namespace souffle::ast {
 class Atom;
 class Clause;
 class Constraint;
+class Directive;
 class FunctorDeclaration;
 class IntrinsicFunctor;
 class Literal;
@@ -40,6 +41,7 @@ class TranslationUnit;
 class Type;
 class Variable;
 class RecordInit;
+
 namespace analysis {
 class TypeAnalysis;
 }
@@ -114,6 +116,24 @@ std::vector<Clause*> getClauses(const Program& program, const Relation& rel);
  * @return the relation if it exists; nullptr otherwise
  */
 Relation* getRelation(const Program& program, const QualifiedName& name);
+
+/**
+ * Returns the functor declaration with the given name in the program.
+ *
+ * @param program the program
+ * @param name the name of the functor to search for
+ * @return the functor declaration if it exists; nullptr otherwise
+ */
+FunctorDeclaration* getFunctorDeclaration(const Program& program, const std::string& name);
+
+/**
+ * Returns the set of directives associated with a given relation in a program.
+ *
+ * @param program the program
+ * @param name the name of the relation to search for
+ * @return a vector of all associated directives
+ */
+std::vector<Directive*> getDirectives(const Program& program, const QualifiedName& relationName);
 
 /**
  * Remove relation and all its clauses from the program.
@@ -242,6 +262,14 @@ Clause* cloneHead(const Clause* clause);
  * @param newOrder new order of atoms; atoms[i] = atoms[newOrder[i]]
  */
 Clause* reorderAtoms(const Clause* clause, const std::vector<unsigned int>& newOrder);
+
+/**
+ * Reorders a vector of atoms to be in the given order.
+ *
+ * @param atoms atoms to reorder
+ * @param newOrder new order of atoms; atoms[i] = atoms[newOrder[i]]
+ */
+std::vector<Atom*> reorderAtoms(const std::vector<Atom*>& atoms, const std::vector<unsigned int>& newOrder);
 
 /**
  * Negate an ast constraint

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ram/LambdaNodeMapper.h"
+#include "ram/utility/LambdaNodeMapper.h"
 #include <cassert>
 #include <functional>
 #include <iostream>

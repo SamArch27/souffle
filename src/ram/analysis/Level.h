@@ -21,6 +21,7 @@
 #include "ram/Node.h"
 #include "ram/TranslationUnit.h"
 #include "ram/analysis/Analysis.h"
+#include "ram/analysis/Relation.h"
 
 namespace souffle::ram::analysis {
 
@@ -45,12 +46,17 @@ public:
 
     static constexpr const char* name = "level-analysis";
 
-    void run(const TranslationUnit&) override {}
+    void run(const TranslationUnit& tUnit) override {
+        ra = tUnit.getAnalysis<RelationAnalysis>();
+    }
 
     /**
      * @brief Get level of a RAM expression/condition
      */
     int getLevel(const Node* value) const;
+
+protected:
+    RelationAnalysis* ra{nullptr};
 };
 
 }  // namespace souffle::ram::analysis
