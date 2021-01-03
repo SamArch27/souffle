@@ -308,7 +308,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
             bool equality = (*lowerExpression == *upperExpression);
             bool inequality = !equality;
 
-            if (inequality) {
+            if (inequality && Global::config().get("default-datastructure") == "rtree") {
                 rel.setRepresentation(RelationRepresentation::RTREE);
                 // also set the corresponding @new and @delta relations to RTREE
                 if (name[0] != '_') {
