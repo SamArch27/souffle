@@ -94,6 +94,7 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
         bool btree = (rep == RelationRepresentation::BTREE || rep == RelationRepresentation::DEFAULT);
         bool rtree = (rep == RelationRepresentation::RTREE ||
                       Global::config().get("default-datastructure") == "rtree");
+        bool inequalities = (Global::config().get("inequalities") == "on");
         auto op = binRelOp->getOperator();
 
         // don't index FEQ in interpreter mode
@@ -107,6 +108,11 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
 
         // don't index inequalities for provenance
         if (isIneqConstraint(op) && provenance) {
+            return {mk<UndefValue>(), mk<UndefValue>()};
+        }
+
+        // don't index inequalities if flag is turned off
+        if (isIneqConstraint(op) && !inequalities) {
             return {mk<UndefValue>(), mk<UndefValue>()};
         }
 
