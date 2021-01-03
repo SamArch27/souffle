@@ -93,7 +93,7 @@ public:
      * @result Remaining conditions that could not be transformed to an index
      */
     Own<Condition> constructPattern(const std::vector<std::string>& attributeTypes, RamPattern& queryPattern,
-            bool& indexable, VecOwn<Condition> conditionList, int identifier, RelationRepresentation rep);
+            bool& indexable, VecOwn<Condition> conditionList, int identifier, Relation& rel);
 
     /**
      * @brief Rewrite a scan operation to an indexed scan operation

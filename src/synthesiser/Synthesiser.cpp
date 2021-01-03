@@ -279,7 +279,7 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
             for (size_t column = 0; column < arity; column++) {
                 std::string supremum = "ramBitCast<RamDomain>(MIN_RAM_SIGNED)";
                 std::string infimum = "ramBitCast<RamDomain>(MAX_RAM_SIGNED)";
-                if (Global::config().get("default-datastructure") != "rtree") {
+                if (rel.getRepresentation() != RelationRepresentation::RTREE) {
                     switch (rel.getAttributeTypes()[column][0]) {
                         case 'f':
                             supremum = "ramBitCast<RamDomain>(MIN_RAM_FLOAT)";
@@ -1137,10 +1137,6 @@ void Synthesiser::emitCode(std::ostream& out, const Statement& stmt) {
         }
 
         bool isGuaranteedToBeMinimum(const IndexAggregate& aggregate) {
-            if (Global::config().get("default-datastructure") == "rtree") {
-                return false;
-            }
-
             auto identifier = aggregate.getTupleId();
             auto keys = isa->getSearchSignature(&aggregate);
             RelationRepresentation repr = synthesiser.lookup(aggregate.getRelation())->getRepresentation();

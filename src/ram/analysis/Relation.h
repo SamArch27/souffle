@@ -37,6 +37,8 @@ public:
 
     const ram::Relation& lookup(const std::string& name) const;
 
+    bool relationExists(const std::string& name) const;
+
 protected:
     std::map<std::string, const ram::Relation*> relationMap;
 };

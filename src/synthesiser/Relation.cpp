@@ -62,22 +62,10 @@ Own<Relation> Relation::getSynthesiserRelation(
     } else if (ramRel.getRepresentation() == RelationRepresentation::INFO) {
         rel = new InfoRelation(ramRel, indexSelection, isProvenance);
     } else {
-        std::string ds = Global::config().get("default-datastructure");
-        if (!Global::config().has("default-datastructure") || ds == "btree") {
-            // Handle the data structure command line flag
-            if (ramRel.getArity() > 6) {
-                rel = new IndirectRelation(ramRel, indexSelection, isProvenance);
-            } else {
-                rel = new DirectRelation(ramRel, indexSelection, isProvenance);
-            }
+        if (ramRel.getArity() > 6) {
+            rel = new IndirectRelation(ramRel, indexSelection, isProvenance);
         } else {
-            if (ds == "rtree") {
-                rel = new RtreeRelation(ramRel, indexSelection, isProvenance);
-            } else if (ramRel.getArity() > 6) {
-                rel = new IndirectRelation(ramRel, indexSelection, isProvenance);
-            } else {
-                rel = new DirectRelation(ramRel, indexSelection, isProvenance);
-            }
+            rel = new DirectRelation(ramRel, indexSelection, isProvenance);
         }
     }
 

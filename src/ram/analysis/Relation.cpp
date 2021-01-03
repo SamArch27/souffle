@@ -30,6 +30,10 @@ const ram::Relation& RelationAnalysis::lookup(const std::string& name) const {
     return *(it->second);
 }
 
+bool RelationAnalysis::relationExists(const std::string& name) const {
+    return relationMap.find(name) != relationMap.end();
+}
+
 void RelationAnalysis::run(const TranslationUnit& translationUnit) {
     visitDepthFirst(translationUnit.getProgram(),
             [&](const Relation& relation) { relationMap[relation.getName()] = &relation; });

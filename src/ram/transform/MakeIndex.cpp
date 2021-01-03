@@ -141,7 +141,9 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
 
 Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::string>& attributeTypes,
         RamPattern& queryPattern, bool& indexable, VecOwn<Condition> conditionList, int identifier,
-        RelationRepresentation rep) {
+        Relation& rel) {
+    auto rep = rel.getRepresentation();
+    auto name = rel.getName();
     // Remaining conditions which cannot be handled by an index
     Own<Condition> condition;
     auto addCondition = [&](Own<Condition> c) {
@@ -306,6 +308,48 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
             bool equality = (*lowerExpression == *upperExpression);
             bool inequality = !equality;
 
+            if (inequality) {
+                rel.setRepresentation(RelationRepresentation::RTREE);
+                // also set the corresponding @new and @delta relations to RTREE
+                if (name[0] != '_') {
+                    if (name[0] != '@') {
+                        if (relAnalysis->relationExists(std::string("@new_") + name)) {
+                            auto& newRel =
+                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@new_") + name));
+                            newRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                        if (relAnalysis->relationExists(std::string("@delta_") + name)) {
+                            auto& deltaRel =
+                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@delta_") + name));
+                            deltaRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                    } else if (name.substr(0, 5) == "@new_") {
+                        std::string suffix = name.substr(5, std::string::npos);
+
+                        if (relAnalysis->relationExists(suffix)) {
+                            auto& origRel = const_cast<Relation&>(relAnalysis->lookup(suffix));
+                            origRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                        if (relAnalysis->relationExists(std::string("delta_") + suffix)) {
+                            auto& deltaRel = const_cast<Relation&>(
+                                    relAnalysis->lookup(std::string("@delta_") + suffix));
+                            deltaRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                    } else if (name.substr(0, 7) == "@delta_") {
+                        std::string suffix = name.substr(7, std::string::npos);
+                        if (relAnalysis->relationExists(suffix)) {
+                            auto& origRel = const_cast<Relation&>(relAnalysis->lookup(suffix));
+                            origRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                        if (relAnalysis->relationExists(std::string("@new_") + suffix)) {
+                            auto& newRel =
+                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@new_") + suffix));
+                            newRel.setRepresentation(RelationRepresentation::RTREE);
+                        }
+                    }
+                }
+            }
+
             auto& lowerBound = queryPattern.first[element];
             auto& upperBound = queryPattern.second[element];
 
@@ -382,15 +426,12 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
                     VecOwn<Expression> maxArguments;
                     maxArguments.push_back(std::move(lowerBound));
                     maxArguments.push_back(std::move(lowerExpression));
-
                     lowerBound = mk<IntrinsicOperator>(getMaxOp(type), std::move(maxArguments));
-                    // if we have a new upper bound
                 } else if (newUpperBound) {
                     // we want the tightest upper bound so we take the min
                     VecOwn<Expression> minArguments;
                     minArguments.push_back(std::move(upperBound));
                     minArguments.push_back(std::move(upperExpression));
-
                     upperBound = mk<IntrinsicOperator>(getMinOp(type), std::move(minArguments));
                 }
             }
@@ -418,7 +459,7 @@ Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
 
         bool indexable = false;
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
-                toConjunctionList(&agg->getCondition()), identifier, rel.getRepresentation());
+                toConjunctionList(&agg->getCondition()), identifier, const_cast<Relation&>(rel));
         if (indexable) {
             return mk<IndexAggregate>(souffle::clone(&agg->getOperation()), agg->getFunction(),
                     agg->getRelation(), souffle::clone(&agg->getExpression()), std::move(condition),
@@ -440,7 +481,7 @@ Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
 
         bool indexable = false;
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
-                toConjunctionList(&filter->getCondition()), identifier, rel.getRepresentation());
+                toConjunctionList(&filter->getCondition()), identifier, const_cast<Relation&>(rel));
         if (indexable) {
             Own<Operation> op = souffle::clone(&filter->getOperation());
             if (!isTrue(condition.get())) {
@@ -465,7 +506,7 @@ Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
         bool indexable = false;
         // strengthen the pattern with construct pattern
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), strengthenedPattern, indexable,
-                toConjunctionList(&filter->getCondition()), identifier, rel.getRepresentation());
+                toConjunctionList(&filter->getCondition()), identifier, const_cast<Relation&>(rel));
 
         if (indexable) {
             // Merge Index Pattern here

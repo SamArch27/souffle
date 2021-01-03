@@ -606,7 +606,6 @@ int main(int argc, char** argv) {
     {
         using namespace ram::transform;
         Own<Transformer> ramTransform = mk<TransformerSequence>(
-
                 mk<LoopTransformer>(mk<TransformerSequence>(mk<ExpandFilterTransformer>(),
                         mk<HoistConditionsTransformer>(), mk<MakeIndexTransformer>())),
                 mk<IfConversionTransformer>(), mk<ChoiceConversionTransformer>(),
