@@ -53,7 +53,8 @@ Own<Relation> Relation::getSynthesiserRelation(
         rel = new NullaryRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::BTREE) {
         rel = new DirectRelation(ramRel, indexSelection, isProvenance);
-    } else if (ramRel.getRepresentation() == RelationRepresentation::RTREE) {
+    } else if (ramRel.getRepresentation() == RelationRepresentation::RTREE ||
+               Global::config().get("default-datastructure") == "rtree") {
         rel = new RtreeRelation(ramRel, indexSelection, isProvenance);
     } else if (ramRel.getRepresentation() == RelationRepresentation::BRIE) {
         rel = new BrieRelation(ramRel, indexSelection, isProvenance);

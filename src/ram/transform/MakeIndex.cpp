@@ -313,50 +313,6 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
 
             bool equality = (*lowerExpression == *upperExpression);
             bool inequality = !equality;
-
-            if (Global::config().get("default-datastructure") == "rtree" &&
-                    (rep == RelationRepresentation::BTREE || rep == RelationRepresentation::DEFAULT)) {
-                rel.setRepresentation(RelationRepresentation::RTREE);
-                // also set the corresponding @new and @delta relations to RTREE
-                if (name[0] != '_') {
-                    if (name[0] != '@') {
-                        if (relAnalysis->relationExists(std::string("@new_") + name)) {
-                            auto& newRel =
-                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@new_") + name));
-                            newRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                        if (relAnalysis->relationExists(std::string("@delta_") + name)) {
-                            auto& deltaRel =
-                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@delta_") + name));
-                            deltaRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                    } else if (name.substr(0, 5) == "@new_") {
-                        std::string suffix = name.substr(5, std::string::npos);
-
-                        if (relAnalysis->relationExists(suffix)) {
-                            auto& origRel = const_cast<Relation&>(relAnalysis->lookup(suffix));
-                            origRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                        if (relAnalysis->relationExists(std::string("delta_") + suffix)) {
-                            auto& deltaRel = const_cast<Relation&>(
-                                    relAnalysis->lookup(std::string("@delta_") + suffix));
-                            deltaRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                    } else if (name.substr(0, 7) == "@delta_") {
-                        std::string suffix = name.substr(7, std::string::npos);
-                        if (relAnalysis->relationExists(suffix)) {
-                            auto& origRel = const_cast<Relation&>(relAnalysis->lookup(suffix));
-                            origRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                        if (relAnalysis->relationExists(std::string("@new_") + suffix)) {
-                            auto& newRel =
-                                    const_cast<Relation&>(relAnalysis->lookup(std::string("@new_") + suffix));
-                            newRel.setRepresentation(RelationRepresentation::RTREE);
-                        }
-                    }
-                }
-            }
-
             auto& lowerBound = queryPattern.first[element];
             auto& upperBound = queryPattern.second[element];
 
