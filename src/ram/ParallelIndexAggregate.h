@@ -52,16 +52,16 @@ public:
             : IndexAggregate(std::move(nested), fun, rel, std::move(expression), std::move(condition),
                       std::move(queryPattern), ident) {}
 
-    ParallelIndexAggregate* clone() const override {
+    ParallelIndexAggregate* cloning() const override {
         RamPattern pattern;
         for (const auto& i : queryPattern.first) {
-            pattern.first.emplace_back(i->clone());
+            pattern.first.emplace_back(i->cloning());
         }
         for (const auto& i : queryPattern.second) {
-            pattern.second.emplace_back(i->clone());
+            pattern.second.emplace_back(i->cloning());
         }
-        return new ParallelIndexAggregate(souffle::clone(&getOperation()), function, relation,
-                souffle::clone(expression), souffle::clone(condition), std::move(pattern), getTupleId());
+        return new ParallelIndexAggregate(clone(getOperation()), function, relation, clone(expression),
+                clone(condition), std::move(pattern), getTupleId());
     }
 
 protected:

@@ -27,8 +27,6 @@ namespace souffle::ast {
 class Constraint : public Literal {
 public:
     using Literal::Literal;
-
-    Constraint* clone() const override = 0;
 };
 
 }  // namespace souffle::ast

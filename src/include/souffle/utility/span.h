@@ -7,7 +7,7 @@
 namespace souffle {
 constexpr auto dynamic_extent = std::dynamic_extent;
 
-template <typename A, size_t E = std::dynamic_extent>
+template <typename A, std::size_t E = std::dynamic_extent>
 using span = std::span<A, E>;
 }  // namespace souffle
 
@@ -286,7 +286,7 @@ struct is_container_element_type_compatible<
           remove_pointer_t<decltype(detail::data(std::declval<T>()))> (*)[],
           E (*)[]> {};
 
-template <typename, typename = size_t>
+template <typename, typename = std::size_t>
 struct is_complete : std::false_type {};
 
 template <typename T>
@@ -521,13 +521,13 @@ private:
 #ifdef TCB_SPAN_HAVE_DEDUCTION_GUIDES
 
 /* Deduction Guides */
-template <class T, size_t N>
+template <class T, std::size_t N>
 span(T (&)[N])->span<T, N>;
 
-template <class T, size_t N>
+template <class T, std::size_t N>
 span(std::array<T, N>&)->span<T, N>;
 
-template <class T, size_t N>
+template <class T, std::size_t N>
 span(const std::array<T, N>&)->span<const T, N>;
 
 template <class Container>
@@ -586,7 +586,7 @@ as_bytes(span<ElementType, Extent> s) noexcept
 }
 
 template <
-    class ElementType, size_t Extent,
+    class ElementType, std::size_t Extent,
     typename std::enable_if<!std::is_const<ElementType>::value, int>::type = 0>
 span<byte, ((Extent == dynamic_extent) ? dynamic_extent
                                        : sizeof(ElementType) * Extent)>
@@ -623,15 +623,15 @@ namespace std {
     #pragma clang diagnostic ignored "-Wmismatched-tags"
 #endif
 
-template <typename ElementType, size_t Extent>
+template <typename ElementType, std::size_t Extent>
 TCB_SPAN_TUPLE_SIZE_KIND tuple_size<TCB_SPAN_NAMESPACE_NAME::span<ElementType, Extent>>
-    : public integral_constant<size_t, Extent> {};
+    : public integral_constant<std::size_t, Extent> {};
 
 template <typename ElementType>
 TCB_SPAN_TUPLE_SIZE_KIND tuple_size<TCB_SPAN_NAMESPACE_NAME::span<
     ElementType, TCB_SPAN_NAMESPACE_NAME::dynamic_extent>>; // not defined
 
-template <size_t I, typename ElementType, size_t Extent>
+template <std::size_t I, typename ElementType, std::size_t Extent>
 TCB_SPAN_TUPLE_SIZE_KIND tuple_element<I, TCB_SPAN_NAMESPACE_NAME::span<ElementType, Extent>> {
 public:
     static_assert(Extent != TCB_SPAN_NAMESPACE_NAME::dynamic_extent &&
@@ -655,7 +655,7 @@ public:
 namespace souffle {
 constexpr auto dynamic_extent = tcb::dynamic_extent;
 
-template <typename A, size_t E = tcb::dynamic_extent>
+template <typename A, std::size_t E = tcb::dynamic_extent>
 using span = tcb::span<A, E>;
 }  // namespace souffle
 

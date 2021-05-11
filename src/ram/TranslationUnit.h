@@ -21,7 +21,6 @@
 #include "ram/analysis/Analysis.h"
 #include "reports/DebugReport.h"
 #include "reports/ErrorReport.h"
-#include "souffle/SymbolTable.h"
 #include <cassert>
 #include <iosfwd>
 #include <map>
@@ -42,8 +41,8 @@ namespace ram {
  */
 class TranslationUnit {
 public:
-    TranslationUnit(Own<Program> prog, SymbolTable sym, ErrorReport& e, DebugReport& d)
-            : program(std::move(prog)), symbolTable(std::move(sym)), errorReport(e), debugReport(d) {
+    TranslationUnit(Own<Program> prog, ErrorReport& e, DebugReport& d)
+            : program(std::move(prog)), errorReport(e), debugReport(d) {
         assert(program != nullptr && "program is a null-pointer");
     }
 
@@ -74,7 +73,7 @@ public:
                 analyses[name] = std::move(analysis);
             }
         }
-        return dynamic_cast<Analysis*>(analyses[name].get());
+        return as<Analysis>(analyses[name]);
     }
 
     /** @brief Get all alive analyses */
@@ -96,11 +95,6 @@ public:
         return *program;
     }
 
-    /** @brief Obtain symbol table  */
-    souffle::SymbolTable& getSymbolTable() {
-        return symbolTable;
-    }
-
     /** @brief Obtain error report */
     ErrorReport& getErrorReport() {
         return errorReport;
@@ -117,9 +111,6 @@ protected:
 
     /* RAM program */
     Own<Program> program;
-
-    /* Symbol table for the RAM program */
-    souffle::SymbolTable symbolTable;
 
     /* Error report for raising errors and warnings */
     ErrorReport& errorReport;

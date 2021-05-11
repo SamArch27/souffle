@@ -16,11 +16,8 @@
 
 #pragma once
 
-#include "souffle/utility/StreamUtil.h"
-#include <algorithm>
-#include <sstream>
+#include <iosfwd>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace souffle::ast {
@@ -32,24 +29,20 @@ namespace souffle::ast {
  */
 class QualifiedName {
 public:
-    QualifiedName() : qualifiers() {}
-    QualifiedName(const std::string& name) : qualifiers({name}) {}
-    QualifiedName(const char* name) : QualifiedName(std::string(name)) {}
-    QualifiedName(const std::vector<std::string> qualifiers) : qualifiers(qualifiers) {}
+    QualifiedName();
+    QualifiedName(std::string name);
+    QualifiedName(const char* name);
+    QualifiedName(std::vector<std::string> qualifiers);
     QualifiedName(const QualifiedName&) = default;
     QualifiedName(QualifiedName&&) = default;
     QualifiedName& operator=(const QualifiedName&) = default;
     QualifiedName& operator=(QualifiedName&&) = default;
 
     /** append qualifiers */
-    void append(std::string name) {
-        qualifiers.push_back(std::move(name));
-    }
+    void append(std::string name);
 
     /** prepend qualifiers */
-    void prepend(std::string name) {
-        qualifiers.insert(qualifiers.begin(), std::move(name));
-    }
+    void prepend(std::string name);
 
     /** check for emptiness */
     bool empty() const {
@@ -62,11 +55,7 @@ public:
     }
 
     /** convert to a string separated by fullstop */
-    std::string toString() const {
-        std::stringstream ss;
-        ss << join(qualifiers, ".");
-        return ss.str();
-    }
+    std::string toString() const;
 
     bool operator==(const QualifiedName& other) const {
         return qualifiers == other.qualifiers;
@@ -76,20 +65,12 @@ public:
         return !(*this == other);
     }
 
-    bool operator<(const QualifiedName& other) const {
-        return std::lexicographical_compare(
-                qualifiers.begin(), qualifiers.end(), other.qualifiers.begin(), other.qualifiers.end());
-    }
+    bool operator<(const QualifiedName& other) const;
 
     /** print qualified name */
-    void print(std::ostream& out) const {
-        out << join(qualifiers, ".");
-    }
+    void print(std::ostream& out) const;
 
-    friend std::ostream& operator<<(std::ostream& out, const QualifiedName& id) {
-        id.print(out);
-        return out;
-    }
+    friend std::ostream& operator<<(std::ostream& out, const QualifiedName& id);
 
 private:
     /* array of name qualifiers */

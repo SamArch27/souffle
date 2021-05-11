@@ -27,7 +27,7 @@ namespace souffle::ram {
  */
 class Operation : public Node {
 public:
-    Operation* clone() const override = 0;
+    Operation* cloning() const override = 0;
 
 protected:
     void print(std::ostream& os) const override {

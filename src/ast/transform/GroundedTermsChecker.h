@@ -31,11 +31,11 @@ public:
     // `apply` but doesn't immediately bail if any errors are found.
     void verify(TranslationUnit& translationUnit);
 
-    GroundedTermsChecker* clone() const override {
+private:
+    GroundedTermsChecker* cloning() const override {
         return new GroundedTermsChecker();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         verify(translationUnit);
         return false;

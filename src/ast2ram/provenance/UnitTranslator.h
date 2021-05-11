@@ -18,7 +18,6 @@
 
 namespace souffle::ast {
 class Atom;
-class Node;
 class Program;
 class Variable;
 }  // namespace souffle::ast
@@ -26,7 +25,6 @@ class Variable;
 namespace souffle::ram {
 class Condition;
 class ExistenceCheck;
-class Expression;
 class Node;
 class Operation;
 class Statement;
@@ -47,22 +45,32 @@ protected:
     Own<ram::Sequence> generateProgram(const ast::TranslationUnit& translationUnit) override;
     Own<ram::Statement> generateClearExpiredRelations(
             const std::set<const ast::Relation*>& expiredRelations) const override;
+    Own<ram::Relation> createRamRelation(
+            const ast::Relation* baseRelation, std::string ramRelationName) const override;
+    VecOwn<ram::Relation> createRamRelations(const std::vector<std::size_t>& sccOrdering) const override;
+    void addAuxiliaryArity(
+            const ast::Relation* relation, std::map<std::string, std::string>& directives) const override;
+
+    Own<ram::Statement> generateMergeRelations(const ast::Relation* rel, const std::string& destRelation,
+            const std::string& srcRelation) const override;
 
 private:
-    /** translate RAM code for subroutine to get subproofs */
+    /** Translate RAM code for subroutine to get subproofs */
     Own<ram::Statement> makeSubproofSubroutine(const ast::Clause& clause);
 
-    /** translate RAM code for subroutine to get subproofs for non-existence of a tuple */
+    /** Translate RAM code for subroutine to get subproofs for non-existence of a tuple */
     Own<ram::Statement> makeNegationSubproofSubroutine(const ast::Clause& clause);
 
     void addProvenanceClauseSubroutines(const ast::Program* program);
+    Own<ram::Sequence> generateInfoClauses(const ast::Program* program);
+
+    std::string getInfoRelationName(const ast::Clause* clause) const;
 
     Own<ram::ExistenceCheck> makeRamAtomExistenceCheck(const ast::Atom* atom,
-            const std::map<int, const ast::Variable*>& idToVar, ValueIndex& valueIndex) const;
+            const std::map<int, std::string>& idToVarName, ValueIndex& valueIndex) const;
     Own<ram::SubroutineReturn> makeRamReturnTrue() const;
     Own<ram::SubroutineReturn> makeRamReturnFalse() const;
-    void transformVariablesToSubroutineArgs(
-            ram::Node* node, const std::map<int, const ast::Variable*>& idToVar) const;
+    void transformVariablesToSubroutineArgs(ram::Node* node, const std::map<int, std::string>& idToVar) const;
     Own<ram::Sequence> makeIfStatement(
             Own<ram::Condition> condition, Own<ram::Operation> trueOp, Own<ram::Operation> falseOp) const;
 };

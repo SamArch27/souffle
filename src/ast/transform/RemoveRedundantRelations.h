@@ -29,11 +29,11 @@ public:
         return "RemoveRedundantRelationsTransformer";
     }
 
-    RemoveRedundantRelationsTransformer* clone() const override {
+private:
+    RemoveRedundantRelationsTransformer* cloning() const override {
         return new RemoveRedundantRelationsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

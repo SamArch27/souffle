@@ -23,16 +23,9 @@
 #include "ast/Node.h"
 #include "ast/Relation.h"
 #include "ast/Type.h"
-#include "ast/utility/NodeMapper.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/MiscUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include <algorithm>
-#include <memory>
-#include <ostream>
+#include <iosfwd>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace souffle::ast {
@@ -57,84 +50,52 @@ public:
     }
 
     /** Set component type */
-    void setComponentType(Own<ComponentType> other) {
-        componentType = std::move(other);
-    }
+    void setComponentType(Own<ComponentType> other);
 
     /** Get base components */
-    const std::vector<ComponentType*> getBaseComponents() const {
-        return toPtrVector(baseComponents);
-    }
+    const std::vector<ComponentType*> getBaseComponents() const;
 
     /** Add base components */
-    void addBaseComponent(Own<ComponentType> component) {
-        baseComponents.push_back(std::move(component));
-    }
+    void addBaseComponent(Own<ComponentType> component);
 
     /** Add type */
-    void addType(Own<Type> t) {
-        types.push_back(std::move(t));
-    }
+    void addType(Own<Type> t);
 
     /** Get types */
-    std::vector<Type*> getTypes() const {
-        return toPtrVector(types);
-    }
+    std::vector<Type*> getTypes() const;
 
     /** Copy base components */
-    void copyBaseComponents(const Component& other) {
-        baseComponents = souffle::clone(other.baseComponents);
-    }
+    void copyBaseComponents(const Component& other);
 
     /** Add relation */
-    void addRelation(Own<Relation> r) {
-        relations.push_back(std::move(r));
-    }
+    void addRelation(Own<Relation> r);
 
     /** Get relations */
-    std::vector<Relation*> getRelations() const {
-        return toPtrVector(relations);
-    }
+    std::vector<Relation*> getRelations() const;
 
     /** Add clause */
-    void addClause(Own<Clause> c) {
-        clauses.push_back(std::move(c));
-    }
+    void addClause(Own<Clause> c);
 
     /** Get clauses */
-    std::vector<Clause*> getClauses() const {
-        return toPtrVector(clauses);
-    }
+    std::vector<Clause*> getClauses() const;
 
     /** Add directive */
-    void addDirective(Own<Directive> directive) {
-        directives.push_back(std::move(directive));
-    }
+    void addDirective(Own<Directive> directive);
 
     /** Get directive statements */
-    std::vector<Directive*> getDirectives() const {
-        return toPtrVector(directives);
-    }
+    std::vector<Directive*> getDirectives() const;
 
     /** Add components */
-    void addComponent(Own<Component> c) {
-        components.push_back(std::move(c));
-    }
+    void addComponent(Own<Component> c);
 
     /** Get components */
-    std::vector<Component*> getComponents() const {
-        return toPtrVector(components);
-    }
+    std::vector<Component*> getComponents() const;
 
     /** Add instantiation */
-    void addInstantiation(Own<ComponentInit> i) {
-        instantiations.push_back(std::move(i));
-    }
+    void addInstantiation(Own<ComponentInit> i);
 
     /** Get instantiation */
-    std::vector<ComponentInit*> getInstantiations() const {
-        return toPtrVector(instantiations);
-    }
+    std::vector<ComponentInit*> getInstantiations() const;
 
     /** Add override */
     void addOverride(const std::string& name) {
@@ -146,126 +107,19 @@ public:
         return overrideRules;
     }
 
-    Component* clone() const override {
-        auto* res = new Component();
-        res->componentType = souffle::clone(componentType);
-        res->baseComponents = souffle::clone(baseComponents);
-        res->components = souffle::clone(components);
-        res->instantiations = souffle::clone(instantiations);
-        res->types = souffle::clone(types);
-        res->relations = souffle::clone(relations);
-        res->clauses = souffle::clone(clauses);
-        res->directives = souffle::clone(directives);
-        res->overrideRules = overrideRules;
-        return res;
-    }
-
-    void apply(const NodeMapper& mapper) override {
-        componentType = mapper(std::move(componentType));
-        for (auto& cur : baseComponents) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : components) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : instantiations) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : types) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : relations) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : clauses) {
-            cur = mapper(std::move(cur));
-        }
-        for (auto& cur : directives) {
-            cur = mapper(std::move(cur));
-        }
-    }
-
-    std::vector<const Node*> getChildNodes() const override {
-        std::vector<const Node*> res;
-
-        res.push_back(componentType.get());
-        for (const auto& cur : baseComponents) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : components) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : instantiations) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : types) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : relations) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : clauses) {
-            res.push_back(cur.get());
-        }
-        for (const auto& cur : directives) {
-            res.push_back(cur.get());
-        }
-        return res;
-    }
+    void apply(const NodeMapper& mapper) override;
 
 protected:
-    void print(std::ostream& os) const override {
-        auto show = [&](auto&& xs, char const* sep = "\n", char const* prefix = "") {
-            if (xs.empty()) return;
-            os << prefix << join(xs, sep) << "\n";
-        };
+    void print(std::ostream& os) const override;
 
-        os << ".comp " << *componentType << " ";
-        show(baseComponents, ",", ": ");
-        os << "{\n";
-        show(components);
-        show(instantiations);
-        show(types);
-        show(relations);
-        show(overrideRules, ",", ".override ");
-        show(clauses, "\n\n");
-        show(directives, "\n\n");
-        os << "}\n";
-    }
+    NodeVec getChildNodesImpl() const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Component&>(node);
+private:
+    bool equal(const Node& node) const override;
 
-        if (equal_ptr(componentType, other.componentType)) {
-            return true;
-        }
-        if (!equal_targets(baseComponents, other.baseComponents)) {
-            return false;
-        }
-        if (!equal_targets(components, other.components)) {
-            return false;
-        }
-        if (!equal_targets(instantiations, other.instantiations)) {
-            return false;
-        }
-        if (!equal_targets(types, other.types)) {
-            return false;
-        }
-        if (!equal_targets(relations, other.relations)) {
-            return false;
-        }
-        if (!equal_targets(clauses, other.clauses)) {
-            return false;
-        }
-        if (!equal_targets(directives, other.directives)) {
-            return false;
-        }
-        if (overrideRules != other.overrideRules) {
-            return false;
-        }
-        return true;
-    }
+    Component* cloning() const override;
 
+private:
     /** Name of component and its formal component arguments. */
     Own<ComponentType> componentType;
 

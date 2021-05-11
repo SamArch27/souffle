@@ -58,8 +58,8 @@ public:
         return {operation.get()};
     }
 
-    Query* clone() const override {
-        return new Query(souffle::clone(operation));
+    Query* cloning() const override {
+        return new Query(clone(operation));
     }
 
     void apply(const NodeMapper& map) override {
@@ -73,7 +73,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Query&>(node);
+        const auto& other = asAssert<Query>(node);
         return equal_ptr(operation, other.operation);
     }
 

@@ -52,7 +52,7 @@ public:
         assert(nestedOperation != nullptr);
     }
 
-    NestedOperation* clone() const override = 0;
+    NestedOperation* cloning() const override = 0;
 
     /** @brief Get nested operation */
     Operation& getOperation() const {
@@ -78,7 +78,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const NestedOperation&>(node);
+        const auto& other = asAssert<NestedOperation>(node);
         return equal_ptr(nestedOperation, other.nestedOperation) && profileText == other.profileText;
     }
 

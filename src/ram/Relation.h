@@ -18,6 +18,7 @@
 #include "RelationTag.h"
 #include "ram/Node.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -34,8 +35,9 @@ namespace souffle::ram {
  */
 class Relation : public Node {
 public:
-    Relation(std::string name, size_t arity, size_t auxiliaryArity, std::vector<std::string> attributeNames,
-            std::vector<std::string> attributeTypes, RelationRepresentation representation)
+    Relation(std::string name, std::size_t arity, std::size_t auxiliaryArity,
+            std::vector<std::string> attributeNames, std::vector<std::string> attributeTypes,
+            RelationRepresentation representation)
             : representation(representation), name(std::move(name)), arity(arity),
               auxiliaryArity(auxiliaryArity), attributeNames(std::move(attributeNames)),
               attributeTypes(std::move(attributeTypes)) {
@@ -97,7 +99,7 @@ public:
         return name < other.name;
     }
 
-    Relation* clone() const override {
+    Relation* cloning() const override {
         return new Relation(name, arity, auxiliaryArity, attributeNames, attributeTypes, representation);
     }
 
@@ -121,8 +123,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        assert(isA<Relation>(&node));
-        const auto& other = static_cast<const Relation&>(node);
+        const auto& other = asAssert<Relation>(node);
         return representation == other.representation && name == other.name && arity == other.arity &&
                auxiliaryArity == other.auxiliaryArity && attributeNames == other.attributeNames &&
                attributeTypes == other.attributeTypes;
@@ -136,10 +137,10 @@ protected:
     const std::string name;
 
     /** Arity, i.e., number of attributes */
-    const size_t arity;
+    const std::size_t arity;
 
     /** Number of auxiliary attributes (e.g. provenance attributes etc) */
-    const size_t auxiliaryArity;
+    const std::size_t auxiliaryArity;
 
     /** Name of attributes */
     const std::vector<std::string> attributeNames;

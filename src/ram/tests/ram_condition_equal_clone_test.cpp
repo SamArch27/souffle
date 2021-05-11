@@ -8,9 +8,9 @@
 
 /************************************************************************
  *
- * @file ram_condition_equal_clone_test.cpp
+ * @file ram_condition_equal_cloning_test.cpp
  *
- * Tests equal and clone function of Condition classes.
+ * Tests equal and cloning function of Condition classes.
  *
  ***********************************************************************/
 
@@ -45,7 +45,7 @@ TEST(True, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    True* c = a.clone();
+    True* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -57,7 +57,7 @@ TEST(False, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    False* c = a.clone();
+    False* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -70,7 +70,7 @@ TEST(Conjunction, CloneAndEquals) {
     EXPECT_EQ(*a, *b);
     EXPECT_NE(a, b);
 
-    Own<Conjunction> c(a->clone());
+    Own<Conjunction> c(a->cloning());
     EXPECT_EQ(*a, *c);
     EXPECT_NE(a, c);
 
@@ -80,7 +80,7 @@ TEST(Conjunction, CloneAndEquals) {
     EXPECT_EQ(*d, *e);
     EXPECT_NE(d, e);
 
-    Own<Conjunction> f(d->clone());
+    Own<Conjunction> f(d->cloning());
     EXPECT_EQ(*d, *f);
     EXPECT_NE(d, f);
 
@@ -96,7 +96,7 @@ TEST(Conjunction, CloneAndEquals) {
     EXPECT_NE(c_conj_f, a_conj_d);
     EXPECT_NE(c_conj_f, b_conj_e);
 
-    Own<Conjunction> a_conj_d_copy(a_conj_d->clone());
+    Own<Conjunction> a_conj_d_copy(a_conj_d->cloning());
     EXPECT_EQ(*a_conj_d, *a_conj_d_copy);
     EXPECT_NE(a_conj_d, a_conj_d_copy);
 }
@@ -128,7 +128,7 @@ TEST(Constraint, CloneAndEquals) {
     EXPECT_EQ(*a, *b);
     EXPECT_NE(a, b);
 
-    Own<Constraint> c(a->clone());
+    Own<Constraint> c(a->cloning());
     EXPECT_EQ(*a, *c);
     EXPECT_EQ(*b, *c);
     EXPECT_NE(a, c);
@@ -144,7 +144,7 @@ TEST(Constraint, CloneAndEquals) {
     EXPECT_EQ(*d, *e);
     EXPECT_NE(d, e);
 
-    Own<Constraint> f(d->clone());
+    Own<Constraint> f(d->cloning());
     EXPECT_EQ(*d, *f);
     EXPECT_EQ(*e, *f);
     EXPECT_NE(d, f);
@@ -163,7 +163,7 @@ TEST(ExistenceCheck, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ExistenceCheck* c = a.clone();
+    ExistenceCheck* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_EQ(b, *c);
     EXPECT_NE(&a, c);
@@ -184,7 +184,7 @@ TEST(ExistenceCheck, CloneAndEquals) {
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
-    ExistenceCheck* f = d.clone();
+    ExistenceCheck* f = d.cloning();
     EXPECT_EQ(d, *f);
     EXPECT_EQ(e, *f);
     EXPECT_NE(&d, f);
@@ -204,7 +204,7 @@ TEST(RamProvenanceExistCheck, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ExistenceCheck* c = a.clone();
+    ExistenceCheck* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_EQ(b, *c);
     EXPECT_NE(&a, c);
@@ -228,7 +228,7 @@ TEST(RamProvenanceExistCheck, CloneAndEquals) {
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
-    ProvenanceExistenceCheck* f = d.clone();
+    ProvenanceExistenceCheck* f = d.cloning();
     EXPECT_EQ(d, *f);
     EXPECT_EQ(e, *f);
     EXPECT_NE(&d, f);
@@ -244,7 +244,7 @@ TEST(EmptinessCheck, CloneAndEquals) {
     EmptinessCheck b("A");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
-    EmptinessCheck* c = a.clone();
+    EmptinessCheck* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_EQ(b, *c);
     EXPECT_NE(&a, c);

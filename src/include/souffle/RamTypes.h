@@ -26,7 +26,7 @@
 namespace souffle {
 
 // deprecated. use `std::array` directly.
-template <typename A, size_t N>
+template <typename A, std::size_t N>
 using Tuple = std::array<A, N>;
 
 /**

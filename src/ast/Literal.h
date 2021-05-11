@@ -30,8 +30,6 @@ namespace souffle::ast {
 class Literal : public Node {
 public:
     using Node::Node;
-
-    Literal* clone() const override = 0;
 };
 
 }  // namespace souffle::ast

@@ -32,7 +32,6 @@ AM_INIT_AUTOMAKE([foreign subdir-objects 1.9 tar-pax])
 AM_MAINTAINER_MODE
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_MACRO_DIRS([m4])
-AC_CONFIG_MACRO_DIR([m4])
 
 dnl Do not set default CFLAGS and CXXFLAGS
 ENV_CXXFLAGS="$CXXFLAGS"

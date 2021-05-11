@@ -72,8 +72,8 @@ public:
         return {lhs.get(), rhs.get()};
     }
 
-    Constraint* clone() const override {
-        return new Constraint(op, souffle::clone(lhs), souffle::clone(rhs));
+    Constraint* cloning() const override {
+        return new Constraint(op, clone(lhs), clone(rhs));
     }
 
     void apply(const NodeMapper& map) override {
@@ -89,7 +89,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Constraint&>(node);
+        const auto& other = asAssert<Constraint>(node);
         return op == other.op && equal_ptr(lhs, other.lhs) && equal_ptr(rhs, other.rhs);
     }
 

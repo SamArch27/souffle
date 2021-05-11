@@ -34,14 +34,14 @@ void RelationDetailCacheAnalysis::run(const TranslationUnit& translationUnit) {
     const auto& program = translationUnit.getProgram();
     for (auto* rel : program.getRelations()) {
         nameToRelation[rel->getQualifiedName()] = rel;
-        nameToClauses[rel->getQualifiedName()] = std::set<Clause*>();
+        nameToClauses[rel->getQualifiedName()] = std::vector<Clause*>();
     }
     for (auto* clause : program.getClauses()) {
         const auto& relationName = clause->getHead()->getQualifiedName();
-        if (nameToClauses.find(relationName) == nameToClauses.end()) {
-            nameToClauses[relationName] = std::set<Clause*>();
+        if (!contains(nameToClauses, relationName)) {
+            nameToClauses[relationName] = std::vector<Clause*>();
         }
-        nameToClauses.at(relationName).insert(clause);
+        nameToClauses.at(relationName).push_back(clause);
     }
 }
 

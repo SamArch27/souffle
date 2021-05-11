@@ -32,11 +32,11 @@ public:
         return "RemoveRedundantSumsTransformer";
     }
 
-    RemoveRedundantSumsTransformer* clone() const override {
+private:
+    RemoveRedundantSumsTransformer* cloning() const override {
         return new RemoveRedundantSumsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

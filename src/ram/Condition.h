@@ -27,7 +27,7 @@ namespace souffle::ram {
  */
 class Condition : public Node {
 public:
-    Condition* clone() const override = 0;
+    Condition* cloning() const override = 0;
 };
 
 }  // namespace souffle::ram

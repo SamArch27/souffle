@@ -29,7 +29,7 @@
 namespace souffle::ast::analysis {
 
 int TopologicallySortedSCCGraphAnalysis::topologicalOrderingCost(
-        const std::vector<size_t>& permutationOfSCCs) const {
+        const std::vector<std::size_t>& permutationOfSCCs) const {
     // create variables to hold the cost of the current SCC and the permutation as a whole
     int costOfSCC = 0;
     int costOfPermutation = -1;
@@ -66,7 +66,8 @@ int TopologicallySortedSCCGraphAnalysis::topologicalOrderingCost(
     return costOfPermutation;
 }
 
-void TopologicallySortedSCCGraphAnalysis::computeTopologicalOrdering(size_t scc, std::vector<bool>& visited) {
+void TopologicallySortedSCCGraphAnalysis::computeTopologicalOrdering(
+        std::size_t scc, std::vector<bool>& visited) {
     // create a flag to indicate that a successor was visited (by default it hasn't been)
     bool found = false;
     bool hasUnvisitedSuccessor = false;
@@ -134,7 +135,7 @@ void TopologicallySortedSCCGraphAnalysis::run(const TranslationUnit& translation
     std::fill(visited.begin(), visited.end(), false);
     // generate topological ordering using forwards algorithm (like Khan's algorithm)
     // for each of the sccs in the graph
-    for (size_t scc = 0; scc < sccGraph->getNumberOfSCCs(); ++scc) {
+    for (std::size_t scc = 0; scc < sccGraph->getNumberOfSCCs(); ++scc) {
         // if that scc has no predecessors
         if (sccGraph->getPredecessorSCCs(scc).empty()) {
             // put it in the ordering
@@ -150,7 +151,7 @@ void TopologicallySortedSCCGraphAnalysis::run(const TranslationUnit& translation
 
 void TopologicallySortedSCCGraphAnalysis::print(std::ostream& os) const {
     os << "--- partial order of strata as list of pairs ---" << std::endl;
-    for (size_t sccIndex = 0; sccIndex < sccOrder.size(); sccIndex++) {
+    for (std::size_t sccIndex = 0; sccIndex < sccOrder.size(); sccIndex++) {
         const auto& successorSccs = sccGraph->getSuccessorSCCs(sccOrder.at(sccIndex));
         // use a self-loop to indicate that an SCC has no successors or predecessors
         if (successorSccs.empty() && sccGraph->getPredecessorSCCs(sccOrder.at(sccIndex)).empty()) {
@@ -163,7 +164,7 @@ void TopologicallySortedSCCGraphAnalysis::print(std::ostream& os) const {
         }
     }
     os << "--- total order with relations of each strata ---" << std::endl;
-    for (size_t i = 0; i < sccOrder.size(); i++) {
+    for (std::size_t i = 0; i < sccOrder.size(); i++) {
         os << i << ": [";
         os << join(sccGraph->getInternalRelations(sccOrder[i]), ", ",
                 [](std::ostream& out, const Relation* rel) { out << rel->getQualifiedName(); });

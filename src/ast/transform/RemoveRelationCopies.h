@@ -42,11 +42,11 @@ public:
      */
     static bool removeRelationCopies(TranslationUnit& translationUnit);
 
-    RemoveRelationCopiesTransformer* clone() const override {
+private:
+    RemoveRelationCopiesTransformer* cloning() const override {
         return new RemoveRelationCopiesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         return removeRelationCopies(translationUnit);
     }

@@ -30,7 +30,7 @@ namespace souffle::ram {
  */
 class True : public Condition {
 public:
-    True* clone() const override {
+    True* cloning() const override {
         return new True();
     }
 

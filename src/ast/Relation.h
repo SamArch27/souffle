@@ -21,18 +21,10 @@
 #include "ast/FunctionalConstraint.h"
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
-#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include <algorithm>
-#include <cassert>
 #include <cstddef>
-#include <memory>
-#include <ostream>
+#include <iosfwd>
 #include <set>
-#include <string>
-#include <utility>
 #include <vector>
 
 namespace souffle::ast {
@@ -44,9 +36,7 @@ namespace souffle::ast {
 class Relation : public Node {
 public:
     Relation() = default;
-    Relation(QualifiedName name, SrcLocation loc = {}) : name(std::move(name)) {
-        setSrcLoc(std::move(loc));
-    }
+    Relation(QualifiedName name, SrcLocation loc = {});
 
     /** Get qualified relation name */
     const QualifiedName& getQualifiedName() const {
@@ -54,30 +44,21 @@ public:
     }
 
     /** Set name for this relation */
-    void setQualifiedName(QualifiedName n) {
-        name = std::move(n);
-    }
+    void setQualifiedName(QualifiedName n);
 
     /** Add a new used type to this relation */
-    void addAttribute(Own<Attribute> attr) {
-        assert(attr && "Undefined attribute");
-        attributes.push_back(std::move(attr));
-    }
+    void addAttribute(Own<Attribute> attr);
 
     /** Return the arity of this relation */
-    size_t getArity() const {
+    std::size_t getArity() const {
         return attributes.size();
     }
 
     /** Set relation attributes */
-    void setAttributes(VecOwn<Attribute> attrs) {
-        attributes = std::move(attrs);
-    }
+    void setAttributes(VecOwn<Attribute> attrs);
 
     /** Get relation attributes */
-    std::vector<Attribute*> getAttributes() const {
-        return toPtrVector(attributes);
-    }
+    std::vector<Attribute*> getAttributes() const;
 
     /** Get relation qualifiers */
     const std::set<RelationQualifier>& getQualifiers() const {
@@ -110,47 +91,23 @@ public:
     }
 
     /** Add functional dependency to this relation */
-    void addDependency(Own<FunctionalConstraint> fd) {
-        functionalDependencies.push_back(std::move(fd));
-    }
+    void addDependency(Own<FunctionalConstraint> fd);
 
-    std::vector<FunctionalConstraint*> getFunctionalDependencies() const {
-        return toPtrVector(functionalDependencies);
-    }
+    std::vector<FunctionalConstraint*> getFunctionalDependencies() const;
 
-    Relation* clone() const override {
-        auto res = new Relation(name, getSrcLoc());
-        res->attributes = souffle::clone(attributes);
-        res->qualifiers = qualifiers;
-        res->representation = representation;
-        return res;
-    }
-
-    void apply(const NodeMapper& map) override {
-        for (auto& cur : attributes) {
-            cur = map(std::move(cur));
-        }
-    }
-
-    std::vector<const Node*> getChildNodes() const override {
-        std::vector<const Node*> res;
-        for (const auto& cur : attributes) {
-            res.push_back(cur.get());
-        }
-        return res;
-    }
+    void apply(const NodeMapper& map) override;
 
 protected:
-    void print(std::ostream& os) const override {
-        os << ".decl " << getQualifiedName() << "(" << join(attributes, ", ") << ")" << join(qualifiers, " ")
-           << " " << representation;
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Relation&>(node);
-        return name == other.name && equal_targets(attributes, other.attributes);
-    }
+    NodeVec getChildNodesImpl() const override;
 
+private:
+    bool equal(const Node& node) const override;
+
+    Relation* cloning() const override;
+
+private:
     /** Name of relation */
     QualifiedName name;
 

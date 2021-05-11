@@ -17,19 +17,10 @@
 #pragma once
 
 #include "ast/Attribute.h"
-#include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "ast/Type.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include "souffle/utility/tinyformat.h"
-#include <algorithm>
-#include <cstddef>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <utility>
+#include <iosfwd>
 #include <vector>
 
 namespace souffle::ast {
@@ -43,37 +34,24 @@ namespace souffle::ast {
  */
 class RecordType : public Type {
 public:
-    RecordType(QualifiedName name, VecOwn<Attribute> fields, SrcLocation loc = {})
-            : Type(std::move(name), std::move(loc)), fields(std::move(fields)) {}
+    RecordType(QualifiedName name, VecOwn<Attribute> fields, SrcLocation loc = {});
 
     /** Add field to record type */
-    void add(std::string name, QualifiedName type) {
-        fields.push_back(mk<Attribute>(std::move(name), std::move(type)));
-    }
+    void add(std::string name, QualifiedName type);
 
     /** Get fields of record */
-    std::vector<Attribute*> getFields() const {
-        return toPtrVector(fields);
-    }
+    std::vector<Attribute*> getFields() const;
 
     /** Set field type */
-    void setFieldType(size_t idx, QualifiedName type) {
-        fields.at(idx)->setTypeName(std::move(type));
-    }
-
-    RecordType* clone() const override {
-        return new RecordType(getQualifiedName(), souffle::clone(fields), getSrcLoc());
-    }
+    void setFieldType(std::size_t idx, QualifiedName type);
 
 protected:
-    void print(std::ostream& os) const override {
-        os << tfm::format(".type %s = [%s]", getQualifiedName(), join(fields, ", "));
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = dynamic_cast<const RecordType&>(node);
-        return getQualifiedName() == other.getQualifiedName() && equal_targets(fields, other.fields);
-    }
+private:
+    bool equal(const Node& node) const override;
+
+    RecordType* cloning() const override;
 
 private:
     /** record fields */

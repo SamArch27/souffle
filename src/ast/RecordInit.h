@@ -17,15 +17,10 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include "ast/Node.h"
 #include "ast/Term.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include <ostream>
+#include <iostream>
 #include <string>
-#include <utility>
-#include <vector>
 
 namespace souffle::ast {
 
@@ -35,17 +30,13 @@ namespace souffle::ast {
  */
 class RecordInit : public Term {
 public:
-    RecordInit(VecOwn<Argument> operands = {}, SrcLocation loc = {})
-            : Term(std::move(operands), std::move(loc)) {}
-
-    RecordInit* clone() const override {
-        return new RecordInit(souffle::clone(args), getSrcLoc());
-    }
+    RecordInit(VecOwn<Argument> operands = {}, SrcLocation loc = {});
 
 protected:
-    void print(std::ostream& os) const override {
-        os << "[" << join(args) << "]";
-    }
+    void print(std::ostream& os) const override;
+
+private:
+    RecordInit* cloning() const override;
 };
 
 }  // namespace souffle::ast

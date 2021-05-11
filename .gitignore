@@ -32,7 +32,7 @@ profiler_html/
 doc
 
 .idea/
-cmake-build-debug/
+*build*
 
 *.swp
 *.tgz

@@ -19,7 +19,7 @@
 #include "souffle/utility/ContainerUtil.h"
 #include "souffle/utility/MiscUtil.h"
 #include <cassert>
-#include <memory>
+#include <utility>
 
 namespace souffle::ast {
 class Node;
@@ -46,9 +46,16 @@ public:
     template <typename T>
     Own<T> operator()(Own<T> node) const {
         Own<Node> resPtr = (*this)(Own<Node>(static_cast<Node*>(node.release())));
-        assert(isA<T>(resPtr.get()) && "Invalid target node!");
-        return Own<T>(dynamic_cast<T*>(resPtr.release()));
+        assert(isA<T>(resPtr) && "Invalid target node!");
+        return Own<T>(as<T>(resPtr.release()));
     }
 };
+
+template <typename R>
+void mapAll(R& range, NodeMapper const& mapper) {
+    for (auto& cur : range) {
+        cur = mapper(std::move(cur));
+    }
+}
 
 }  // namespace souffle::ast

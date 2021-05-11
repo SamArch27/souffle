@@ -36,11 +36,11 @@ public:
         return "MaterializeSingletonAggregationTransformer";
     }
 
-    MaterializeSingletonAggregationTransformer* clone() const override {
+private:
+    MaterializeSingletonAggregationTransformer* cloning() const override {
         return new MaterializeSingletonAggregationTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
     /**
      * Determines whether an aggregate is single-valued,

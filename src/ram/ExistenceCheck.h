@@ -43,10 +43,10 @@ class ExistenceCheck : public AbstractExistenceCheck {
 public:
     ExistenceCheck(std::string rel, VecOwn<Expression> vals) : AbstractExistenceCheck(rel, std::move(vals)) {}
 
-    ExistenceCheck* clone() const override {
+    ExistenceCheck* cloning() const override {
         VecOwn<Expression> newValues;
         for (auto& cur : values) {
-            newValues.emplace_back(cur->clone());
+            newValues.emplace_back(cur->cloning());
         }
         return new ExistenceCheck(relation, std::move(newValues));
     }

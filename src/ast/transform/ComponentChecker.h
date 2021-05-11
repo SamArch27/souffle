@@ -37,11 +37,11 @@ public:
         return "ComponentChecker";
     }
 
-    ComponentChecker* clone() const override {
+private:
+    ComponentChecker* cloning() const override {
         return new ComponentChecker();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 
     static const Component* checkComponentNameReference(ErrorReport& report,

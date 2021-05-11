@@ -279,20 +279,20 @@ TEST(BTreeSet, Copy) {
         t.insert(data[i]);
     }
 
-    EXPECT_EQ((size_t)N, t.size());
+    EXPECT_EQ((std::size_t)N, t.size());
 
     for (int i = 0; i < N; i++) {
         EXPECT_TRUE(t.find(i) != t.end()) << "i=" << i;
     }
 
     test_set t2;
-    EXPECT_EQ((size_t)N, t.size());
+    EXPECT_EQ((std::size_t)N, t.size());
     EXPECT_EQ(0, t2.size());
 
     t2 = t;
 
-    EXPECT_EQ((size_t)N, t.size());
-    EXPECT_EQ((size_t)N, t2.size());
+    EXPECT_EQ((std::size_t)N, t.size());
+    EXPECT_EQ((std::size_t)N, t2.size());
 
     for (int i = 0; i < N; i++) {
         EXPECT_TRUE(t.find(i) != t.end()) << "i=" << i;
@@ -385,7 +385,7 @@ TEST(BTreeSet, IteratorStress) {
 
     int max = -1;
     for (int i = 0; i < N; i++) {
-        EXPECT_EQ((size_t)i, t.size());
+        EXPECT_EQ((std::size_t)i, t.size());
 
         int last = -1;
         for (int i : t) {
@@ -644,7 +644,7 @@ struct reserver<std::unordered_set<A, B, C, D>> {
                 counter++;                                                             \
             }                                                                          \
         });                                                                            \
-        EXPECT_EQ(in.size(), (size_t)counter);                                         \
+        EXPECT_EQ(in.size(), (std::size_t)counter);                                    \
         bool allPresent = true;                                                        \
         time("membership in", [&]() {                                                  \
             for (const auto& cur : in) {                                               \

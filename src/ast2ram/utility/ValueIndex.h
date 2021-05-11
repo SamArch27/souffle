@@ -44,10 +44,11 @@ public:
         return varReferencePoints;
     }
     const std::set<Location>& getVariableReferences(std::string var) const;
-    void addVarReference(const ast::Variable& var, const Location& l);
-    void addVarReference(const ast::Variable& var, int ident, int pos);
-    bool isDefined(const ast::Variable& var) const;
-    const Location& getDefinitionPoint(const ast::Variable& var) const;
+
+    void addVarReference(std::string varName, const Location& l);
+    void addVarReference(std::string varName, int ident, int pos);
+    bool isDefined(const std::string& varName) const;
+    const Location& getDefinitionPoint(const std::string& varName) const;
 
     // -- records --
     void setRecordDefinition(const ast::RecordInit& init, int ident, int pos);

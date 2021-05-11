@@ -35,6 +35,13 @@ public:
     }
 
     /**
+     * ResolveAliasesTransformer cannot be disabled.
+     */
+    bool isSwitchable() override {
+        return false;
+    }
+
+    /**
      * Converts the given clause into a version without variables aliasing
      * grounded variables.
      *
@@ -59,11 +66,11 @@ public:
      */
     static Own<Clause> removeComplexTermsInAtoms(const Clause& clause);
 
-    ResolveAliasesTransformer* clone() const override {
+private:
+    ResolveAliasesTransformer* cloning() const override {
         return new ResolveAliasesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

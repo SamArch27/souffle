@@ -35,11 +35,11 @@ public:
         return "NameUnnamedVariablesTransformer";
     }
 
-    NameUnnamedVariablesTransformer* clone() const override {
+private:
+    NameUnnamedVariablesTransformer* cloning() const override {
         return new NameUnnamedVariablesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

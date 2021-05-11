@@ -79,6 +79,10 @@
     #include "souffle/utility/ContainerUtil.h"
     #include "souffle/utility/StringUtil.h"
 
+    #include <ostream>
+    #include <string>
+    #include <vector>
+
     using namespace souffle;
 
     namespace souffle {
@@ -166,11 +170,11 @@
 
             // basic ops
             using iterator = typename std::vector<A>::iterator;
-            typename std::vector<A>::value_type& operator[](size_t i) { return value[i]; }
+            typename std::vector<A>::value_type& operator[](std::size_t i) { return value[i]; }
             iterator begin() { return value.begin(); }
             iterator end() { return value.end(); }
             void push_back(A x) { value.push_back(std::move(x)); }
-            size_t size() const { return value.size(); }
+            std::size_t size() const { return value.size(); }
             bool empty() const { return value.empty(); }
           };
         }
@@ -241,7 +245,7 @@
 %token TRUE                      "true literal constraint"
 %token FALSE                     "false literal constraint"
 %token PLAN                      "plan keyword"
-%token CHOICEDOMAIN              "choice domain"
+%token CHOICEDOMAIN              "choice-domain"
 %token IF                        ":-"
 %token DECL                      "relation declaration"
 %token FUNCTOR                   "functor declaration"
@@ -331,7 +335,7 @@
 %type <Mov<Own<ast::ExecutionPlan>>>           exec_plan
 %type <Mov<Own<ast::ExecutionPlan>>>           exec_plan_list
 %type <Mov<Own<ast::Clause>>>                  fact
-%type <Mov<std::vector<TypeAttribute>>>        functor_arg_type_list
+%type <Mov<VecOwn<ast::Attribute>>>            functor_arg_type_list
 %type <Mov<std::string>>                       functor_built_in
 %type <Mov<Own<ast::FunctorDeclaration>>>      functor_decl
 %type <Mov<VecOwn<ast::Atom>>>                 head
@@ -346,12 +350,12 @@
 %type <Mov<VecOwn<ast::Attribute>>>            non_empty_attributes
 %type <Mov<std::vector<std::string>>>          non_empty_variables
 %type <Mov<ast::ExecutionOrder::ExecOrder>>    non_empty_exec_order_list
-%type <Mov<std::vector<TypeAttribute>>>        non_empty_functor_arg_type_list
+%type <Mov<VecOwn<ast::Attribute>>>            non_empty_functor_arg_type_list
+%type <Mov<Own<ast::Attribute>>>               functor_attribute;
 %type <Mov<std::vector<std::pair
             <std::string, std::string>>>>      non_empty_key_value_pairs
 %type <Mov<VecOwn<ast::Relation>>>             non_empty_relation_list
 %type <Mov<Own<ast::Pragma>>>                  pragma
-%type <TypeAttribute>                          predefined_type
 %type <Mov<VecOwn<ast::Attribute>>>            record_type_list
 %type <Mov<VecOwn<ast::Relation>>>             relation_decl
 %type <std::set<RelationTag>>                  relation_tags
@@ -474,7 +478,7 @@ relation_decl
             }
 
             for (auto&& fd : $dependency_list) {
-                rel->addDependency(Own<ast::FunctionalConstraint>(fd->clone()));
+                rel->addDependency(souffle::clone(fd));
             }
 
             rel->setAttributes(clone(attributes_list));
@@ -559,17 +563,17 @@ dependency
 dependency_list_aux
   : dependency { $$.push_back($dependency); }
 
-  | dependency_list_aux[list] COMMA dependency[next] { 
+  | dependency_list_aux[list] COMMA dependency[next] {
     $$ = std::move($list);
     $$.push_back(std::move($next));
   }
   ;
 
 /*  List of functional dependencies on relation */
-dependency_list 
+dependency_list
   : %empty { }
-    
-  | CHOICEDOMAIN dependency_list_aux[list] { 
+
+  | CHOICEDOMAIN dependency_list_aux[list] {
     $$ = std::move($list);
   }
   ;
@@ -755,7 +759,7 @@ arg
   | MINUS arg[nested_arg] %prec NEG {
         // If we have a constant that is not already negated we just negate the constant value.
         auto nested_arg = *$nested_arg;
-        const auto* asNumeric = dynamic_cast<const ast::NumericConstant*>(&*nested_arg);
+        const auto* asNumeric = as<ast::NumericConstant>(*nested_arg);
         if (asNumeric && !isPrefix("-", asNumeric->getConstant())) {
             $$ = mk<ast::NumericConstant>("-" + asNumeric->getConstant(), asNumeric->getFixedType(), @nested_arg);
         } else { // Otherwise, create a functor.
@@ -892,34 +896,22 @@ comp_init : INSTANTIATE IDENT EQUALS comp_type { $$ = mk<ast::ComponentInit>($ID
 
 /* Functor declaration */
 functor_decl
-  : FUNCTOR IDENT LPAREN functor_arg_type_list[args] RPAREN COLON predefined_type
-    { $$ = mk<ast::FunctorDeclaration>($IDENT, $args, $predefined_type, false, @$); }
-  | FUNCTOR IDENT LPAREN functor_arg_type_list[args] RPAREN COLON predefined_type STATEFUL
-    { $$ = mk<ast::FunctorDeclaration>($IDENT, $args, $predefined_type, true, @$); }
+  : FUNCTOR IDENT LPAREN functor_arg_type_list[args] RPAREN COLON identifier
+    { $$ = mk<ast::FunctorDeclaration>($IDENT, $args, mk<ast::Attribute>("return_type", $identifier, @identifier), false, @$); }
+  | FUNCTOR IDENT LPAREN functor_arg_type_list[args] RPAREN COLON identifier STATEFUL
+    { $$ = mk<ast::FunctorDeclaration>($IDENT, $args, mk<ast::Attribute>("return_type", $identifier, @identifier), true, @$); }
   ;
 
 /* Functor argument list type */
 functor_arg_type_list : %empty { } | non_empty_functor_arg_type_list { $$ = $1; };
 non_empty_functor_arg_type_list
-  :                                        predefined_type {          $$.push_back($predefined_type); }
-  | non_empty_functor_arg_type_list COMMA  predefined_type { $$ = $1; $$.push_back($predefined_type); }
+  :                                        functor_attribute {          $$.push_back($functor_attribute); }
+  | non_empty_functor_arg_type_list COMMA  functor_attribute { $$ = $1; $$.push_back($functor_attribute); }
   ;
 
-/* Predefined type */
-predefined_type
-  : IDENT {
-        if ($IDENT == "number") {
-            $$ = TypeAttribute::Signed;
-        } else if ($IDENT == "symbol") {
-            $$ = TypeAttribute::Symbol;
-        } else if ($IDENT == "float") {
-            $$ = TypeAttribute::Float;
-        } else if ($IDENT == "unsigned") {
-            $$ = TypeAttribute::Unsigned;
-        } else {
-            driver.error(@IDENT, "[number | symbol | float | unsigned] identifier expected");
-        }
-    }
+functor_attribute
+  : identifier[type] { $$ = mk<ast::Attribute>("", $type, @type); }
+  | IDENT[name] COLON identifier[type] { $$ = mk<ast::Attribute>($name, $type, @type); }
   ;
 
 /**
@@ -979,7 +971,7 @@ non_empty_key_value_pairs
 kvp_value
   : STRING  { $$ = $STRING; }
   | IDENT   { $$ = $IDENT; }
-  | NUMBER  { $$ = $NUMBER; } 
+  | NUMBER  { $$ = $NUMBER; }
   | TRUE    { $$ = "true"; }
   | FALSE   { $$ = "false"; }
   ;

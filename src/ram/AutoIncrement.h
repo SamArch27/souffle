@@ -29,7 +29,7 @@ namespace souffle::ram {
  */
 class AutoIncrement : public Expression {
 public:
-    AutoIncrement* clone() const override {
+    AutoIncrement* cloning() const override {
         return new AutoIncrement();
     }
 

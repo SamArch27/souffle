@@ -10,6 +10,8 @@
 # script that compiles a generated C++ program and executes it
 #
 
+set -e 
+
 # Show usage
 usage() {
   printf "Name:
@@ -55,7 +57,8 @@ WARNINGS=""
 SWIGLANG=""
 
 # find header files of souffle
-HEADER_DIRS=" -I$(dirname $0)/../include -I$(dirname $0)/include "
+P="$(dirname $0)"
+HEADER_DIRS=" -I$P/../include -I$P/include -I$P/../include/souffle/swig -I$P/include/souffle/swig "
 
 # Options processing via getopts builtin, it is very limiting but on OSX the
 # default getopt is an old BSD getopt, so need this for portability

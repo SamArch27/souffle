@@ -28,16 +28,15 @@ namespace souffle::ram::transform {
 
 bool ReorderFilterBreak::reorderFilterBreak(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
             // find filter-break nesting
-            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
-                if (const Break* br = dynamic_cast<Break*>(&filter->getOperation())) {
+            if (const Filter* filter = as<Filter>(node)) {
+                if (const Break* br = as<Break>(filter->getOperation())) {
                     changed = true;
                     // convert to break-filter nesting
-                    node = mk<Break>(souffle::clone(&br->getCondition()),
-                            mk<Filter>(souffle::clone(&filter->getCondition()),
-                                    souffle::clone(&br->getOperation())));
+                    node = mk<Break>(clone(br->getCondition()),
+                            mk<Filter>(clone(filter->getCondition()), clone(br->getOperation())));
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));

@@ -133,7 +133,7 @@ IntrinsicFunctors functorBuiltIn(std::string_view symbol);
 IntrinsicFunctors functorBuiltIn(std::string_view symbol, const std::vector<TypeAttribute>& params);
 
 // Checks whether a functor operation can have a given argument count.
-bool isValidFunctorOpArity(std::string_view symbol, size_t arity);
+bool isValidFunctorOpArity(std::string_view symbol, std::size_t arity);
 
 /**
  * Indicate whether a functor is overloaded.

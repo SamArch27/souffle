@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include <ostream>
+#include <iosfwd>
 
 namespace souffle::ast {
 
@@ -29,14 +29,11 @@ class Counter : public Argument {
 public:
     using Argument::Argument;
 
-    Counter* clone() const override {
-        return new Counter(getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << "$";
-    }
+    void print(std::ostream& os) const override;
+
+private:
+    Counter* cloning() const override;
 };
 
 }  // namespace souffle::ast

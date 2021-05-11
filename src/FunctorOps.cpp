@@ -218,6 +218,7 @@ const std::vector<IntrinsicFunctorInfo> FUNCTOR_INTRINSICS = {
         OP_1(ORD, Float, Signed),
         OP_1(ORD, Symbol, Signed),
         OP_1(ORD, Record, Signed),
+        OP_1(ORD, ADT, Signed),
 
         VARIADIC(CAT, Symbol),
         OP_1(STRLEN, Symbol, Signed),
@@ -249,7 +250,7 @@ IntrinsicFunctors functorBuiltIn(std::string_view symbol, const std::vector<Type
     });
 }
 
-bool isValidFunctorOpArity(std::string_view symbol, size_t arity) {
+bool isValidFunctorOpArity(std::string_view symbol, std::size_t arity) {
     return any_of(FUNCTOR_INTRINSICS, [&](auto&& x) {
         auto arityOk = x.params.size() == arity || x.variadic;
         return x.symbol == symbol && arityOk;

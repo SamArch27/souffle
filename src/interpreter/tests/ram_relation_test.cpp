@@ -21,13 +21,14 @@
 #include "interpreter/Engine.h"
 #include "ram/Expression.h"
 #include "ram/IO.h"
+#include "ram/Insert.h"
 #include "ram/Program.h"
-#include "ram/Project.h"
 #include "ram/Query.h"
 #include "ram/Relation.h"
 #include "ram/Sequence.h"
 #include "ram/SignedConstant.h"
 #include "ram/Statement.h"
+#include "ram/StringConstant.h"
 #include "ram/TranslationUnit.h"
 #include "reports/DebugReport.h"
 #include "reports/ErrorReport.h"
@@ -59,33 +60,32 @@ const std::string testInterpreterStore(
         std::vector<std::string> attribs, std::vector<std::string> attribsTypes, VecOwn<Expression> exprs) {
     Global::config().set("jobs", "1");
 
-    const size_t arity = attribs.size();
+    const std::size_t arity = attribs.size();
 
     VecOwn<ram::Relation> rels;
     Own<ram::Relation> myrel =
             mk<ram::Relation>("test", arity, 0, attribs, attribsTypes, RelationRepresentation::BTREE);
 
-    Json types = Json::object{{"relation",
-            Json::object{{"arity", static_cast<long long>(arity)}, {"auxArity", static_cast<long long>(0)},
-                    {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
+    Json types = Json::object{
+            {"relation", Json::object{{"arity", static_cast<long long>(arity)},
+                                 {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
     std::map<std::string, std::string> dirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
+            {"attributeNames", "x\ty"}, {"name", "test"}, {"auxArity", "0"}, {"types", types.dump()}};
 
     std::map<std::string, std::string> ioDirs = std::map<std::string, std::string>(dirs);
 
     Own<ram::Statement> main = mk<ram::Sequence>(
-            mk<ram::Query>(mk<ram::Project>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
+            mk<ram::Query>(mk<ram::Insert>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
 
     rels.push_back(std::move(myrel));
     std::map<std::string, Own<Statement>> subs;
     Own<ram::Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -125,7 +125,7 @@ TEST(IO_store, Signed) {
 
     // a0 a1 a2...
     std::vector<std::string> attribs(RANDOM_TESTS, "a");
-    for (size_t i = 0; i < RANDOM_TESTS; ++i) {
+    for (std::size_t i = 0; i < RANDOM_TESTS; ++i) {
         attribs[i].append(std::to_string(i));
     }
 
@@ -145,7 +145,7 @@ TEST(IO_store, Signed) {
              << "\n"
              << randomNumbers[0];
 
-    for (size_t i = 1; i < randomNumbers.size(); ++i) {
+    for (std::size_t i = 1; i < randomNumbers.size(); ++i) {
         expected << "\t" << randomNumbers[i];
     }
     expected << "\n"
@@ -161,7 +161,7 @@ TEST(IO_store, Float) {
 
     // a0 a1 a2...
     std::vector<std::string> attribs(RANDOM_TESTS, "a");
-    for (size_t i = 0; i < RANDOM_TESTS; ++i) {
+    for (std::size_t i = 0; i < RANDOM_TESTS; ++i) {
         attribs[i].append(std::to_string(i));
     }
 
@@ -183,7 +183,7 @@ TEST(IO_store, Float) {
              << "\n"
              << randomNumbers[0];
 
-    for (size_t i = 1; i < randomNumbers.size(); ++i) {
+    for (std::size_t i = 1; i < randomNumbers.size(); ++i) {
         expected << "\t" << randomNumbers[i];
     }
     expected << "\n"
@@ -199,7 +199,7 @@ TEST(IO_store, Unsigned) {
 
     // a0 a1 a2...
     std::vector<std::string> attribs(RANDOM_TESTS, "a");
-    for (size_t i = 0; i < RANDOM_TESTS; ++i) {
+    for (std::size_t i = 0; i < RANDOM_TESTS; ++i) {
         attribs[i].append(std::to_string(i));
     }
 
@@ -219,7 +219,7 @@ TEST(IO_store, Unsigned) {
              << "\n"
              << randomNumbers[0];
 
-    for (size_t i = 1; i < randomNumbers.size(); ++i) {
+    for (std::size_t i = 1; i < randomNumbers.size(); ++i) {
         expected << "\t" << randomNumbers[i];
     }
     expected << "\n"
@@ -241,7 +241,7 @@ TEST(IO_store, SignedChangedDelimiter) {
 
     // a0 a1 a2...
     std::vector<std::string> attribs(RANDOM_TESTS, "a");
-    for (size_t i = 0; i < RANDOM_TESTS; ++i) {
+    for (std::size_t i = 0; i < RANDOM_TESTS; ++i) {
         attribs[i].append(std::to_string(i));
     }
 
@@ -252,11 +252,11 @@ TEST(IO_store, SignedChangedDelimiter) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
     std::map<std::string, std::string> dirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"delimiter", delimiter}, {"types", types.dump()}};
+            {"attributeNames", "x\ty"}, {"name", "test"}, {"auxArity", "0"}, {"delimiter", delimiter},
+            {"types", types.dump()}};
 
     std::map<std::string, std::string> ioDirs = std::map<std::string, std::string>(dirs);
 
@@ -266,17 +266,16 @@ TEST(IO_store, SignedChangedDelimiter) {
     }
 
     Own<ram::Statement> main = mk<ram::Sequence>(
-            mk<ram::Query>(mk<ram::Project>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
+            mk<ram::Query>(mk<ram::Insert>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
 
     rels.push_back(std::move(myrel));
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -298,7 +297,7 @@ TEST(IO_store, SignedChangedDelimiter) {
              << "\n"
              << randomNumbers[0];
 
-    for (size_t i = 1; i < randomNumbers.size(); ++i) {
+    for (std::size_t i = 1; i < randomNumbers.size(); ++i) {
         expected << delimiter << randomNumbers[i];
     }
     expected << "\n"
@@ -322,14 +321,12 @@ TEST(IO_store, MixedTypes) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
-    std::map<std::string, std::string> dirs = {{"operation", "output"}, {"IO", "stdout"},
+    std::map<std::string, std::string> dirs = {{"operation", "output"}, {"IO", "stdout"}, {"auxArity", "0"},
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> ioDirs = std::map<std::string, std::string>(dirs);
 
-    SymbolTable symbolTable;
     ErrorReport errReport;
     DebugReport debugReport;
 
@@ -339,16 +336,16 @@ TEST(IO_store, MixedTypes) {
     exprs.push_back(mk<SignedConstant>(ramBitCast(static_cast<RamUnsigned>(27))));
     exprs.push_back(mk<SignedConstant>(ramBitCast(static_cast<RamFloat>(floatValue))));
     exprs.push_back(mk<SignedConstant>(ramBitCast(static_cast<RamFloat>(floatValue))));
-    exprs.push_back(mk<SignedConstant>(symbolTable.lookup("meow")));
+    exprs.push_back(mk<ram::StringConstant>("meow"));
 
     Own<ram::Statement> main = mk<ram::Sequence>(
-            mk<ram::Query>(mk<ram::Project>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
+            mk<ram::Query>(mk<ram::Insert>("test", std::move(exprs))), mk<ram::IO>("test", ioDirs));
 
     rels.push_back(std::move(myrel));
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    TranslationUnit translationUnit(std::move(prog), symbolTable, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -394,15 +391,14 @@ TEST(IO_load, Signed) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
-    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"},
+    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"}, {"auxArity", "0"},
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> readIoDirs = std::map<std::string, std::string>(readDirs);
 
     std::map<std::string, std::string> writeDirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
+            {"auxArity", "0"}, {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> writeIoDirs = std::map<std::string, std::string>(writeDirs);
 
     Own<ram::Statement> main =
@@ -412,11 +408,10 @@ TEST(IO_load, Signed) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -456,15 +451,14 @@ TEST(IO_load, Float) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
-    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"},
+    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"}, {"auxArity", "0"},
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> readIoDirs = std::map<std::string, std::string>(readDirs);
 
     std::map<std::string, std::string> writeDirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
+            {"auxArity", "0"}, {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> writeIoDirs = std::map<std::string, std::string>(writeDirs);
 
     Own<ram::Statement> main =
@@ -474,11 +468,10 @@ TEST(IO_load, Float) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -518,15 +511,14 @@ TEST(IO_load, Unsigned) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
-    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"},
+    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"}, {"auxArity", "0"},
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> readIoDirs = std::map<std::string, std::string>(readDirs);
 
     std::map<std::string, std::string> writeDirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
+            {"auxArity", "0"}, {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> writeIoDirs = std::map<std::string, std::string>(writeDirs);
 
     Own<ram::Statement> main =
@@ -536,11 +528,10 @@ TEST(IO_load, Unsigned) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -580,15 +571,14 @@ TEST(IO_load, MixedTypesLoad) {
 
     Json types = Json::object{
             {"relation", Json::object{{"arity", static_cast<long long>(attribsTypes.size())},
-                                 {"auxArity", static_cast<long long>(0)},
                                  {"types", Json::array(attribsTypes.begin(), attribsTypes.end())}}}};
 
-    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"},
+    std::map<std::string, std::string> readDirs = {{"operation", "input"}, {"IO", "stdin"}, {"auxArity", "0"},
             {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> readIoDirs = std::map<std::string, std::string>(readDirs);
 
     std::map<std::string, std::string> writeDirs = {{"operation", "output"}, {"IO", "stdout"},
-            {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
+            {"auxArity", "0"}, {"attributeNames", "x\ty"}, {"name", "test"}, {"types", types.dump()}};
     std::map<std::string, std::string> writeIoDirs = std::map<std::string, std::string>(writeDirs);
 
     Own<ram::Statement> main =
@@ -598,11 +588,10 @@ TEST(IO_load, MixedTypesLoad) {
     std::map<std::string, Own<Statement>> subs;
     Own<Program> prog = mk<Program>(std::move(rels), std::move(main), std::move(subs));
 
-    SymbolTable symTab;
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);

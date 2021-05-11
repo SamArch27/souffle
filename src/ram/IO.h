@@ -50,7 +50,7 @@ public:
         return directives.at(key);
     }
 
-    IO* clone() const override {
+    IO* cloning() const override {
         return new IO(relation, directives);
     }
 
@@ -65,7 +65,7 @@ protected:
     };
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const IO&>(node);
+        const auto& other = asAssert<IO>(node);
         return RelationStatement::equal(other) && directives == other.directives;
     }
 

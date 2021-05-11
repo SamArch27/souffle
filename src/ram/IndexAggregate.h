@@ -58,16 +58,16 @@ public:
         return res;
     }
 
-    IndexAggregate* clone() const override {
+    IndexAggregate* cloning() const override {
         RamPattern pattern;
         for (const auto& i : queryPattern.first) {
-            pattern.first.emplace_back(i->clone());
+            pattern.first.emplace_back(i->cloning());
         }
         for (const auto& i : queryPattern.second) {
-            pattern.second.emplace_back(i->clone());
+            pattern.second.emplace_back(i->cloning());
         }
-        return new IndexAggregate(souffle::clone(&getOperation()), function, relation,
-                souffle::clone(expression), souffle::clone(condition), std::move(pattern), getTupleId());
+        return new IndexAggregate(clone(getOperation()), function, relation, clone(expression),
+                clone(condition), std::move(pattern), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {
@@ -91,7 +91,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const IndexAggregate&>(node);
+        const auto& other = asAssert<IndexAggregate>(node);
         return IndexOperation::equal(other) && AbstractAggregate::equal(other);
     }
 };

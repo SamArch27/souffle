@@ -19,10 +19,6 @@
 #include "ast2ram/TranslationStrategy.h"
 #include "souffle/utility/ContainerUtil.h"
 
-namespace souffle {
-class SymbolTable;
-}
-
 namespace souffle::ast2ram {
 class ClauseTranslator;
 class ConstraintTranslator;
@@ -36,13 +32,16 @@ namespace souffle::ast2ram::provenance {
 
 class TranslationStrategy : public ast2ram::TranslationStrategy {
 public:
+    std::string getName() const override {
+        return "ProvenanceEvaluation";
+    }
+
     ast2ram::UnitTranslator* createUnitTranslator() const override;
-    ast2ram::ClauseTranslator* createClauseTranslator(
-            const TranslatorContext& context, SymbolTable& symbolTable) const override;
-    ast2ram::ConstraintTranslator* createConstraintTranslator(const TranslatorContext& context,
-            SymbolTable& symbolTable, const ValueIndex& index) const override;
-    ast2ram::ValueTranslator* createValueTranslator(const TranslatorContext& context,
-            SymbolTable& symbolTable, const ValueIndex& index) const override;
+    ast2ram::ClauseTranslator* createClauseTranslator(const TranslatorContext& context) const override;
+    ast2ram::ConstraintTranslator* createConstraintTranslator(
+            const TranslatorContext& context, const ValueIndex& index) const override;
+    ast2ram::ValueTranslator* createValueTranslator(
+            const TranslatorContext& context, const ValueIndex& index) const override;
 };
 
 }  // namespace souffle::ast2ram::provenance

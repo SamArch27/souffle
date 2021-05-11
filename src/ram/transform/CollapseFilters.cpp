@@ -30,9 +30,9 @@ namespace souffle::ram::transform {
 
 bool CollapseFiltersTransformer::collapseFilters(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+            if (const Filter* filter = as<Filter>(node)) {
                 // true if two consecutive filters in loop nest found
                 bool canCollapse = false;
 
@@ -40,16 +40,16 @@ bool CollapseFiltersTransformer::collapseFilters(Program& program) {
                 VecOwn<Condition> conditions;
 
                 const Filter* prevFilter = filter;
-                conditions.emplace_back(filter->getCondition().clone());
-                while (auto* nextFilter = dynamic_cast<Filter*>(&prevFilter->getOperation())) {
+                conditions.emplace_back(filter->getCondition().cloning());
+                while (auto* nextFilter = as<Filter>(prevFilter->getOperation())) {
                     canCollapse = true;
-                    conditions.emplace_back(nextFilter->getCondition().clone());
+                    conditions.emplace_back(nextFilter->getCondition().cloning());
                     prevFilter = nextFilter;
                 }
 
                 if (canCollapse) {
                     changed = true;
-                    node = mk<Filter>(toCondition(conditions), souffle::clone(&prevFilter->getOperation()),
+                    node = mk<Filter>(toCondition(conditions), clone(prevFilter->getOperation()),
                             prevFilter->getProfileText());
                 }
             }

@@ -72,8 +72,8 @@ public:
     }
 
     /** create an event for recording start and end times */
-    void makeTimingEvent(const std::string& txt, time_point start, time_point end, size_t startMaxRSS,
-            size_t endMaxRSS, size_t size, size_t iteration) {
+    void makeTimingEvent(const std::string& txt, time_point start, time_point end, std::size_t startMaxRSS,
+            std::size_t endMaxRSS, std::size_t size, std::size_t iteration) {
         microseconds start_ms = std::chrono::duration_cast<microseconds>(start.time_since_epoch());
         microseconds end_ms = std::chrono::duration_cast<microseconds>(end.time_since_epoch());
         profile::EventProcessorSingleton::instance().process(
@@ -81,7 +81,7 @@ public:
     }
 
     /** create quantity event */
-    void makeQuantityEvent(const std::string& txt, size_t number, int iteration) {
+    void makeQuantityEvent(const std::string& txt, std::size_t number, int iteration) {
         profile::EventProcessorSingleton::instance().process(database, txt.c_str(), number, iteration);
     }
 
@@ -108,7 +108,7 @@ public:
         PROCESS_MEMORY_COUNTERS processMemoryCounters;
         GetProcessMemoryInfo(hProcess, &processMemoryCounters, sizeof(processMemoryCounters));
         /* Maximum resident set size (kb) */
-        size_t maxRSS = processMemoryCounters.PeakWorkingSetSize / 1000;
+        std::size_t maxRSS = processMemoryCounters.PeakWorkingSetSize / 1000;
 #else
         /* system CPU time used */
         struct rusage ru {};
@@ -118,7 +118,7 @@ public:
         /* user CPU time used */
         uint64_t userTime = ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec;
         /* Maximum resident set size (kb) */
-        size_t maxRSS = ru.ru_maxrss;
+        std::size_t maxRSS = ru.ru_maxrss;
 #endif  // WIN32
 
         profile::EventProcessorSingleton::instance().process(

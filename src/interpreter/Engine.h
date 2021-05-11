@@ -65,13 +65,15 @@ private:
     /** @brief Generate intermediate representation from RAM */
     void generateIR();
     /** @brief Remove a relation from the environment */
-    void dropRelation(const size_t relId);
+    void dropRelation(const std::size_t relId);
     /** @brief Swap the content of two relations */
-    void swapRelation(const size_t ramRel1, const size_t ramRel2);
+    void swapRelation(const std::size_t ramRel1, const std::size_t ramRel2);
     /** @brief Return a reference to the relation on the given index */
-    RelationHandle& getRelationHandle(const size_t idx);
+    RelationHandle& getRelationHandle(const std::size_t idx);
     /** @brief Return the string symbol table */
-    SymbolTable& getSymbolTable();
+    SymbolTable& getSymbolTable() {
+        return symbolTable;
+    }
     /** @brief Return the record table */
     RecordTable& getRecordTable();
     /** @brief Return the ram::TranslationUnit */
@@ -83,7 +85,7 @@ private:
     /** @brief Load DLL */
     const std::vector<void*>& loadDLL();
     /** @brief Return current iteration number for loop operation */
-    size_t getIterationNumber() const;
+    std::size_t getIterationNumber() const;
     /** @brief Increase iteration number by one */
     void incIterationNumber();
     /** @brief Reset iteration number */
@@ -93,7 +95,7 @@ private:
     /** @brief Return the relation map. */
     VecOwn<RelationHandle>& getRelationMap();
     /** @brief Create and add relation into the runtime environment.  */
-    void createRelation(const ram::Relation& id, const size_t idx);
+    void createRelation(const ram::Relation& id, const std::size_t idx);
 
     // -- Defines template for specialized interpreter operation -- */
     template <typename Rel>
@@ -117,18 +119,18 @@ private:
             const ParallelIndexScan& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalChoice(const Rel& rel, const ram::Choice& cur, const Choice& shadow, Context& ctxt);
+    RamDomain evalIfExists(const Rel& rel, const ram::IfExists& cur, const IfExists& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalParallelChoice(
-            const Rel& rel, const ram::ParallelChoice& cur, const ParallelChoice& shadow, Context& ctxt);
+    RamDomain evalParallelIfExists(
+            const Rel& rel, const ram::ParallelIfExists& cur, const ParallelIfExists& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalIndexChoice(const ram::IndexChoice& cur, const IndexChoice& shadow, Context& ctxt);
+    RamDomain evalIndexIfExists(const ram::IndexIfExists& cur, const IndexIfExists& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalParallelIndexChoice(const Rel& rel, const ram::ParallelIndexChoice& cur,
-            const ParallelIndexChoice& shadow, Context& ctxt);
+    RamDomain evalParallelIndexIfExists(const Rel& rel, const ram::ParallelIndexIfExists& cur,
+            const ParallelIndexIfExists& shadow, Context& ctxt);
 
     template <typename Aggregate, typename Iter>
     RamDomain evalAggregate(const Aggregate& aggregate, const Node& filter, const Node* expression,
@@ -146,10 +148,10 @@ private:
     RamDomain evalIndexAggregate(const ram::IndexAggregate& cur, const IndexAggregate& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalGuardedProject(Rel& rel, const GuardedProject& shadow, Context& ctxt);
+    RamDomain evalGuardedInsert(Rel& rel, const GuardedInsert& shadow, Context& ctxt);
 
     template <typename Rel>
-    RamDomain evalProject(Rel& rel, const Project& shadow, Context& ctxt);
+    RamDomain evalInsert(Rel& rel, const Insert& shadow, Context& ctxt);
 
     /** If profile is enable in this program */
     const bool profileEnabled;
@@ -161,15 +163,15 @@ private:
     /** main program */
     Own<Node> main;
     /** Number of threads enabled for this program */
-    size_t numOfThreads;
+    std::size_t numOfThreads;
     /** Profile counter */
     std::atomic<RamDomain> counter{0};
     /** Loop iteration counter */
-    size_t iteration = 0;
+    std::size_t iteration = 0;
     /** Profile for rule frequencies */
-    std::map<std::string, std::deque<std::atomic<size_t>>> frequencies;
+    std::map<std::string, std::deque<std::atomic<std::size_t>>> frequencies;
     /** Profile for relation reads */
-    std::map<std::string, std::atomic<size_t>> reads;
+    std::map<std::string, std::atomic<std::size_t>> reads;
     /** DLL */
     std::vector<void*> dll;
     /** Program */
@@ -180,6 +182,8 @@ private:
     RecordTable recordTable;
     /** Symbol table for relations */
     VecOwn<RelationHandle> relations;
+    /** Symbol table */
+    SymbolTable symbolTable;
 };
 
 }  // namespace souffle::interpreter

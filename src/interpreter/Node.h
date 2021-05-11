@@ -53,7 +53,8 @@ struct RelationWrapper;
  * For specialized operation, pass to FOR_EACH(Expand, tok)
  */
 #define FOR_EACH_INTERPRETER_TOKEN(Forward, Expand)\
-    Forward(Constant)\
+    Forward(NumericConstant)\
+    Forward(StringConstant)\
     Forward(TupleElement)\
     Forward(AutoIncrement)\
     Forward(IntrinsicOperator)\
@@ -75,10 +76,10 @@ struct RelationWrapper;
     FOR_EACH(Expand, ParallelScan)\
     FOR_EACH(Expand, IndexScan)\
     FOR_EACH(Expand, ParallelIndexScan)\
-    FOR_EACH(Expand, Choice)\
-    FOR_EACH(Expand, ParallelChoice)\
-    FOR_EACH(Expand, IndexChoice)\
-    FOR_EACH(Expand, ParallelIndexChoice)\
+    FOR_EACH(Expand, IfExists)\
+    FOR_EACH(Expand, ParallelIfExists)\
+    FOR_EACH(Expand, IndexIfExists)\
+    FOR_EACH(Expand, ParallelIndexIfExists)\
     Forward(UnpackRecord)\
     FOR_EACH(Expand, Aggregate)\
     FOR_EACH(Expand, ParallelAggregate)\
@@ -86,8 +87,8 @@ struct RelationWrapper;
     FOR_EACH(Expand, ParallelIndexAggregate)\
     Forward(Break)\
     Forward(Filter)\
-    FOR_EACH(Expand, GuardedProject)\
-    FOR_EACH(Expand, Project)\
+    FOR_EACH(Expand, GuardedInsert)\
+    FOR_EACH(Expand, Insert)\
     Forward(SubroutineReturn)\
     Forward(Sequence)\
     Forward(Parallel)\
@@ -165,10 +166,7 @@ inline NodeType constructNodeType(std::string tokBase, const ram::Relation& rel)
 
 class Node {
 public:
-    using RelationHandle = Own<RelationWrapper>;
-
-    Node(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle = nullptr)
-            : type(ty), shadow(sdw), relHandle(relHandle) {}
+    Node(enum NodeType ty, const ram::Node* sdw) : type(ty), shadow(sdw) {}
     virtual ~Node() = default;
 
     /** @brief get node type */
@@ -181,16 +179,9 @@ public:
         return shadow;
     }
 
-    /** @brief get relation from handle */
-    RelationWrapper* getRelation() const {
-        assert(relHandle && "No relation cached\n");
-        return (*relHandle).get();
-    }
-
 protected:
     enum NodeType type;
     const ram::Node* shadow;
-    RelationHandle* const relHandle;
 };
 
 /**
@@ -201,12 +192,11 @@ class CompoundNode : public Node {
     using NodePtrVec = VecOwn<Node>;
 
 public:
-    CompoundNode(enum NodeType ty, const ram::Node* sdw, NodePtrVec children = {},
-            RelationHandle* relHandle = nullptr)
-            : Node(ty, sdw, relHandle), children(std::move(children)) {}
+    CompoundNode(enum NodeType ty, const ram::Node* sdw, NodePtrVec children = {})
+            : Node(ty, sdw), children(std::move(children)) {}
 
     /** @brief get children of node */
-    inline const Node* getChild(size_t i) const {
+    inline const Node* getChild(std::size_t i) const {
         return children[i].get();
     }
 
@@ -225,8 +215,8 @@ protected:
  */
 class UnaryNode : public Node {
 public:
-    UnaryNode(enum NodeType ty, const ram::Node* sdw, Own<Node> child, RelationHandle* relHandle = nullptr)
-            : Node(ty, sdw, relHandle), child(std::move(child)) {}
+    UnaryNode(enum NodeType ty, const ram::Node* sdw, Own<Node> child)
+            : Node(ty, sdw), child(std::move(child)) {}
 
     inline const Node* getChild() const {
         return child.get();
@@ -242,9 +232,8 @@ protected:
  */
 class BinaryNode : public Node {
 public:
-    BinaryNode(enum NodeType ty, const ram::Node* sdw, Own<Node> lhs, Own<Node> rhs,
-            RelationHandle* relHandle = nullptr)
-            : Node(ty, sdw, relHandle), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    BinaryNode(enum NodeType ty, const ram::Node* sdw, Own<Node> lhs, Own<Node> rhs)
+            : Node(ty, sdw), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     /** @brief get left child of node */
     inline const Node* getLhs() const {
@@ -264,11 +253,11 @@ protected:
 /**
  * @class SuperInstruction
  * @brief This class encodes information for a super-instruction, which is
- *        used to eliminate Number and TupleElement in index/project/existence operation.
+ *        used to eliminate Number and TupleElement in index/insert/existence operation.
  */
 class SuperInstruction {
 public:
-    SuperInstruction(size_t i) {
+    SuperInstruction(std::size_t i) {
         first.resize(i);
         second.resize(i);
     }
@@ -282,19 +271,19 @@ public:
     /** @brief constant value in the upper bound */
     std::vector<RamDomain> second;
     /** @brief Encoded tupleElement expressions in the lower bound/pattern */
-    std::vector<std::array<size_t, 3>> tupleFirst;
+    std::vector<std::array<std::size_t, 3>> tupleFirst;
     /** @brief Encoded tupleElement expressions in the upper bound */
-    std::vector<std::array<size_t, 3>> tupleSecond;
+    std::vector<std::array<std::size_t, 3>> tupleSecond;
     /** @brief Generic expressions in the lower bound/pattern */
-    std::vector<std::pair<size_t, Own<Node>>> exprFirst;
+    std::vector<std::pair<std::size_t, Own<Node>>> exprFirst;
     /** @brief Generic expressions in the upper bound */
-    std::vector<std::pair<size_t, Own<Node>>> exprSecond;
+    std::vector<std::pair<std::size_t, Own<Node>>> exprSecond;
 };
 
 /**
  * @class SuperOperation
  * @brief  node that utilizes the super instruction optimization should
- *        inherit from this class. E.g. ExistenceCheck, Project
+ *        inherit from this class. E.g. ExistenceCheck, Insert
  */
 class SuperOperation {
 public:
@@ -336,14 +325,14 @@ protected:
  */
 class ViewOperation {
 public:
-    ViewOperation(size_t id) : viewId(id) {}
+    ViewOperation(std::size_t id) : viewId(id) {}
 
-    inline size_t getViewId() const {
+    inline std::size_t getViewId() const {
         return viewId;
     }
 
 protected:
-    size_t viewId;
+    std::size_t viewId;
 };
 
 /**
@@ -353,19 +342,19 @@ protected:
  */
 class BinRelOperation {
 public:
-    BinRelOperation(size_t src, size_t target) : src(src), target(target) {}
+    BinRelOperation(std::size_t src, std::size_t target) : src(src), target(target) {}
 
-    inline size_t getSourceId() const {
+    inline std::size_t getSourceId() const {
         return src;
     }
 
-    inline size_t getTargetId() const {
+    inline std::size_t getTargetId() const {
         return target;
     }
 
 protected:
-    const size_t src;
-    const size_t target;
+    const std::size_t src;
+    const std::size_t target;
 };
 
 /**
@@ -401,10 +390,44 @@ protected:
 };
 
 /**
- * @class Constant
+ * @class RelationalOperation
+ * @brief Interpreter operation that holds a single relation
  */
-class Constant : public Node {
+class RelationalOperation {
+public:
+    using RelationHandle = Own<RelationWrapper>;
+    RelationalOperation(RelationHandle* relHandle) : relHandle(relHandle) {}
+
+    /** @brief get relation from handle */
+    RelationWrapper* getRelation() const {
+        assert(relHandle && "No relation cached\n");
+        return (*relHandle).get();
+    }
+
+private:
+    RelationHandle* const relHandle;
+};
+
+/**
+ * @class NumericConstant
+ */
+class NumericConstant : public Node {
     using Node::Node;
+};
+
+/**
+ * @class StringConstant
+ */
+class StringConstant : public Node {
+public:
+    StringConstant(NodeType ty, const ram::Node* sdw, std::size_t constant)
+            : Node(ty, sdw), constant(constant) {}
+    std::size_t getConstant() const {
+        return constant;
+    }
+
+private:
+    std::size_t constant;
 };
 
 /**
@@ -412,20 +435,20 @@ class Constant : public Node {
  */
 class TupleElement : public Node {
 public:
-    TupleElement(enum NodeType ty, const ram::Node* sdw, size_t tupleId, size_t elementId)
+    TupleElement(enum NodeType ty, const ram::Node* sdw, std::size_t tupleId, std::size_t elementId)
             : Node(ty, sdw), tupleId(tupleId), element(elementId) {}
 
-    size_t getTupleId() const {
+    std::size_t getTupleId() const {
         return tupleId;
     }
 
-    size_t getElement() const {
+    std::size_t getElement() const {
         return element;
     }
 
 private:
-    size_t tupleId;
-    size_t element;
+    std::size_t tupleId;
+    std::size_t element;
 };
 
 /**
@@ -501,15 +524,19 @@ class Negation : public UnaryNode {
 /**
  * @class EmptinessCheck
  */
-class EmptinessCheck : public Node {
-    using Node::Node;
+class EmptinessCheck : public Node, public RelationalOperation {
+public:
+    EmptinessCheck(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle)
+            : Node(ty, sdw), RelationalOperation(handle) {}
 };
 
 /**
  * @class RelationSize
  */
-class RelationSize : public Node {
-    using Node::Node;
+class RelationSize : public Node, public RelationalOperation {
+public:
+    RelationSize(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle)
+            : Node(ty, sdw), RelationalOperation(handle) {}
 };
 
 /**
@@ -517,7 +544,7 @@ class RelationSize : public Node {
  */
 class ExistenceCheck : public Node, public SuperOperation, public ViewOperation {
 public:
-    ExistenceCheck(enum NodeType ty, const ram::Node* sdw, bool totalSearch, size_t viewId,
+    ExistenceCheck(enum NodeType ty, const ram::Node* sdw, bool totalSearch, std::size_t viewId,
             SuperInstruction superInst, bool tempRelation, std::string relationName)
             : Node(ty, sdw), SuperOperation(std::move(superInst)), ViewOperation(viewId),
               totalSearch(totalSearch), tempRelation(tempRelation), relationName(std::move(relationName)) {}
@@ -545,7 +572,7 @@ private:
  */
 class ProvenanceExistenceCheck : public UnaryNode, public SuperOperation, public ViewOperation {
 public:
-    ProvenanceExistenceCheck(enum NodeType ty, const ram::Node* sdw, Own<Node> child, size_t viewId,
+    ProvenanceExistenceCheck(enum NodeType ty, const ram::Node* sdw, Own<Node> child, std::size_t viewId,
             SuperInstruction superInst)
             : UnaryNode(ty, sdw, std::move(child)), SuperOperation(std::move(superInst)),
               ViewOperation(viewId) {}
@@ -568,10 +595,10 @@ class TupleOperation : public UnaryNode {
 /**
  * @class Scan
  */
-class Scan : public Node, public NestedOperation {
+class Scan : public Node, public NestedOperation, public RelationalOperation {
 public:
     Scan(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> nested)
-            : Node(ty, sdw, relHandle), NestedOperation(std::move(nested)) {}
+            : Node(ty, sdw), NestedOperation(std::move(nested)), RelationalOperation(relHandle) {}
 };
 
 /**
@@ -587,7 +614,7 @@ class ParallelScan : public Scan, public AbstractParallel {
 class IndexScan : public Scan, public SuperOperation, public ViewOperation {
 public:
     IndexScan(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> nested,
-            size_t viewId, SuperInstruction superInst)
+            std::size_t viewId, SuperInstruction superInst)
             : Scan(ty, sdw, relHandle, std::move(nested)), SuperOperation(std::move(superInst)),
               ViewOperation(viewId) {}
 };
@@ -601,39 +628,42 @@ public:
 };
 
 /**
- * @class Choice
+ * @class IfExists
  */
-class Choice : public Node, public ConditionalOperation, public NestedOperation {
+class IfExists : public Node,
+                 public ConditionalOperation,
+                 public NestedOperation,
+                 public RelationalOperation {
 public:
-    Choice(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> cond,
+    IfExists(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> cond,
             Own<Node> nested)
-            : Node(ty, sdw, relHandle), ConditionalOperation(std::move(cond)),
-              NestedOperation(std::move(nested)) {}
+            : Node(ty, sdw), ConditionalOperation(std::move(cond)), NestedOperation(std::move(nested)),
+              RelationalOperation(relHandle) {}
 };
 
 /**
- * @class ParallelChoice
+ * @class ParallelIfExists
  */
-class ParallelChoice : public Choice, public AbstractParallel {
-    using Choice::Choice;
+class ParallelIfExists : public IfExists, public AbstractParallel {
+    using IfExists::IfExists;
 };
 
 /**
- * @class IndexChoice
+ * @class IndexIfExists
  */
-class IndexChoice : public Choice, public SuperOperation, public ViewOperation {
+class IndexIfExists : public IfExists, public SuperOperation, public ViewOperation {
 public:
-    IndexChoice(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> cond,
-            Own<Node> nested, size_t viewId, SuperInstruction superInst)
-            : Choice(ty, sdw, relHandle, std::move(cond), std::move(nested)),
+    IndexIfExists(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> cond,
+            Own<Node> nested, std::size_t viewId, SuperInstruction superInst)
+            : IfExists(ty, sdw, relHandle, std::move(cond), std::move(nested)),
               SuperOperation(std::move(superInst)), ViewOperation(viewId) {}
 };
 
 /**
- * @class ParallelIndexChoice
+ * @class ParallelIndexIfExists
  */
-class ParallelIndexChoice : public IndexChoice, public AbstractParallel {
-    using IndexChoice::IndexChoice;
+class ParallelIndexIfExists : public IndexIfExists, public AbstractParallel {
+    using IndexIfExists::IndexIfExists;
 };
 
 /**
@@ -655,12 +685,15 @@ protected:
 /**
  * @class Aggregate
  */
-class Aggregate : public Node, public ConditionalOperation, public NestedOperation {
+class Aggregate : public Node,
+                  public ConditionalOperation,
+                  public NestedOperation,
+                  public RelationalOperation {
 public:
     Aggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
             Own<Node> filter, Own<Node> nested)
-            : Node(ty, sdw, relHandle), ConditionalOperation(std::move(filter)),
-              NestedOperation(std::move(nested)), expr(std::move(expr)) {}
+            : Node(ty, sdw), ConditionalOperation(std::move(filter)), NestedOperation(std::move(nested)),
+              RelationalOperation(relHandle), expr(std::move(expr)) {}
 
     inline const Node* getExpr() const {
         return expr.get();
@@ -683,7 +716,7 @@ class ParallelAggregate : public Aggregate, public AbstractParallel {
 class IndexAggregate : public Aggregate, public SuperOperation, public ViewOperation {
 public:
     IndexAggregate(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, Own<Node> expr,
-            Own<Node> filter, Own<Node> nested, size_t viewId, SuperInstruction superInst)
+            Own<Node> filter, Own<Node> nested, std::size_t viewId, SuperInstruction superInst)
             : Aggregate(ty, sdw, relHandle, std::move(expr), std::move(filter), std::move(nested)),
               SuperOperation(std::move(superInst)), ViewOperation(viewId) {}
 };
@@ -701,8 +734,7 @@ class ParallelIndexAggregate : public IndexAggregate, public AbstractParallel {
 class Break : public Node, public ConditionalOperation, public NestedOperation {
 public:
     Break(enum NodeType ty, const ram::Node* sdw, Own<Node> cond, Own<Node> nested)
-            : Node(ty, sdw, nullptr), ConditionalOperation(std::move(cond)),
-              NestedOperation(std::move(nested)) {}
+            : Node(ty, sdw), ConditionalOperation(std::move(cond)), NestedOperation(std::move(nested)) {}
 };
 
 /**
@@ -711,27 +743,26 @@ public:
 class Filter : public Node, public ConditionalOperation, public NestedOperation {
 public:
     Filter(enum NodeType ty, const ram::Node* sdw, Own<Node> cond, Own<Node> nested)
-            : Node(ty, sdw, nullptr), ConditionalOperation(std::move(cond)),
-              NestedOperation(std::move(nested)) {}
+            : Node(ty, sdw), ConditionalOperation(std::move(cond)), NestedOperation(std::move(nested)) {}
 };
 
 /**
- * @class Project
+ * @class Insert
  */
-class Project : public Node, public SuperOperation {
+class Insert : public Node, public SuperOperation, public RelationalOperation {
 public:
-    Project(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, SuperInstruction superInst)
-            : Node(ty, sdw, relHandle), SuperOperation(std::move(superInst)) {}
+    Insert(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle, SuperInstruction superInst)
+            : Node(ty, sdw), SuperOperation(std::move(superInst)), RelationalOperation(relHandle) {}
 };
 
 /**
- * @class GuardedProject
+ * @class GuardedInsert
  */
-class GuardedProject : public Project, public ConditionalOperation {
+class GuardedInsert : public Insert, public ConditionalOperation {
 public:
-    GuardedProject(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle,
+    GuardedInsert(enum NodeType ty, const ram::Node* sdw, RelationHandle* relHandle,
             SuperInstruction superInst, Own<Node> condition)
-            : Project(ty, sdw, relHandle, std::move(superInst)), ConditionalOperation(std::move(condition)) {}
+            : Insert(ty, sdw, relHandle, std::move(superInst)), ConditionalOperation(std::move(condition)) {}
 };
 
 /**
@@ -772,8 +803,10 @@ class Exit : public UnaryNode {
 /**
  * @class LogRelationTimer
  */
-class LogRelationTimer : public UnaryNode {
-    using UnaryNode::UnaryNode;
+class LogRelationTimer : public UnaryNode, public RelationalOperation {
+public:
+    LogRelationTimer(enum NodeType ty, const ram::Node* sdw, Own<Node> child, RelationHandle* handle)
+            : UnaryNode(ty, sdw, std::move(child)), RelationalOperation(handle) {}
 };
 
 /**
@@ -793,8 +826,10 @@ class DebugInfo : public UnaryNode {
 /**
  * @class Clear
  */
-class Clear : public Node {
-    using Node::Node;
+class Clear : public Node, public RelationalOperation {
+public:
+    Clear(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle)
+            : Node(ty, sdw), RelationalOperation(handle) {}
 };
 
 /**
@@ -802,29 +837,33 @@ class Clear : public Node {
  */
 class Call : public Node {
 public:
-    Call(enum NodeType ty, const ram::Node* sdw, size_t subroutineId)
+    Call(enum NodeType ty, const ram::Node* sdw, std::size_t subroutineId)
             : Node(ty, sdw), subroutineId(subroutineId) {}
 
-    size_t getSubroutineId() const {
+    std::size_t getSubroutineId() const {
         return subroutineId;
     }
 
 private:
-    const size_t subroutineId;
+    const std::size_t subroutineId;
 };
 
 /**
  * @class LogSize
  */
-class LogSize : public Node {
-    using Node::Node;
+class LogSize : public Node, public RelationalOperation {
+public:
+    LogSize(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle)
+            : Node(ty, sdw), RelationalOperation(handle) {}
 };
 
 /**
  * @class IO
  */
-class IO : public Node {
-    using Node::Node;
+class IO : public Node, public RelationalOperation {
+public:
+    IO(enum NodeType ty, const ram::Node* sdw, RelationHandle* handle)
+            : Node(ty, sdw), RelationalOperation(handle) {}
 };
 
 /**
@@ -839,7 +878,7 @@ class Query : public UnaryNode, public AbstractParallel {
  */
 class Extend : public Node, public BinRelOperation {
 public:
-    Extend(enum NodeType ty, const ram::Node* sdw, size_t src, size_t target)
+    Extend(enum NodeType ty, const ram::Node* sdw, std::size_t src, std::size_t target)
             : Node(ty, sdw), BinRelOperation(src, target) {}
 };
 
@@ -848,7 +887,7 @@ public:
  */
 class Swap : public Node, public BinRelOperation {
 public:
-    Swap(enum NodeType ty, const ram::Node* sdw, size_t src, size_t target)
+    Swap(enum NodeType ty, const ram::Node* sdw, std::size_t src, std::size_t target)
             : Node(ty, sdw), BinRelOperation(src, target) {}
 };
 

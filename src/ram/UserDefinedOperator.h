@@ -20,6 +20,7 @@
 #include "ram/Expression.h"
 #include "ram/Node.h"
 #include "souffle/TypeAttribute.h"
+#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <memory>
@@ -63,10 +64,10 @@ public:
         return stateful;
     }
 
-    UserDefinedOperator* clone() const override {
+    UserDefinedOperator* cloning() const override {
         auto* res = new UserDefinedOperator(name, argsTypes, returnType, stateful, {});
         for (auto& cur : arguments) {
-            Expression* arg = cur->clone();
+            Expression* arg = cur->cloning();
             res->arguments.emplace_back(arg);
         }
         return res;
@@ -84,7 +85,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const UserDefinedOperator&>(node);
+        const auto& other = asAssert<UserDefinedOperator>(node);
         return AbstractOperator::equal(node) && name == other.name && argsTypes == other.argsTypes &&
                returnType == other.returnType && stateful == other.stateful;
     }

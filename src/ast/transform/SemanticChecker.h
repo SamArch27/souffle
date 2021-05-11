@@ -30,11 +30,11 @@ public:
         return "SemanticChecker";
     }
 
-    SemanticChecker* clone() const override {
+private:
+    SemanticChecker* cloning() const override {
         return new SemanticChecker();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

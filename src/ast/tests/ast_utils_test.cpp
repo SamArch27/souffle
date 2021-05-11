@@ -48,17 +48,16 @@ namespace test {
 
 TEST(AstUtils, Grounded) {
     // create an example clause:
-    auto clause = mk<Clause>();
+    auto clause = mk<Clause>("r");
 
     // something like:
     //   r(X,Y,Z) :- a(X), X = Y, !b(Z).
 
     // r(X,Y,Z)
-    auto* head = new Atom("r");
+    auto* head = clause->getHead();
     head->addArgument(Own<Argument>(new Variable("X")));
     head->addArgument(Own<Argument>(new Variable("Y")));
     head->addArgument(Own<Argument>(new Variable("Z")));
-    clause->setHead(Own<Atom>(head));
 
     // a(X)
     auto* a = new Atom("a");

@@ -160,7 +160,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
             : relCache(*tu.getAnalysis<RelationDetailCacheAnalysis>()) {}
 
     // atoms are producing grounded variables
-    void visitAtom(const Atom& cur) override {
+    void visit_(type_identity<Atom>, const Atom& cur) override {
         // some atoms need to be skipped (head or negation)
         if (ignore.find(&cur) != ignore.end()) {
             return;
@@ -173,13 +173,13 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // negations need to be skipped
-    void visitNegation(const Negation& cur) override {
+    void visit_(type_identity<Negation>, const Negation& cur) override {
         // add nested atom to black-list
         ignore.insert(cur.getAtom());
     }
 
     // also skip head if we don't have an inline qualifier
-    void visitClause(const Clause& clause) override {
+    void visit_(type_identity<Clause>, const Clause& clause) override {
         if (auto clauseHead = clause.getHead()) {
             auto relation = relCache.getRelation(clauseHead->getQualifiedName());
             // Only skip the head if the relation ISN'T inline. Keeping the head will ground
@@ -191,7 +191,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // binary equality relations propagates groundness
-    void visitBinaryConstraint(const BinaryConstraint& cur) override {
+    void visit_(type_identity<BinaryConstraint>, const BinaryConstraint& cur) override {
         // only target equality
         if (!isEqConstraint(cur.getBaseOperator())) {
             return;
@@ -206,7 +206,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // record init nodes
-    void visitRecordInit(const RecordInit& init) override {
+    void visit_(type_identity<RecordInit>, const RecordInit& init) override {
         auto cur = getVar(init);
 
         std::vector<BoolDisjunctVar> vars;
@@ -222,7 +222,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
         addConstraint(imply(vars, cur));
     }
 
-    void visitBranchInit(const BranchInit& adt) override {
+    void visit_(type_identity<BranchInit>, const BranchInit& adt) override {
         auto branchVar = getVar(adt);
 
         std::vector<BoolDisjunctVar> argVars;
@@ -239,17 +239,17 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // Constants are also sources of grounded values
-    void visitConstant(const Constant& constant) override {
+    void visit_(type_identity<Constant>, const Constant& constant) override {
         addConstraint(isTrue(getVar(constant)));
     }
 
     // Aggregators are grounding values
-    void visitAggregator(const Aggregator& aggregator) override {
+    void visit_(type_identity<Aggregator>, const Aggregator& aggregator) override {
         addConstraint(isTrue(getVar(aggregator)));
     }
 
     // Functors with grounded values are grounded values
-    void visitFunctor(const Functor& functor) override {
+    void visit_(type_identity<Functor>, const Functor& functor) override {
         auto var = getVar(functor);
         std::vector<BoolDisjunctVar> varArgs;
         for (const auto& arg : functor.getArguments()) {
@@ -259,7 +259,7 @@ struct GroundednessAnalysis : public ConstraintAnalysis<BoolDisjunctVar> {
     }
 
     // casts propogate groundedness in and out
-    void visitTypeCast(const ast::TypeCast& cast) override {
+    void visit_(type_identity<TypeCast>, const ast::TypeCast& cast) override {
         addConstraint(imply(getVar(cast.getValue()), getVar(cast)));
     }
 };

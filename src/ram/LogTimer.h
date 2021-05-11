@@ -56,8 +56,8 @@ public:
         return AbstractLog::getChildNodes();
     }
 
-    LogTimer* clone() const override {
-        return new LogTimer(souffle::clone(statement), message);
+    LogTimer* cloning() const override {
+        return new LogTimer(clone(statement), message);
     }
 
     void apply(const NodeMapper& map) override {

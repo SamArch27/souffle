@@ -32,7 +32,6 @@
 #include "reports/DebugReport.h"
 #include "reports/ErrorReport.h"
 #include "souffle/RamTypes.h"
-#include "souffle/SymbolTable.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -50,7 +49,7 @@ using namespace ram;
 #define TESTS_PER_OPERATION 20
 
 /** Function to evaluate a single Expression. */
-RamDomain evalExpression(Own<Expression> expression, SymbolTable& symTab) {
+RamDomain evalExpression(Own<Expression> expression) {
     // Set up Program and translation unit
     VecOwn<Expression> returnValues;
     returnValues.emplace_back(std::move(expression));
@@ -66,7 +65,7 @@ RamDomain evalExpression(Own<Expression> expression, SymbolTable& symTab) {
     ErrorReport errReport;
     DebugReport debugReport;
 
-    TranslationUnit translationUnit(std::move(prog), symTab, errReport, debugReport);
+    TranslationUnit translationUnit(std::move(prog), errReport, debugReport);
 
     // configure and execute interpreter
     Own<Engine> interpreter = mk<Engine>(translationUnit);
@@ -79,19 +78,8 @@ RamDomain evalExpression(Own<Expression> expression, SymbolTable& symTab) {
     return ret.at(0);
 }
 
-/** Function to evaluate a single Expression. */
-RamDomain evalExpression(Own<Expression> expression) {
-    SymbolTable symTab;
-    return evalExpression(std::move(expression), symTab);
-}
-
-RamDomain evalMultiArg(FunctorOp functor, VecOwn<Expression> args, SymbolTable& symTab) {
-    return evalExpression(mk<ram::IntrinsicOperator>(functor, std::move(args)), symTab);
-}
-
 RamDomain evalMultiArg(FunctorOp functor, VecOwn<Expression> args) {
-    SymbolTable symTab;
-    return evalMultiArg(functor, std::move(args), symTab);
+    return evalExpression(mk<ram::IntrinsicOperator>(functor, std::move(args)));
 }
 
 /** Evaluate a single argument expression */
@@ -227,7 +215,7 @@ TEST(Binary, SignedAdd) {
     auto vecArg1 = testutil::generateRandomVector<RamDomain>(TESTS_PER_OPERATION);
     auto vecArg2 = testutil::generateRandomVector<RamDomain>(TESTS_PER_OPERATION);
 
-    for (size_t i = 0; i < TESTS_PER_OPERATION; ++i) {
+    for (std::size_t i = 0; i < TESTS_PER_OPERATION; ++i) {
         RamDomain arg1 = vecArg1[i];
         RamDomain arg2 = vecArg2[i];
         RamDomain result = evalBinary(functor, arg1, arg2);
@@ -645,21 +633,6 @@ TEST(MultiArg, FloatMax) {
     EXPECT_EQ(ramBitCast<RamFloat>(result), static_cast<RamFloat>(100));
 }
 
-TEST(MultiArg, SymbolMax) {
-    FunctorOp functor = FunctorOp::SMAX;
-    VecOwn<Expression> args;
-
-    SymbolTable symTab;
-
-    for (RamDomain i = -100; i <= 100; ++i) {
-        args.push_back(mk<SignedConstant>(symTab.lookup(std::to_string(i))));
-    }
-
-    auto&& result = symTab.resolve(evalMultiArg(functor, std::move(args), symTab));
-
-    EXPECT_EQ(result, "99");
-}
-
 TEST(MultiArg, Min) {
     FunctorOp functor = FunctorOp::MIN;
     VecOwn<Expression> args;
@@ -697,21 +670,6 @@ TEST(MultiArg, FloatMin) {
     RamDomain result = evalMultiArg(functor, std::move(args));
 
     EXPECT_EQ(ramBitCast<RamFloat>(result), static_cast<RamFloat>(-100));
-}
-
-TEST(MultiArg, SymbolMin) {
-    FunctorOp functor = FunctorOp::SMIN;
-    VecOwn<Expression> args;
-
-    SymbolTable symTab;
-
-    for (RamDomain i = -100; i <= 100; ++i) {
-        args.push_back(mk<SignedConstant>(symTab.lookup(std::to_string(i))));
-    }
-
-    auto&& result = symTab.resolve(evalMultiArg(functor, std::move(args), symTab));
-
-    EXPECT_EQ(result, "-1");
 }
 
 }  // namespace souffle::interpreter::test

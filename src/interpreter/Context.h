@@ -34,27 +34,27 @@ class Context {
     using ViewPtr = Own<ViewWrapper>;
 
 public:
-    Context(size_t size = 0) : data(size) {}
+    Context(std::size_t size = 0) : data(size) {}
 
     /** This constructor is used when program enter a new scope.
      * Only Subroutine value needs to be copied */
     Context(Context& ctxt) : returnValues(ctxt.returnValues), args(ctxt.args) {}
     virtual ~Context() = default;
 
-    const RamDomain*& operator[](size_t index) {
+    const RamDomain*& operator[](std::size_t index) {
         if (index >= data.size()) {
             data.resize((index + 1));
         }
         return data[index];
     }
 
-    const RamDomain* const& operator[](size_t index) const {
+    const RamDomain* const& operator[](std::size_t index) const {
         return data[index];
     }
 
     /** @brief Allocate a tuple.
      *  allocatedDataContainer has the ownership of those tuples. */
-    RamDomain* allocateNewTuple(size_t size) {
+    RamDomain* allocateNewTuple(std::size_t size) {
         Own<RamDomain[]> newTuple(new RamDomain[size]);
         allocatedDataContainer.push_back(std::move(newTuple));
 
@@ -89,13 +89,13 @@ public:
     }
 
     /** @brief Get subroutine Arguments */
-    RamDomain getArgument(size_t i) const {
+    RamDomain getArgument(std::size_t i) const {
         assert(args != nullptr && i < args->size() && "argument out of range");
         return (*args)[i];
     }
 
     /** @brief Create a view in the environment */
-    void createView(const RelationWrapper& rel, size_t indexPos, size_t viewPos) {
+    void createView(const RelationWrapper& rel, std::size_t indexPos, std::size_t viewPos) {
         ViewPtr view;
         if (views.size() < viewPos + 1) {
             views.resize(viewPos + 1);
@@ -104,7 +104,7 @@ public:
     }
 
     /** @brief Return a view */
-    ViewWrapper* getView(size_t id) {
+    ViewWrapper* getView(std::size_t id) {
         assert(id < views.size());
         return views[id].get();
     }

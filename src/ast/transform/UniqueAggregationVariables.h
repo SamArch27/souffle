@@ -29,11 +29,11 @@ public:
         return "UniqueAggregationVariablesTransformer";
     }
 
-    UniqueAggregationVariablesTransformer* clone() const override {
+private:
+    UniqueAggregationVariablesTransformer* cloning() const override {
         return new UniqueAggregationVariablesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

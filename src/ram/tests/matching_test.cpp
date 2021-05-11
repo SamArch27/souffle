@@ -31,9 +31,9 @@ public:
 
 using Nodes = SearchSet;
 
-SearchSignature setBits(size_t arity, uint64_t mask) {
+SearchSignature setBits(std::size_t arity, uint64_t mask) {
     SearchSignature search(arity);
-    for (size_t i = 0; i < arity; ++i) {
+    for (std::size_t i = 0; i < arity; ++i) {
         if (mask % 2) {
             search[i] = AttributeConstraint::Equal;
         }
@@ -45,7 +45,7 @@ SearchSignature setBits(size_t arity, uint64_t mask) {
 TEST(Matching, StaticTest_1) {
     TestAutoIndex order;
     Nodes nodes;
-    size_t arity = 5;
+    std::size_t arity = 5;
 
     uint64_t patterns[] = {1, 3, 5, 7, 15, 23, 31};
     SearchSet searches;
@@ -56,7 +56,7 @@ TEST(Matching, StaticTest_1) {
     }
 
     auto selection = order.solve(searches);
-    size_t num = selection.getAllOrders().size();
+    std::size_t num = selection.getAllOrders().size();
     EXPECT_EQ(num, 2);
 }
 
@@ -64,7 +64,7 @@ TEST(Matching, StaticTest_2) {
     TestAutoIndex order;
     Nodes nodes;
 
-    size_t arity = 7;
+    std::size_t arity = 7;
 
     uint64_t patterns[] = {7, 11, 23, 32, 33, 39, 49, 53, 104, 121};
     SearchSet searches;
@@ -74,7 +74,7 @@ TEST(Matching, StaticTest_2) {
         nodes.insert(search);
     }
     auto selection = order.solve(searches);
-    size_t num = selection.getAllOrders().size();
+    std::size_t num = selection.getAllOrders().size();
     EXPECT_EQ(num, 5);
 }
 
@@ -82,7 +82,7 @@ TEST(Matching, TestOver64BitSignature) {
     TestAutoIndex order;
     Nodes nodes;
 
-    size_t arity = 100;
+    std::size_t arity = 100;
     SearchSignature first(arity);
     first[99] = AttributeConstraint::Equal;
     first[75] = AttributeConstraint::Equal;
@@ -114,7 +114,7 @@ TEST(Matching, TestOver64BitSignature) {
 
     SearchSet searches = {first, second, third, fourth, fifth};
     auto selection = order.solve(searches);
-    size_t num = selection.getAllOrders().size();
+    std::size_t num = selection.getAllOrders().size();
     EXPECT_EQ(num, 2);
 }
 

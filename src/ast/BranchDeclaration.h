@@ -19,12 +19,9 @@
 #include "ast/Attribute.h"
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include "souffle/utility/tinyformat.h"
+#include "souffle/utility/Types.h"
 #include <iosfwd>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace souffle::ast {
@@ -41,25 +38,19 @@ namespace souffle::ast {
  */
 class BranchDeclaration : public Node {
 public:
-    BranchDeclaration(std::string constructor, VecOwn<Attribute> fields, SrcLocation loc = {})
-            : Node(std::move(loc)), constructor(std::move(constructor)), fields(std::move(fields)){};
+    BranchDeclaration(std::string constructor, VecOwn<Attribute> fields, SrcLocation loc = {});
 
     const std::string& getConstructor() const {
         return constructor;
     }
 
-    std::vector<Attribute*> getFields() {
-        return toPtrVector(fields);
-    }
-
-    BranchDeclaration* clone() const override {
-        return new BranchDeclaration(constructor, souffle::clone(fields), getSrcLoc());
-    }
+    std::vector<Attribute*> getFields();
 
 protected:
-    void print(std::ostream& os) const override {
-        os << tfm::format("%s {%s}", constructor, join(fields, ", "));
-    }
+    void print(std::ostream& os) const override;
+
+private:
+    BranchDeclaration* cloning() const override;
 
 private:
     std::string constructor;

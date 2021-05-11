@@ -45,9 +45,9 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelations(TranslationUnit& tran
         emptyRelations.insert(rel->getQualifiedName());
 
         bool usedInAggregate = false;
-        visitDepthFirst(program, [&](const Aggregator& agg) {
+        visit(program, [&](const Aggregator& agg) {
             for (const auto lit : agg.getBodyLiterals()) {
-                visitDepthFirst(*lit, [&](const Atom& atom) {
+                visit(*lit, [&](const Atom& atom) {
                     if (getAtomRelation(&atom, &program) == rel) {
                         usedInAggregate = true;
                     }
@@ -79,7 +79,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
     //
     // get all clauses
     std::vector<const Clause*> clauses;
-    visitDepthFirst(program, [&](const Clause& cur) { clauses.push_back(&cur); });
+    visit(program, [&](const Clause& cur) { clauses.push_back(&cur); });
 
     // clean all clauses
     for (const Clause* cl : clauses) {
@@ -87,7 +87,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
 
         bool removed = false;
         for (Literal* lit : cl->getBodyLiterals()) {
-            if (auto* arg = dynamic_cast<Atom*>(lit)) {
+            if (auto* arg = as<Atom>(lit)) {
                 if (arg->getQualifiedName() == emptyRelationName) {
                     program.removeClause(cl);
                     removed = true;
@@ -102,7 +102,7 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
 
             bool rewrite = false;
             for (Literal* lit : cl->getBodyLiterals()) {
-                if (auto* neg = dynamic_cast<Negation*>(lit)) {
+                if (auto* neg = as<Negation>(lit)) {
                     if (neg->getAtom()->getQualifiedName() == emptyRelationName) {
                         rewrite = true;
                         break;
@@ -113,15 +113,15 @@ bool RemoveEmptyRelationsTransformer::removeEmptyRelationUses(
             if (rewrite) {
                 // clone clause without negation for empty relations
 
-                auto res = Own<Clause>(cloneHead(cl));
+                auto res = cloneHead(*cl);
 
                 for (Literal* lit : cl->getBodyLiterals()) {
-                    if (auto* neg = dynamic_cast<Negation*>(lit)) {
+                    if (auto* neg = as<Negation>(lit)) {
                         if (neg->getAtom()->getQualifiedName() != emptyRelationName) {
-                            res->addToBody(souffle::clone(lit));
+                            res->addToBody(clone(lit));
                         }
                     } else {
-                        res->addToBody(souffle::clone(lit));
+                        res->addToBody(clone(lit));
                     }
                 }
 

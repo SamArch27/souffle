@@ -107,9 +107,9 @@ TEST(RuleBody, ClauseBodyExtraction) {
     auto list = full.toClauseBodies();
     EXPECT_EQ(3, list.size());
 
-    EXPECT_EQ(" :- \n   A(),\n   B().", toString(*list[0]));
-    EXPECT_EQ(" :- \n   C(),\n   D().", toString(*list[1]));
-    EXPECT_EQ(" :- \n   E(),\n   F().", toString(*list[2]));
+    EXPECT_EQ("*() :- \n   A(),\n   B().", toString(*list[0]));
+    EXPECT_EQ("*() :- \n   C(),\n   D().", toString(*list[1]));
+    EXPECT_EQ("*() :- \n   E(),\n   F().", toString(*list[2]));
 }
 
 }  // end namespace test

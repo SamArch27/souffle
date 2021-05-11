@@ -54,8 +54,8 @@ public:
         return {operand.get()};
     }
 
-    Negation* clone() const override {
-        return new Negation(souffle::clone(operand));
+    Negation* cloning() const override {
+        return new Negation(clone(operand));
     }
 
     void apply(const NodeMapper& map) override {
@@ -68,7 +68,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Negation&>(node);
+        const auto& other = asAssert<Negation>(node);
         return equal_ptr(operand, other.operand);
     }
 

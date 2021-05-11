@@ -48,8 +48,8 @@ public:
         return AbstractLog::getChildNodes();
     }
 
-    DebugInfo* clone() const override {
-        return new DebugInfo(souffle::clone(statement), message);
+    DebugInfo* cloning() const override {
+        return new DebugInfo(clone(statement), message);
     }
 
     void apply(const NodeMapper& map) override {

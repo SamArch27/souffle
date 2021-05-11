@@ -46,13 +46,13 @@ public:
 
     void setVerbosity(bool verbose) override {
         this->verbose = verbose;
-        if (auto* mt = dynamic_cast<MetaTransformer*>(wrappedTransformer.get())) {
+        if (auto* mt = as<MetaTransformer>(wrappedTransformer)) {
             mt->setVerbosity(verbose);
         }
     }
 
     void disableTransformers(const std::set<std::string>& transforms) override {
-        if (auto* mt = dynamic_cast<MetaTransformer*>(wrappedTransformer.get())) {
+        if (auto* mt = as<MetaTransformer>(wrappedTransformer)) {
             mt->disableTransformers(transforms);
         } else if (transforms.find(wrappedTransformer->getName()) != transforms.end()) {
             wrappedTransformer = mk<NullTransformer>();
@@ -63,8 +63,8 @@ public:
         return "DebugReporter";
     }
 
-    DebugReporter* clone() const override {
-        return new DebugReporter(souffle::clone(wrappedTransformer));
+    DebugReporter* cloning() const override {
+        return new DebugReporter(clone(wrappedTransformer));
     }
 
 private:

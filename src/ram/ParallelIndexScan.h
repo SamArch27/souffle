@@ -57,16 +57,16 @@ public:
             std::string profileText = "")
             : IndexScan(rel, ident, std::move(queryPattern), std::move(nested), profileText) {}
 
-    ParallelIndexScan* clone() const override {
+    ParallelIndexScan* cloning() const override {
         RamPattern resQueryPattern;
         for (const auto& i : queryPattern.first) {
-            resQueryPattern.first.emplace_back(i->clone());
+            resQueryPattern.first.emplace_back(i->cloning());
         }
         for (const auto& i : queryPattern.second) {
-            resQueryPattern.second.emplace_back(i->clone());
+            resQueryPattern.second.emplace_back(i->cloning());
         }
-        return new ParallelIndexScan(relation, getTupleId(), std::move(resQueryPattern),
-                souffle::clone(&getOperation()), getProfileText());
+        return new ParallelIndexScan(
+                relation, getTupleId(), std::move(resQueryPattern), clone(getOperation()), getProfileText());
     }
 
 protected:

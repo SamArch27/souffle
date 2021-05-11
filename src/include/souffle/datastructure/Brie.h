@@ -78,14 +78,14 @@ struct forward_non_output_iterator_traits {
     using reference = const value_type&;
 };
 
-template <typename A, size_t arity>
+template <typename A, std::size_t arity>
 auto copy(span<A, arity> s) {
     std::array<std::decay_t<A>, arity> cpy;
     std::copy_n(s.begin(), arity, cpy.begin());
     return cpy;
 }
 
-template <size_t offset, typename A, size_t arity>
+template <std::size_t offset, typename A, std::size_t arity>
 auto drop(span<A, arity> s) -> std::enable_if_t<offset <= arity, span<A, arity - offset>> {
     return {s.begin() + offset, s.end()};
 }
@@ -1639,8 +1639,8 @@ class SparseBitMap {
     using atomic_value_t = typename data_store_t::atomic_value_type;
 
     // some constants for manipulating stored values
-    static constexpr size_t BITS_PER_ENTRY = sizeof(value_t) * CHAR_BIT;
-    static constexpr size_t LEAF_INDEX_WIDTH = __builtin_ctz(BITS_PER_ENTRY);
+    static constexpr std::size_t BITS_PER_ENTRY = sizeof(value_t) * CHAR_BIT;
+    static constexpr std::size_t LEAF_INDEX_WIDTH = __builtin_ctz(BITS_PER_ENTRY);
     static constexpr uint64_t LEAF_INDEX_MASK = BITS_PER_ENTRY - 1;
 
     static uint64_t toMask(const value_t& value) {
@@ -2377,7 +2377,7 @@ struct fix_lower_bound {
             // if it does not work, since there are no matching elements in this branch, go to next
             auto sub = copy(entry);
             sub[0] += 1;
-            for (size_t i = 1; i < Dim; ++i)
+            for (std::size_t i = 1; i < Dim; ++i)
                 sub[i] = 0;
 
             return (*this)(store, iter, sub);
@@ -2428,7 +2428,7 @@ struct fix_upper_bound {
             // if it does not work, since there are no matching elements in this branch, go to next
             auto sub = copy(entry);
             sub[0] += 1;
-            for (size_t i = 1; i < Dim; ++i)
+            for (std::size_t i = 1; i < Dim; ++i)
                 sub[i] = 0;
 
             return (*this)(store, iter, sub);
@@ -2738,7 +2738,7 @@ public:
         // conduct a lock-free lazy-creation of nested trees
         if (!nextPtr) {
             // create a sub-tree && register it atomically
-            auto newNested = std::make_unique<nested_trie_type>();
+            auto newNested = mk<nested_trie_type>();
             if (next.compare_exchange_weak(nextPtr, newNested.get())) {
                 nextPtr = newNested.release();  // worked, ownership is acquired by `store`
             }
@@ -2885,7 +2885,7 @@ public:
         if (this->empty()) return res;
 
         // use top-level elements for partitioning
-        int step = std::max(store.size() / chunks, size_t(1));
+        int step = std::max(store.size() / chunks, std::size_t(1));
 
         int c = 1;
         auto priv = begin();
@@ -3000,7 +3000,7 @@ public:
         if (this->empty()) return res;
 
         // use top-level elements for partitioning
-        int step = static_cast<int>(std::max(store.size() / chunks, size_t(1)));
+        int step = static_cast<int>(std::max(store.size() / chunks, std::size_t(1)));
 
         int c = 1;
         auto priv = begin();

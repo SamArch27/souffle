@@ -19,6 +19,7 @@
 #include "ram/Expression.h"
 #include "ram/Node.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <iosfwd>
 #include <memory>
@@ -88,7 +89,7 @@ protected:
 
 protected:
     bool equal(const Node& node) const {
-        const auto& other = dynamic_cast<const AbstractAggregate&>(node);
+        const auto& other = asAssert<AbstractAggregate, AllowCrossCast>(node);
         return function == other.function && equal_ptr(expression, other.expression) &&
                equal_ptr(condition, other.condition);
     }

@@ -57,14 +57,14 @@ std::string pprint(const Node& node) {
 std::vector<const Variable*> getVariables(const Node& root) {
     // simply collect the list of all variables by visiting all variables
     std::vector<const Variable*> vars;
-    visitDepthFirst(root, [&](const Variable& var) { vars.push_back(&var); });
+    visit(root, [&](const Variable& var) { vars.push_back(&var); });
     return vars;
 }
 
 std::vector<const RecordInit*> getRecords(const Node& root) {
     // simply collect the list of all records by visiting all records
     std::vector<const RecordInit*> recs;
-    visitDepthFirst(root, [&](const RecordInit& rec) { recs.push_back(&rec); });
+    visit(root, [&](const RecordInit& rec) { recs.push_back(&rec); });
     return recs;
 }
 
@@ -117,7 +117,7 @@ void removeRelationClauses(TranslationUnit& tu, const QualifiedName& name) {
     // Make copies of the clauses to avoid use-after-delete for equivalent clauses
     std::set<Own<Clause>> clausesToRemove;
     for (const auto* clause : relDetail.getClauses(name)) {
-        clausesToRemove.insert(souffle::clone(clause));
+        clausesToRemove.insert(clone(clause));
     }
     for (const auto& clause : clausesToRemove) {
         program.removeClause(clause.get());
@@ -144,35 +144,12 @@ const Relation* getHeadRelation(const Clause* clause, const Program* program) {
 std::set<const Relation*> getBodyRelations(const Clause* clause, const Program* program) {
     std::set<const Relation*> bodyRelations;
     for (const auto& lit : clause->getBodyLiterals()) {
-        visitDepthFirst(
-                *lit, [&](const Atom& atom) { bodyRelations.insert(getAtomRelation(&atom, program)); });
+        visit(*lit, [&](const Atom& atom) { bodyRelations.insert(getAtomRelation(&atom, program)); });
     }
     for (const auto& arg : clause->getHead()->getArguments()) {
-        visitDepthFirst(
-                *arg, [&](const Atom& atom) { bodyRelations.insert(getAtomRelation(&atom, program)); });
+        visit(*arg, [&](const Atom& atom) { bodyRelations.insert(getAtomRelation(&atom, program)); });
     }
     return bodyRelations;
-}
-
-size_t getClauseNum(const Program* program, const Clause* clause) {
-    // TODO (azreika): This number might change between the provenance transformer and the AST->RAM
-    // translation. Might need a better way to assign IDs to clauses... (see PR #1288).
-    const Relation* rel = getRelation(*program, clause->getHead()->getQualifiedName());
-    assert(rel != nullptr && "clause relation does not exist");
-
-    size_t clauseNum = 1;
-    for (const auto* cur : getClauses(*program, *rel)) {
-        bool isFact = cur->getBodyLiterals().empty();
-        if (cur == clause) {
-            return isFact ? 0 : clauseNum;
-        }
-
-        if (!isFact) {
-            clauseNum++;
-        }
-    }
-
-    fatal("clause does not exist");
 }
 
 bool hasClauseWithNegatedRelation(const Relation* relation, const Relation* negRelation,
@@ -192,8 +169,8 @@ bool hasClauseWithAggregatedRelation(const Relation* relation, const Relation* a
         const Program* program, const Literal*& foundLiteral) {
     for (const Clause* cl : getClauses(*program, *relation)) {
         bool hasAgg = false;
-        visitDepthFirst(*cl, [&](const Aggregator& cur) {
-            visitDepthFirst(cur, [&](const Atom& atom) {
+        visit(*cl, [&](const Aggregator& cur) {
+            visit(cur, [&](const Atom& atom) {
                 if (aggRelation == getAtomRelation(&atom, program)) {
                     foundLiteral = &atom;
                     hasAgg = true;
@@ -210,7 +187,7 @@ bool hasClauseWithAggregatedRelation(const Relation* relation, const Relation* a
 bool isRecursiveClause(const Clause& clause) {
     QualifiedName relationName = clause.getHead()->getQualifiedName();
     bool recursive = false;
-    visitDepthFirst(clause.getBodyLiterals(), [&](const Atom& atom) {
+    visit(clause.getBodyLiterals(), [&](const Atom& atom) {
         if (atom.getQualifiedName() == relationName) {
             recursive = true;
         }
@@ -230,7 +207,7 @@ bool isFact(const Clause& clause) {
 
     // and there are no aggregates
     bool hasAggregatesOrMultiResultFunctor = false;
-    visitDepthFirst(*clause.getHead(), [&](const Argument& arg) {
+    visit(*clause.getHead(), [&](const Argument& arg) {
         if (isA<Aggregator>(arg)) {
             hasAggregatesOrMultiResultFunctor = true;
         }
@@ -258,14 +235,12 @@ bool isDeltaRelation(const QualifiedName& name) {
     return isPrefix("@delta_", qualifiers[0]);
 }
 
-Clause* cloneHead(const Clause* clause) {
-    auto* clone = new Clause();
-    clone->setSrcLoc(clause->getSrcLoc());
-    clone->setHead(souffle::clone(clause->getHead()));
-    if (clause->getExecutionPlan() != nullptr) {
-        clone->setExecutionPlan(souffle::clone(clause->getExecutionPlan()));
+Own<Clause> cloneHead(const Clause& clause) {
+    auto myClone = mk<Clause>(clone(clause.getHead()), clause.getSrcLoc());
+    if (clause.getExecutionPlan() != nullptr) {
+        myClone->setExecutionPlan(clone(clause.getExecutionPlan()));
     }
-    return clone;
+    return myClone;
 }
 
 std::vector<Atom*> reorderAtoms(const std::vector<Atom*>& atoms, const std::vector<unsigned int>& newOrder) {
@@ -279,7 +254,7 @@ std::vector<Atom*> reorderAtoms(const std::vector<Atom*>& atoms, const std::vect
 
     // Create the result
     std::vector<Atom*> result(atoms.size());
-    for (size_t i = 0; i < atoms.size(); i++) {
+    for (std::size_t i = 0; i < atoms.size(); i++) {
         result[i] = atoms[newOrder[i]];
     }
     return result;
@@ -304,7 +279,7 @@ Clause* reorderAtoms(const Clause* clause, const std::vector<unsigned int>& newO
     assert(std::is_permutation(nopOrder.begin(), nopOrder.end(), newOrder.begin()));
 
     // Create a new clause with the given atom order, leaving the rest unchanged
-    Clause* newClause = cloneHead(clause);
+    auto newClause = cloneHead(*clause);
     unsigned int currentAtom = 0;
     for (unsigned int currentLiteral = 0; currentLiteral < bodyLiterals.size(); currentLiteral++) {
         Literal* literalToAdd = bodyLiterals[currentLiteral];
@@ -312,16 +287,17 @@ Clause* reorderAtoms(const Clause* clause, const std::vector<unsigned int>& newO
             // Atoms should be reordered
             literalToAdd = bodyLiterals[atomPositions[newOrder[currentAtom++]]];
         }
-        newClause->addToBody(souffle::clone(literalToAdd));
+        newClause->addToBody(clone(literalToAdd));
     }
 
-    return newClause;
+    // FIXME: tomp - fix ownership
+    return newClause.release();
 }
 
 void negateConstraintInPlace(Constraint& constraint) {
-    if (auto* bcstr = dynamic_cast<BooleanConstraint*>(&constraint)) {
+    if (auto* bcstr = as<BooleanConstraint>(constraint)) {
         bcstr->set(!bcstr->isTrue());
-    } else if (auto* cstr = dynamic_cast<BinaryConstraint*>(&constraint)) {
+    } else if (auto* cstr = as<BinaryConstraint>(constraint)) {
         cstr->setBaseOperator(souffle::negatedConstraintOp(cstr->getBaseOperator()));
     } else {
         fatal("Unknown ast-constraint type");
@@ -335,9 +311,9 @@ bool renameAtoms(Node& node, const std::map<QualifiedName, QualifiedName>& oldTo
         rename_atoms(const std::map<QualifiedName, QualifiedName>& oldToNew) : oldToNew(oldToNew) {}
         Own<Node> operator()(Own<Node> node) const override {
             node->apply(*this);
-            if (auto* atom = dynamic_cast<Atom*>(node.get())) {
+            if (auto* atom = as<Atom>(node)) {
                 if (contains(oldToNew, atom->getQualifiedName())) {
-                    auto renamedAtom = souffle::clone(atom);
+                    auto renamedAtom = clone(atom);
                     renamedAtom->setQualifiedName(oldToNew.at(atom->getQualifiedName()));
                     changed = true;
                     return renamedAtom;

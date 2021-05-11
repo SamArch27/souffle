@@ -23,6 +23,7 @@
 #include "ram/Relation.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <memory>
@@ -80,7 +81,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const AbstractExistenceCheck&>(node);
+        const auto& other = asAssert<AbstractExistenceCheck>(node);
         return relation == other.relation && equal_targets(values, other.values);
     }
 

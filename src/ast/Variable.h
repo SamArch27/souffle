@@ -17,11 +17,9 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include <ostream>
+#include <iosfwd>
 #include <string>
-#include <utility>
 
 namespace souffle::ast {
 
@@ -31,32 +29,25 @@ namespace souffle::ast {
  */
 class Variable : public Argument {
 public:
-    Variable(std::string name, SrcLocation loc = {}) : Argument(std::move(loc)), name(std::move(name)) {}
+    Variable(std::string name, SrcLocation loc = {});
 
     /** Set variable name */
-    void setName(std::string name) {
-        this->name = std::move(name);
-    }
+    void setName(std::string name);
 
     /** Return variable name */
     const std::string& getName() const {
         return name;
     }
 
-    Variable* clone() const override {
-        return new Variable(name, getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << name;
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Variable&>(node);
-        return name == other.name;
-    }
+private:
+    bool equal(const Node& node) const override;
 
+    Variable* cloning() const override;
+
+private:
     /** Name */
     std::string name;
 };

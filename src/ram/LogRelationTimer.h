@@ -59,8 +59,8 @@ public:
         return res;
     }
 
-    LogRelationTimer* clone() const override {
-        return new LogRelationTimer(souffle::clone(statement), message, relation);
+    LogRelationTimer* cloning() const override {
+        return new LogRelationTimer(clone(statement), message, relation);
     }
 
     void apply(const NodeMapper& map) override {

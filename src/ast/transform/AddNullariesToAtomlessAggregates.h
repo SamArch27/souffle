@@ -37,11 +37,11 @@ public:
         return "AddNullariesToAtomlessAggregatesTransformer";
     }
 
-    AddNullariesToAtomlessAggregatesTransformer* clone() const override {
+private:
+    AddNullariesToAtomlessAggregatesTransformer* cloning() const override {
         return new AddNullariesToAtomlessAggregatesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

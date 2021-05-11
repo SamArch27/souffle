@@ -16,12 +16,14 @@
  ***********************************************************************/
 
 #include "ast/transform/NormaliseGenerators.h"
+#include "ast/Aggregator.h"
 #include "ast/BinaryConstraint.h"
 #include "ast/IntrinsicFunctor.h"
 #include "ast/Program.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Variable.h"
 #include "ast/analysis/Functor.h"
+#include "ast/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
 
 namespace souffle::ast::transform {
@@ -49,17 +51,17 @@ bool NormaliseGeneratorsTransformer::transform(TranslationUnit& translationUnit)
         Own<Node> operator()(Own<Node> node) const override {
             node->apply(*this);
 
-            if (auto* inf = dynamic_cast<IntrinsicFunctor*>(node.get())) {
+            if (auto* inf = as<IntrinsicFunctor>(node)) {
                 // Multi-result functors
                 if (analysis::FunctorAnalysis::isMultiResult(*inf)) {
                     std::string name = getUniqueName();
-                    generatorNames.push_back({name, Own<IntrinsicFunctor>(inf->clone())});
+                    generatorNames.emplace_back(name, clone(inf));
                     return mk<Variable>(name);
                 }
-            } else if (auto* agg = dynamic_cast<Aggregator*>(node.get())) {
+            } else if (auto* agg = as<Aggregator>(node)) {
                 // Aggregators
                 std::string name = getUniqueName();
-                generatorNames.push_back({name, Own<Aggregator>(agg->clone())});
+                generatorNames.emplace_back(name, clone(agg));
                 return mk<Variable>(name);
             }
 

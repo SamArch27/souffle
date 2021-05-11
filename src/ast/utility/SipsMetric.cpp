@@ -35,7 +35,7 @@ std::vector<unsigned int> SipsMetric::getReordering(const Clause* clause) const 
     auto atoms = getBodyLiterals<Atom>(*clause);
     std::vector<unsigned int> newOrder(atoms.size());
 
-    size_t numAdded = 0;
+    std::size_t numAdded = 0;
     while (numAdded < atoms.size()) {
         // grab the index of the next atom, based on the SIPS function
         const auto& costs = evaluateCosts(atoms, bindingStore);
@@ -45,7 +45,7 @@ std::vector<unsigned int> SipsMetric::getReordering(const Clause* clause) const 
 
         // set all arguments that are variables as bound
         for (const auto* arg : nextAtom->getArguments()) {
-            if (const auto* var = dynamic_cast<const Variable*>(arg)) {
+            if (const auto* var = as<Variable>(arg)) {
                 bindingStore.bindVariableStrongly(var->getName());
             }
         }
@@ -61,28 +61,28 @@ std::vector<unsigned int> SipsMetric::getReordering(const Clause* clause) const 
 /** Create a SIPS metric based on a given heuristic. */
 std::unique_ptr<SipsMetric> SipsMetric::create(const std::string& heuristic, const TranslationUnit& tu) {
     if (heuristic == "strict")
-        return std::make_unique<StrictSips>();
+        return mk<StrictSips>();
     else if (heuristic == "all-bound")
-        return std::make_unique<AllBoundSips>();
+        return mk<AllBoundSips>();
     else if (heuristic == "naive")
-        return std::make_unique<NaiveSips>();
+        return mk<NaiveSips>();
     else if (heuristic == "max-bound")
-        return std::make_unique<MaxBoundSips>();
+        return mk<MaxBoundSips>();
     else if (heuristic == "max-ratio")
-        return std::make_unique<MaxRatioSips>();
+        return mk<MaxRatioSips>();
     else if (heuristic == "least-free")
-        return std::make_unique<LeastFreeSips>();
+        return mk<LeastFreeSips>();
     else if (heuristic == "least-free-vars")
-        return std::make_unique<LeastFreeVarsSips>();
+        return mk<LeastFreeVarsSips>();
     else if (heuristic == "profile-use")
-        return std::make_unique<ProfileUseSips>(*tu.getAnalysis<analysis::ProfileUseAnalysis>());
+        return mk<ProfileUseSips>(*tu.getAnalysis<analysis::ProfileUseAnalysis>());
     else if (heuristic == "delta")
-        return std::make_unique<DeltaSips>();
+        return mk<DeltaSips>();
     else if (heuristic == "input")
-        return std::make_unique<InputSips>(*tu.getAnalysis<analysis::RelationDetailCacheAnalysis>(),
+        return mk<InputSips>(*tu.getAnalysis<analysis::RelationDetailCacheAnalysis>(),
                 *tu.getAnalysis<analysis::IOTypeAnalysis>());
     else if (heuristic == "delta-input")
-        return std::make_unique<DeltaInputSips>(*tu.getAnalysis<analysis::RelationDetailCacheAnalysis>(),
+        return mk<DeltaInputSips>(*tu.getAnalysis<analysis::RelationDetailCacheAnalysis>(),
                 *tu.getAnalysis<analysis::IOTypeAnalysis>());
 
     // default is all-bound
@@ -223,7 +223,7 @@ std::vector<double> LeastFreeVarsSips::evaluateCosts(
 
         // use a set to hold all free variables to avoid double-counting
         std::set<std::string> freeVars;
-        visitDepthFirst(*atom, [&](const Variable& var) {
+        visit(*atom, [&](const Variable& var) {
             if (bindingStore.isBound(var.getName())) {
                 freeVars.insert(var.getName());
             }

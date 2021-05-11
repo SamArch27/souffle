@@ -38,11 +38,11 @@ public:
         return "IODefaultsTransformer";
     }
 
-    IODefaultsTransformer* clone() const override {
+private:
+    IODefaultsTransformer* cloning() const override {
         return new IODefaultsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
 

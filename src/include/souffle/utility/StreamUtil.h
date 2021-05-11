@@ -229,7 +229,7 @@ namespace std {
  * Enables the generic printing of `array`s assuming their element types
  * are printable.
  */
-template <typename T, size_t E>
+template <typename T, std::size_t E>
 ostream& operator<<(ostream& out, const array<T, E>& v) {
     return out << "[" << souffle::join(v) << "]";
 }
@@ -255,7 +255,7 @@ ostream& operator<<(ostream& out, const vector<T, A>& v) {
  * Enables the generic printing of `span`s assuming their element types
  * are printable.
  */
-template <typename T, size_t E>
+template <typename T, std::size_t E>
 ostream& operator<<(ostream& out, const souffle::span<T, E>& v) {
     return out << "[" << souffle::join(v) << "]";
 }

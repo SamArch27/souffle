@@ -18,19 +18,10 @@
 
 #include "ast/Argument.h"
 #include "ast/Constraint.h"
-#include "ast/Node.h"
-#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
 #include "souffle/BinaryConstraintOps.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/MiscUtil.h"
-#include <cassert>
-#include <iostream>
-#include <memory>
-#include <optional>
-#include <string>
-#include <utility>
-#include <vector>
+#include "souffle/utility/Types.h"
+#include <iosfwd>
 
 namespace souffle::ast {
 
@@ -46,8 +37,7 @@ namespace souffle::ast {
  */
 class BinaryConstraint : public Constraint {
 public:
-    BinaryConstraint(BinaryConstraintOp o, Own<Argument> ls, Own<Argument> rs, SrcLocation loc = {})
-            : Constraint(std::move(loc)), operation(o), lhs(std::move(ls)), rhs(std::move(rs)) {}
+    BinaryConstraint(BinaryConstraintOp o, Own<Argument> ls, Own<Argument> rs, SrcLocation loc = {});
 
     /** Return left-hand side argument */
     Argument* getLHS() const {
@@ -69,34 +59,19 @@ public:
         operation = op;
     }
 
-    BinaryConstraint* clone() const override {
-        return new BinaryConstraint(operation, souffle::clone(lhs), souffle::clone(rhs), getSrcLoc());
-    }
-
-    void apply(const NodeMapper& map) override {
-        lhs = map(std::move(lhs));
-        rhs = map(std::move(rhs));
-    }
-
-    std::vector<const Node*> getChildNodes() const override {
-        return {lhs.get(), rhs.get()};
-    }
+    void apply(const NodeMapper& map) override;
 
 protected:
-    void print(std::ostream& os) const override {
-        if (isInfixFunctorOp(operation)) {
-            os << *lhs << " " << operation << " " << *rhs;
-        } else {
-            os << operation << "(" << *lhs << ", " << *rhs << ")";
-        }
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        assert(isA<BinaryConstraint>(&node));
-        const auto& other = static_cast<const BinaryConstraint&>(node);
-        return operation == other.operation && equal_ptr(lhs, other.lhs) && equal_ptr(rhs, other.rhs);
-    }
+    NodeVec getChildNodesImpl() const override;
 
+private:
+    bool equal(const Node& node) const override;
+
+    BinaryConstraint* cloning() const override;
+
+private:
     /** Constraint (base) operator */
     BinaryConstraintOp operation;
 

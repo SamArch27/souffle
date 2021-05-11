@@ -24,7 +24,7 @@ namespace souffle::ram::transform {
 
 /**
  * @class ParallelTransformer
- * @brief Transforms Choice/IndexChoice/IndexScan/Scan into parallel versions.
+ * @brief Transforms IfExists/IndexIfExists/IndexScan/Scan into parallel versions.
  *
  * For example ..
  *

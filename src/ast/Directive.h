@@ -19,28 +19,16 @@
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/MiscUtil.h"
-#include "souffle/utility/StreamUtil.h"
+#include <iosfwd>
 #include <map>
-#include <ostream>
 #include <string>
-#include <utility>
 
 namespace souffle::ast {
 
 enum class DirectiveType { input, output, printsize, limitsize };
 
 // FIXME: I'm going crazy defining these. There has to be a library that does this boilerplate for us.
-inline std::ostream& operator<<(std::ostream& os, DirectiveType e) {
-    switch (e) {
-        case DirectiveType::input: return os << "input";
-        case DirectiveType::output: return os << "output";
-        case DirectiveType::printsize: return os << "printsize";
-        case DirectiveType::limitsize: return os << "limitsize";
-    }
-
-    UNREACHABLE_BAD_CASE_ANALYSIS
-}
+std::ostream& operator<<(std::ostream& os, DirectiveType e);
 
 /**
  * @class Directive
@@ -49,8 +37,7 @@ inline std::ostream& operator<<(std::ostream& os, DirectiveType e) {
  */
 class Directive : public Node {
 public:
-    Directive(DirectiveType type, QualifiedName name, SrcLocation loc = {})
-            : Node(std::move(loc)), type(type), name(std::move(name)) {}
+    Directive(DirectiveType type, QualifiedName name, SrcLocation loc = {});
 
     /** Get directive type */
     DirectiveType getType() const {
@@ -68,9 +55,7 @@ public:
     }
 
     /** Set relation name */
-    void setQualifiedName(QualifiedName name) {
-        this->name = std::move(name);
-    }
+    void setQualifiedName(QualifiedName name);
 
     /** Get parameter */
     const std::string& getParameter(const std::string& key) const {
@@ -78,9 +63,7 @@ public:
     }
 
     /** Add new parameter */
-    void addParameter(const std::string& key, std::string value) {
-        parameters[key] = std::move(value);
-    }
+    void addParameter(const std::string& key, std::string value);
 
     /** Check for a parameter */
     bool hasParameter(const std::string& key) const {
@@ -92,27 +75,15 @@ public:
         return parameters;
     }
 
-    Directive* clone() const override {
-        auto res = new Directive(type, name, getSrcLoc());
-        res->parameters = parameters;
-        return res;
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << "." << type << " " << name;
-        if (!parameters.empty()) {
-            os << "(" << join(parameters, ",", [](std::ostream& out, const auto& arg) {
-                out << arg.first << "=\"" << arg.second << "\"";
-            }) << ")";
-        }
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Directive&>(node);
-        return other.type == type && other.name == name && other.parameters == parameters;
-    }
+private:
+    bool equal(const Node& node) const override;
 
+    Directive* cloning() const override;
+
+private:
     /** Type of directive */
     DirectiveType type;
 

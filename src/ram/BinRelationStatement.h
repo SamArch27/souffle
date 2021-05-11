@@ -19,6 +19,7 @@
 #include "ram/Statement.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <cstddef>
 #include <memory>
@@ -50,7 +51,7 @@ public:
 
 protected:
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const BinRelationStatement&>(node);
+        const auto& other = asAssert<BinRelationStatement>(node);
         return first == other.first && second == other.second;
     }
 

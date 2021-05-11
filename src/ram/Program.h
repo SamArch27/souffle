@@ -101,14 +101,14 @@ public:
         return *subroutines.at(name);
     }
 
-    Program* clone() const override {
+    Program* cloning() const override {
         auto* res = new Program();
-        res->main = souffle::clone(main);
+        res->main = clone(main);
         for (auto& rel : relations) {
-            res->relations.push_back(souffle::clone(rel));
+            res->relations.push_back(clone(rel));
         }
         for (auto& sub : subroutines) {
-            res->subroutines[sub.first] = souffle::clone(sub.second);
+            res->subroutines[sub.first] = clone(sub.second);
         }
         return res;
     }
@@ -143,8 +143,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Program&>(node);
-
+        const auto& other = asAssert<Program>(node);
         return equal_targets(relations, other.relations) && equal_ptr(main, other.main) &&
                equal_targets(subroutines, other.subroutines);
     }

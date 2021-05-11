@@ -60,11 +60,11 @@ protected:
     /**
      * number of threads
      */
-    size_t num_jobs;
+    std::size_t num_jobs;
 
 public:
     // all argument constructor
-    CmdOptions(const char* s, const char* id, const char* od, bool pe, const char* pfn, size_t nj)
+    CmdOptions(const char* s, const char* id, const char* od, bool pe, const char* pfn, std::size_t nj)
             : src(s), input_dir(id), output_dir(od), profiling(pe), profile_name(pfn), num_jobs(nj) {}
 
     /**
@@ -105,7 +105,7 @@ public:
     /**
      * get number of jobs
      */
-    size_t getNumJobs() const {
+    std::size_t getNumJobs() const {
         return num_jobs;
     }
 

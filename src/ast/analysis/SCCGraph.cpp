@@ -44,16 +44,16 @@ void SCCGraphAnalysis::run(const TranslationUnit& translationUnit) {
     /* Compute SCC */
     Program& program = translationUnit.getProgram();
     std::vector<Relation*> relations = program.getRelations();
-    size_t counter = 0;
-    size_t numSCCs = 0;
+    std::size_t counter = 0;
+    std::size_t numSCCs = 0;
     std::stack<const Relation*> S;
     std::stack<const Relation*> P;
-    std::map<const Relation*, size_t> preOrder;  // Pre-order number of a node (for Gabow's Algo)
+    std::map<const Relation*, std::size_t> preOrder;  // Pre-order number of a node (for Gabow's Algo)
     for (const Relation* relation : relations) {
-        relationToScc[relation] = preOrder[relation] = (size_t)-1;
+        relationToScc[relation] = preOrder[relation] = (std::size_t)-1;
     }
     for (const Relation* relation : relations) {
-        if (preOrder[relation] == (size_t)-1) {
+        if (preOrder[relation] == (std::size_t)-1) {
             scR(relation, preOrder, counter, S, P, numSCCs);
         }
     }
@@ -84,15 +84,16 @@ void SCCGraphAnalysis::run(const TranslationUnit& translationUnit) {
 /* Compute strongly connected components using Gabow's algorithm (cf. Algorithms in
  * Java by Robert Sedgewick / Part 5 / Graph *  algorithms). The algorithm has linear
  * runtime. */
-void SCCGraphAnalysis::scR(const Relation* w, std::map<const Relation*, size_t>& preOrder, size_t& counter,
-        std::stack<const Relation*>& S, std::stack<const Relation*>& P, size_t& numSCCs) {
+void SCCGraphAnalysis::scR(const Relation* w, std::map<const Relation*, std::size_t>& preOrder,
+        std::size_t& counter, std::stack<const Relation*>& S, std::stack<const Relation*>& P,
+        std::size_t& numSCCs) {
     preOrder[w] = counter++;
     S.push(w);
     P.push(w);
     for (const Relation* t : precedenceGraph->graph().predecessors(w)) {
-        if (preOrder[t] == (size_t)-1) {
+        if (preOrder[t] == (std::size_t)-1) {
             scR(t, preOrder, counter, S, P, numSCCs);
-        } else if (relationToScc[t] == (size_t)-1) {
+        } else if (relationToScc[t] == (std::size_t)-1) {
             while (preOrder[P.top()] > preOrder[t]) {
                 P.pop();
             }
@@ -119,13 +120,13 @@ void SCCGraphAnalysis::print(std::ostream& os) const {
     /* Print SCC graph */
     ss << "digraph {" << std::endl;
     /* Print nodes of SCC graph */
-    for (size_t scc = 0; scc < getNumberOfSCCs(); scc++) {
+    for (std::size_t scc = 0; scc < getNumberOfSCCs(); scc++) {
         ss << "\t" << name << "_" << scc << "[label = \"";
         ss << join(getInternalRelations(scc), ",\\n",
                 [](std::ostream& out, const Relation* rel) { out << rel->getQualifiedName(); });
         ss << "\" ];" << std::endl;
     }
-    for (size_t scc = 0; scc < getNumberOfSCCs(); scc++) {
+    for (std::size_t scc = 0; scc < getNumberOfSCCs(); scc++) {
         for (auto succ : getSuccessorSCCs(scc)) {
             ss << "\t" << name << "_" << scc << " -> " << name << "_" << succ << ";" << std::endl;
         }

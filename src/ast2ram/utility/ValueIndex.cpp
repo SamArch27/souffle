@@ -31,27 +31,27 @@ namespace souffle::ast2ram {
 ValueIndex::ValueIndex() = default;
 ValueIndex::~ValueIndex() = default;
 
-const std::set<Location>& ValueIndex::getVariableReferences(std::string var) const {
-    assert(contains(varReferencePoints, var) && "variable not indexed");
-    return varReferencePoints.at(var);
+const std::set<Location>& ValueIndex::getVariableReferences(std::string varName) const {
+    assert(contains(varReferencePoints, varName) && "variable not indexed");
+    return varReferencePoints.at(varName);
 }
 
-void ValueIndex::addVarReference(const ast::Variable& var, const Location& l) {
-    std::set<Location>& locs = varReferencePoints[var.getName()];
+void ValueIndex::addVarReference(std::string varName, const Location& l) {
+    std::set<Location>& locs = varReferencePoints[varName];
     locs.insert(l);
 }
 
-void ValueIndex::addVarReference(const ast::Variable& var, int ident, int pos) {
-    addVarReference(var, Location({ident, pos}));
+void ValueIndex::addVarReference(std::string varName, int ident, int pos) {
+    addVarReference(varName, Location({ident, pos}));
 }
 
-bool ValueIndex::isDefined(const ast::Variable& var) const {
-    return contains(varReferencePoints, var.getName());
+bool ValueIndex::isDefined(const std::string& varName) const {
+    return contains(varReferencePoints, varName);
 }
 
-const Location& ValueIndex::getDefinitionPoint(const ast::Variable& var) const {
-    assert(isDefined(var) && "undefined variable reference");
-    const auto& referencePoints = varReferencePoints.at(var.getName());
+const Location& ValueIndex::getDefinitionPoint(const std::string& varName) const {
+    assert(isDefined(varName) && "undefined variable reference");
+    const auto& referencePoints = varReferencePoints.at(varName);
     assert(!referencePoints.empty() && "at least one reference point should exist");
     return *referencePoints.begin();
 }

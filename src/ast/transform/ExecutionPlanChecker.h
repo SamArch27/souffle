@@ -28,11 +28,11 @@ public:
         return "ExecutionPlanChecker";
     }
 
-    ExecutionPlanChecker* clone() const override {
+private:
+    ExecutionPlanChecker* cloning() const override {
         return new ExecutionPlanChecker();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

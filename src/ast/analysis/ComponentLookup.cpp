@@ -30,7 +30,7 @@ void ComponentLookupAnalysis::run(const TranslationUnit& translationUnit) {
         globalScopeComponents.insert(component);
         enclosingComponent[component] = nullptr;
     }
-    visitDepthFirst(program, [&](const Component& cur) {
+    visit(program, [&](const Component& cur) {
         nestedComponents[&cur];
         for (Component* nestedComponent : cur.getComponents()) {
             nestedComponents[&cur].insert(nestedComponent);

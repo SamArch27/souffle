@@ -18,10 +18,12 @@
 
 #include "AggregateOp.h"
 #include "FunctorOps.h"
+#include "ast/Clause.h"
 #include "ast/NumericConstant.h"
 #include "ast/analysis/Analysis.h"
 #include "ast/analysis/TypeSystem.h"
 #include "souffle/BinaryConstraintOps.h"
+#include <cstddef>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -37,10 +39,12 @@ class Functor;
 class FunctorDeclaration;
 class IntrinsicFunctor;
 class NumericConstant;
+class Type;
 class UserDefinedFunctor;
 }  // namespace souffle::ast
 
 namespace souffle::ast::analysis {
+class TypeEnvironment;
 
 class TypeAnalysis : public Analysis {
 public:
@@ -68,28 +72,34 @@ public:
             const TranslationUnit& tu, const Clause& clause, std::ostream* logs = nullptr);
 
     // Checks whether an argument has been assigned a valid type
-    bool hasValidTypeInfo(const Argument* argument) const;
+    bool hasValidTypeInfo(const Argument& argument) const;
+    /** Check whether a functor declaration has valid type info */
+    bool hasValidTypeInfo(const FunctorDeclaration& decl) const;
 
     std::set<TypeAttribute> getTypeAttributes(const Argument* arg) const;
 
     /** -- Functor-related methods -- */
     IntrinsicFunctors getValidIntrinsicFunctorOverloads(const IntrinsicFunctor& inf) const;
-    TypeAttribute getFunctorReturnType(const Functor* functor) const;
-    TypeAttribute getFunctorArgType(const Functor* functor, const size_t idx) const;
-    const std::vector<TypeAttribute>& getFunctorArgTypes(const UserDefinedFunctor& udf) const;
+    TypeAttribute getFunctorReturnTypeAttribute(const Functor& functor) const;
+    Type const& getFunctorReturnType(const UserDefinedFunctor& functor) const;
+    Type const& getFunctorParamType(const UserDefinedFunctor& functor, std::size_t idx) const;
+    TypeAttribute getFunctorParamTypeAttribute(const Functor& functor, std::size_t idx) const;
+    std::vector<TypeAttribute> getFunctorParamTypeAttributes(const UserDefinedFunctor& functor) const;
 
-    bool isStatefulFunctor(const UserDefinedFunctor* udf) const;
+    std::size_t getFunctorArity(UserDefinedFunctor const& functor) const;
+    bool isStatefulFunctor(const UserDefinedFunctor& udf) const;
     static bool isMultiResultFunctor(const Functor& functor);
 
     /** -- Polymorphism-related methods -- */
-    NumericConstant::Type getPolymorphicNumericConstantType(const NumericConstant* nc) const;
+    NumericConstant::Type getPolymorphicNumericConstantType(const NumericConstant& nc) const;
     const std::map<const NumericConstant*, NumericConstant::Type>& getNumericConstantTypes() const;
-    AggregateOp getPolymorphicOperator(const Aggregator* agg) const;
-    BinaryConstraintOp getPolymorphicOperator(const BinaryConstraint* bc) const;
-    FunctorOp getPolymorphicOperator(const IntrinsicFunctor* inf) const;
+    AggregateOp getPolymorphicOperator(const Aggregator& agg) const;
+    BinaryConstraintOp getPolymorphicOperator(const BinaryConstraint& bc) const;
+    FunctorOp getPolymorphicOperator(const IntrinsicFunctor& inf) const;
 
 private:
     // General type analysis
+    TypeEnvironment const* typeEnv = nullptr;
     std::map<const Argument*, TypeSet> argumentTypes;
     VecOwn<Clause> annotatedClauses;
     std::stringstream analysisLogs;
@@ -113,6 +123,12 @@ private:
     bool isFloat(const Argument* argument) const;
     bool isUnsigned(const Argument* argument) const;
     bool isSymbol(const Argument* argument) const;
+
+    /** Convert a qualified name to its type */
+    Type const& nameToType(QualifiedName const& name) const;
+
+    /** Convert a qualified name to a TypeAttribute */
+    TypeAttribute nameToTypeAttribute(QualifiedName const& name) const;
 };
 
 }  // namespace souffle::ast::analysis

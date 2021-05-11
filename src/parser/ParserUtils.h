@@ -64,8 +64,8 @@ private:
         // the atom referenced by tis literal
         Own<ast::Literal> atom;
 
-        literal clone() const {
-            return literal(negated, souffle::clone(atom));
+        literal cloneImpl() const {
+            return literal(negated, clone(atom));
         }
     };
 

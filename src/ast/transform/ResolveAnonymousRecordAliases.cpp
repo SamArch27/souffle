@@ -48,7 +48,7 @@ std::map<std::string, const RecordInit*> ResolveAnonymousRecordAliasesTransforme
     auto groundedTerms = analysis::getGroundedTerms(tu, clause);
 
     for (auto* literal : clause.getBodyLiterals()) {
-        if (auto constraint = dynamic_cast<BinaryConstraint*>(literal)) {
+        if (auto constraint = as<BinaryConstraint>(literal)) {
             if (!isEqConstraint(constraint->getBaseOperator())) {
                 continue;
             }
@@ -100,10 +100,10 @@ bool ResolveAnonymousRecordAliasesTransformer::replaceNamedVariables(Translation
                 : varToRecordMap(std::move(varToRecordMap)){};
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (auto variable = dynamic_cast<ast::Variable*>(node.get())) {
+            if (auto variable = as<ast::Variable>(node)) {
                 auto iteratorToRecord = varToRecordMap.find(variable->getName());
                 if (iteratorToRecord != varToRecordMap.end()) {
-                    return souffle::clone(iteratorToRecord->second);
+                    return clone(iteratorToRecord->second);
                 }
             }
 
@@ -131,7 +131,7 @@ bool ResolveAnonymousRecordAliasesTransformer::replaceUnnamedVariable(Clause& cl
             auto isUnnamed = [](Node* node) -> bool { return isA<UnnamedVariable>(node); };
             auto isRecord = [](Node* node) -> bool { return isA<RecordInit>(node); };
 
-            if (auto constraint = dynamic_cast<BinaryConstraint*>(node.get())) {
+            if (auto constraint = as<BinaryConstraint>(node)) {
                 auto left = constraint->getLHS();
                 auto right = constraint->getRHS();
                 bool hasUnnamed = isUnnamed(left) || isUnnamed(right);

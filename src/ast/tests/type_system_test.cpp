@@ -242,7 +242,7 @@ TEST(TypeSystem, complexSubsetTypes) {
     EXPECT_EQ("{}", toString(getGreatestCommonSubtypes(BfromA, CfromA)));
 
     auto* base = &env.createType<SubsetType>("B0", BfromA);
-    for (size_t i = 1; i <= 10; ++i) {
+    for (std::size_t i = 1; i <= 10; ++i) {
         base = &env.createType<SubsetType>("B" + std::to_string(i), *base);
         EXPECT_PRED2(isSubtypeOf, *base, A);
     }

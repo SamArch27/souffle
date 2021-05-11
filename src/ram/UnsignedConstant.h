@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ram/Constant.h"
+#include "ram/NumericConstant.h"
 #include "souffle/RamTypes.h"
 #include <ostream>
 
@@ -31,17 +31,17 @@ namespace souffle::ram {
  * unsigned(5)
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
-class UnsignedConstant : public Constant {
+class UnsignedConstant : public NumericConstant {
 public:
-    explicit UnsignedConstant(RamUnsigned val) : Constant(ramBitCast(val)) {}
+    explicit UnsignedConstant(RamUnsigned val) : NumericConstant(ramBitCast(val)) {}
 
     /** @brief Get value of the constant. */
     RamUnsigned getValue() const {
         return ramBitCast<RamUnsigned>(constant);
     }
 
-    /** Create clone */
-    UnsignedConstant* clone() const override {
+    /** Create cloning */
+    UnsignedConstant* cloning() const override {
         return new UnsignedConstant(getValue());
     }
 

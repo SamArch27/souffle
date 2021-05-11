@@ -18,6 +18,7 @@
 
 #include "ram/Expression.h"
 #include "ram/Node.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cstdlib>
 #include <ostream>
 
@@ -35,18 +36,18 @@ namespace souffle::ram {
  */
 class TupleElement : public Expression {
 public:
-    TupleElement(size_t ident, size_t elem) : identifier(ident), element(elem) {}
+    TupleElement(std::size_t ident, std::size_t elem) : identifier(ident), element(elem) {}
     /** @brief Get identifier */
     int getTupleId() const {
         return identifier;
     }
 
     /** @brief Get element */
-    size_t getElement() const {
+    std::size_t getElement() const {
         return element;
     }
 
-    TupleElement* clone() const override {
+    TupleElement* cloning() const override {
         return new TupleElement(identifier, element);
     }
 
@@ -56,15 +57,15 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const TupleElement&>(node);
+        const auto& other = asAssert<TupleElement>(node);
         return identifier == other.identifier && element == other.element;
     }
 
     /** Identifier for the tuple */
-    const size_t identifier;
+    const std::size_t identifier;
 
     /** Element number */
-    const size_t element;
+    const std::size_t element;
 };
 
 }  // namespace souffle::ram

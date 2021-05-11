@@ -16,22 +16,23 @@
 
 #pragma once
 
-#include "Global.h"
-#include "ast/Program.h"
-#include "ast/analysis/Analysis.h"
-#include "ast/analysis/PrecedenceGraph.h"
-#include "ast/analysis/SCCGraph.h"
-#include "ast/analysis/SumTypeBranches.h"
-#include "ast/analysis/Type.h"
-#include "reports/DebugReport.h"
-#include "reports/ErrorReport.h"
+#include "souffle/utility/MiscUtil.h"
+#include "souffle/utility/Types.h"
 #include <map>
-#include <memory>
-#include <sstream>
-#include <string>
 #include <utility>
 
+namespace souffle {
+class ErrorReport;
+class DebugReport;
+}  // namespace souffle
+
 namespace souffle::ast {
+
+class Program;
+
+namespace analysis {
+class Analysis;
+}
 
 /**
  * @class TranslationUnit
@@ -44,39 +45,25 @@ namespace souffle::ast {
 
 class TranslationUnit {
 public:
-    TranslationUnit(Own<Program> program, ErrorReport& e, DebugReport& d)
-            : program(std::move(program)), errorReport(e), debugReport(d) {}
-
-    virtual ~TranslationUnit() = default;
+    TranslationUnit(Own<Program> program, ErrorReport& e, DebugReport& d);
+    virtual ~TranslationUnit();
 
     /** get analysis: analysis is generated on the fly if not present */
     template <class Analysis>
     Analysis* getAnalysis() const {
-        static const bool debug = Global::config().has("debug-report");
-        std::string name = Analysis::name;
-        auto it = analyses.find(name);
+        auto it = analyses.find(Analysis::name);
+        analysis::Analysis* ana = nullptr;
         if (it == analyses.end()) {
-            // analysis does not exist yet, create instance and run it.
-            analyses[name] = mk<Analysis>();
-            analyses[name]->run(*this);
-            if (debug) {
-                std::stringstream ss;
-                analyses[name]->print(ss);
-                if (!isA<analysis::PrecedenceGraphAnalysis>(analyses[name].get()) &&
-                        !isA<analysis::SCCGraphAnalysis>(analyses[name].get())) {
-                    debugReport.addSection(name, "Ast Analysis [" + name + "]", ss.str());
-                } else {
-                    debugReport.addSection(
-                            DebugReportSection(name, "Ast Analysis [" + name + "]", {}, ss.str()));
-                }
-            }
+            ana = addAnalysis(Analysis::name, mk<Analysis>());
+        } else {
+            ana = it->second.get();
         }
-        return dynamic_cast<Analysis*>(analyses[name].get());
+
+        return as<Analysis>(ana);
     }
 
     /** Return the program */
     Program& getProgram() const {
-        assert(program && "NULL program");
         return *program.get();
     }
 
@@ -86,14 +73,15 @@ public:
     }
 
     /** Destroy all cached analyses of translation unit */
-    void invalidateAnalyses() const {
-        analyses.clear();
-    }
+    void invalidateAnalyses() const;
 
     /** Return debug report */
     DebugReport& getDebugReport() {
         return debugReport;
     }
+
+private:
+    analysis::Analysis* addAnalysis(char const* name, Own<analysis::Analysis> analysis) const;
 
 private:
     /** Cached analyses */

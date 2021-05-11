@@ -33,7 +33,7 @@ namespace souffle::ram::transform {
 Own<Operation> IfConversionTransformer::rewriteIndexScan(const IndexScan* indexScan) {
     // check whether tuple is used in subsequent operations
     bool tupleNotUsed = true;
-    visitDepthFirst(*indexScan, [&](const TupleElement& element) {
+    visit(*indexScan, [&](const TupleElement& element) {
         if (element.getTupleId() == indexScan->getTupleId()) {
             tupleNotUsed = false;
         }
@@ -41,30 +41,22 @@ Own<Operation> IfConversionTransformer::rewriteIndexScan(const IndexScan* indexS
 
     // if not used, transform the IndexScan operation to an existence check
     if (tupleNotUsed) {
-        // replace IndexScan with an Filter/Existence check
-        VecOwn<Expression> newValues;
-
-        size_t arity = indexScan->getRangePattern().first.size();
-        for (size_t i = 0; i < arity; ++i) {
+        // existence check is only supported for equality predicates on each attribute
+        std::size_t arity = indexScan->getRangePattern().first.size();
+        for (std::size_t i = 0; i < arity; ++i) {
             if (*(indexScan->getRangePattern().first[i]) != *(indexScan->getRangePattern().second[i])) {
                 return nullptr;
             }
         }
-
-        for (auto& cur : indexScan->getRangePattern().second) {
-            Expression* val = nullptr;
-            if (cur != nullptr) {
-                val = cur->clone();
-            }
-            newValues.emplace_back(val);
-        }
+        // replace IndexScan with an Filter/Existence check
+        RamBound newValues = clone(indexScan->getRangePattern().first);
 
         // check if there is a break statement nested in the Scan - if so, remove it
         Operation* newOp;
-        if (const auto* breakOp = dynamic_cast<const Break*>(&indexScan->getOperation())) {
-            newOp = breakOp->getOperation().clone();
+        if (const auto* breakOp = as<Break>(indexScan->getOperation())) {
+            newOp = breakOp->getOperation().cloning();
         } else {
-            newOp = indexScan->getOperation().clone();
+            newOp = indexScan->getOperation().cloning();
         }
 
         return mk<Filter>(mk<ExistenceCheck>(indexScan->getRelation(), std::move(newValues)),
@@ -75,9 +67,9 @@ Own<Operation> IfConversionTransformer::rewriteIndexScan(const IndexScan* indexS
 
 bool IfConversionTransformer::convertIndexScans(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> scanRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (const IndexScan* scan = dynamic_cast<IndexScan*>(node.get())) {
+            if (const IndexScan* scan = as<IndexScan>(node)) {
                 if (Own<Operation> op = rewriteIndexScan(scan)) {
                     changed = true;
                     node = std::move(op);

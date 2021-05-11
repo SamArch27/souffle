@@ -51,7 +51,7 @@ public:
     bool hasRelationSize(const QualifiedName& rel) const;
 
     /** Return size of relation in the profile */
-    size_t getRelationSize(const QualifiedName& rel) const;
+    std::size_t getRelationSize(const QualifiedName& rel) const;
 
 private:
     /** performance model of profile run */

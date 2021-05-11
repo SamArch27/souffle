@@ -32,9 +32,9 @@ namespace ram::transform {
 
 bool ExpandFilterTransformer::expandFilters(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+            if (const Filter* filter = as<Filter>(node)) {
                 const Condition* condition = &filter->getCondition();
                 VecOwn<Condition> conditionList = toConjunctionList(condition);
                 if (conditionList.size() > 1) {
@@ -42,10 +42,9 @@ bool ExpandFilterTransformer::expandFilters(Program& program) {
                     VecOwn<Filter> filters;
                     for (auto& cond : conditionList) {
                         if (filters.empty()) {
-                            filters.emplace_back(mk<Filter>(
-                                    souffle::clone(cond), souffle::clone(&filter->getOperation())));
+                            filters.emplace_back(mk<Filter>(clone(cond), clone(filter->getOperation())));
                         } else {
-                            filters.emplace_back(mk<Filter>(souffle::clone(cond), std::move(filters.back())));
+                            filters.emplace_back(mk<Filter>(clone(cond), std::move(filters.back())));
                         }
                     }
                     node = std::move(filters.back());

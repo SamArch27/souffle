@@ -78,7 +78,7 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
         }
         for (Clause* clause : getClauses(program, *relation)) {
             bool recursive = isRecursiveClause(*clause);
-            visitDepthFirst(*clause, [&](const Atom& atom) {
+            visit(*clause, [&](const Atom& atom) {
                 if (atom.getQualifiedName() == clause->getHead()->getQualifiedName()) {
                     return;
                 }
@@ -99,9 +99,8 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
 
     // TODO (see issue #564): Don't transform relations appearing in aggregators
     //                        due to aggregator issues with unnamed variables.
-    visitDepthFirst(program, [&](const Aggregator& aggr) {
-        visitDepthFirst(
-                aggr, [&](const Atom& atom) { minimalIrreducibleRelations.insert(atom.getQualifiedName()); });
+    visit(program, [&](const Aggregator& aggr) {
+        visit(aggr, [&](const Atom& atom) { minimalIrreducibleRelations.insert(atom.getQualifiedName()); });
     });
 
     // Run a DFS from each 'bad' source
@@ -109,7 +108,7 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
     // also an irreducible node
     std::set<QualifiedName> irreducibleRelations;
     for (QualifiedName relationName : minimalIrreducibleRelations) {
-        relationGraph.visitDepthFirst(
+        relationGraph.visit(
                 relationName, [&](const QualifiedName& subRel) { irreducibleRelations.insert(subRel); });
     }
 
@@ -129,9 +128,7 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
         std::stringstream newRelationName;
         newRelationName << "+?exists_" << relationName;
 
-        auto newRelation = mk<Relation>();
-        newRelation->setQualifiedName(newRelationName.str());
-        newRelation->setSrcLoc(originalRelation->getSrcLoc());
+        auto newRelation = mk<Relation>(newRelationName.str(), originalRelation->getSrcLoc());
 
         // EqRel relations require two arguments, so remove it from the qualifier
         if (newRelation->getRepresentation() == RelationRepresentation::EQREL) {
@@ -141,17 +138,9 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
         // Keep all non-recursive clauses
         for (Clause* clause : getClauses(program, *originalRelation)) {
             if (!isRecursiveClause(*clause)) {
-                auto newClause = mk<Clause>();
-
-                newClause->setSrcLoc(clause->getSrcLoc());
-                if (const ExecutionPlan* plan = clause->getExecutionPlan()) {
-                    newClause->setExecutionPlan(souffle::clone(plan));
-                }
-                newClause->setHead(mk<Atom>(newRelationName.str()));
-                for (Literal* lit : clause->getBodyLiterals()) {
-                    newClause->addToBody(souffle::clone(lit));
-                }
-
+                auto newClause = mk<Clause>(mk<Atom>(newRelationName.str()), clone(clause->getBodyLiterals()),
+                        // clone handles nullptr gracefully
+                        clone(clause->getExecutionPlan()), clause->getSrcLoc());
                 program.addClause(std::move(newClause));
             }
         }
@@ -167,12 +156,12 @@ bool ReduceExistentialsTransformer::transform(TranslationUnit& translationUnit) 
         renameExistentials(std::set<QualifiedName>& relations) : relations(relations) {}
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (auto* clause = dynamic_cast<Clause*>(node.get())) {
+            if (auto* clause = as<Clause>(node)) {
                 if (relations.find(clause->getHead()->getQualifiedName()) != relations.end()) {
                     // Clause is going to be removed, so don't rename it
                     return node;
                 }
-            } else if (auto* atom = dynamic_cast<Atom*>(node.get())) {
+            } else if (auto* atom = as<Atom>(node)) {
                 if (relations.find(atom->getQualifiedName()) != relations.end()) {
                     // Relation is now existential, so rename it
                     std::stringstream newName;

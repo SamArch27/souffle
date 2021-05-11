@@ -18,6 +18,7 @@
 #include "ram/Statement.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <memory>
 #include <string>
@@ -58,7 +59,7 @@ public:
 
 protected:
     bool equal(const Node& node) const {
-        const auto& other = dynamic_cast<const AbstractLog&>(node);
+        const auto& other = asAssert<AbstractLog, AllowCrossCast>(node);
         return equal_ptr(statement, other.statement) && message == other.message;
     }
 

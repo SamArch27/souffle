@@ -49,7 +49,7 @@ public:
         return relation;
     }
 
-    RelationSize* clone() const override {
+    RelationSize* cloning() const override {
         return new RelationSize(relation);
     }
 
@@ -59,7 +59,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const RelationSize&>(node);
+        const auto& other = asAssert<RelationSize>(node);
         return relation == other.relation;
     }
 

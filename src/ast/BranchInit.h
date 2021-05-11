@@ -17,16 +17,10 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include "ast/Node.h"
 #include "ast/Term.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include "souffle/utility/tinyformat.h"
 #include <iosfwd>
 #include <string>
-#include <utility>
-#include <vector>
 
 namespace souffle::ast {
 
@@ -42,27 +36,20 @@ namespace souffle::ast {
  */
 class BranchInit : public Term {
 public:
-    BranchInit(std::string constructor, VecOwn<Argument> args, SrcLocation loc = {})
-            : Term(std::move(args), std::move(loc)), constructor(std::move(constructor)) {}
+    BranchInit(std::string constructor, VecOwn<Argument> args, SrcLocation loc = {});
 
     const std::string& getConstructor() const {
         return constructor;
     }
 
-    BranchInit* clone() const override {
-        return new BranchInit(constructor, souffle::clone(args), getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << tfm::format("$%s(%s)", constructor, join(args, ", "));
-    }
+    void print(std::ostream& os) const override;
 
+private:
     /** Implements the node comparison for this node type */
-    bool equal(const Node& node) const override {
-        const auto& other = dynamic_cast<const BranchInit&>(node);
-        return (constructor == other.constructor) && equal_targets(args, other.args);
-    }
+    bool equal(const Node& node) const override;
+
+    BranchInit* cloning() const override;
 
 private:
     /** The adt branch constructor */

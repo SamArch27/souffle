@@ -33,17 +33,17 @@ namespace souffle::ast::transform {
 bool NameUnnamedVariablesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
     static constexpr const char* boundPrefix = "+underscore";
-    static size_t underscoreCount = 0;
+    static std::size_t underscoreCount = 0;
 
     struct nameVariables : public NodeMapper {
         mutable bool changed = false;
         nameVariables() = default;
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (isA<Negation>(node.get())) {
+            if (isA<Negation>(node)) {
                 return node;
             }
-            if (isA<UnnamedVariable>(node.get())) {
+            if (isA<UnnamedVariable>(node)) {
                 changed = true;
                 std::stringstream name;
                 name << boundPrefix << "_" << underscoreCount++;

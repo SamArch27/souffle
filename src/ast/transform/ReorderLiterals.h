@@ -37,10 +37,6 @@ public:
         return "ReorderLiteralsTransformer";
     }
 
-    ReorderLiteralsTransformer* clone() const override {
-        return new ReorderLiteralsTransformer();
-    }
-
     /**
      * Reorder the clause based on a given SIPS function.
      * @param sipsFunction SIPS metric to use
@@ -50,6 +46,10 @@ public:
     static Clause* reorderClauseWithSips(const SipsMetric& sips, const Clause* clause);
 
 private:
+    ReorderLiteralsTransformer* cloning() const override {
+        return new ReorderLiteralsTransformer();
+    }
+
     bool transform(TranslationUnit& translationUnit) override;
 };
 

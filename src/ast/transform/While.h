@@ -44,7 +44,7 @@ public:
         return {transformer.get()};
     }
     void setDebugReport() override {
-        if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
+        if (auto* mt = as<MetaTransformer>(transformer)) {
             mt->setDebugReport();
         } else {
             transformer = mk<DebugReporter>(std::move(transformer));
@@ -53,13 +53,13 @@ public:
 
     void setVerbosity(bool verbose) override {
         this->verbose = verbose;
-        if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
+        if (auto* mt = as<MetaTransformer>(transformer)) {
             mt->setVerbosity(verbose);
         }
     }
 
     void disableTransformers(const std::set<std::string>& transforms) override {
-        if (auto* mt = dynamic_cast<MetaTransformer*>(transformer.get())) {
+        if (auto* mt = as<MetaTransformer>(transformer)) {
             mt->disableTransformers(transforms);
         } else if (transforms.find(transformer->getName()) != transforms.end()) {
             transformer = mk<NullTransformer>();
@@ -70,13 +70,10 @@ public:
         return "WhileTransformer";
     }
 
-    WhileTransformer* clone() const override {
-        return new WhileTransformer(condition, souffle::clone(transformer));
-    }
-
 private:
-    std::function<bool()> condition;
-    Own<Transformer> transformer;
+    WhileTransformer* cloning() const override {
+        return new WhileTransformer(condition, clone(transformer));
+    }
 
     bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
@@ -85,6 +82,10 @@ private:
         }
         return changed;
     }
+
+private:
+    std::function<bool()> condition;
+    Own<Transformer> transformer;
 };
 
 }  // namespace souffle::ast::transform

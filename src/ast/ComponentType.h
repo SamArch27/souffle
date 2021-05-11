@@ -19,10 +19,8 @@
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/StreamUtil.h"
-#include <ostream>
+#include <iosfwd>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace souffle::ast {
@@ -38,8 +36,7 @@ namespace souffle::ast {
  */
 class ComponentType : public Node {
 public:
-    ComponentType(std::string name = "", std::vector<QualifiedName> params = {}, SrcLocation loc = {})
-            : Node(std::move(loc)), name(std::move(name)), typeParams(std::move(params)) {}
+    ComponentType(std::string name = "", std::vector<QualifiedName> params = {}, SrcLocation loc = {});
 
     /** Return component name */
     const std::string& getName() const {
@@ -47,9 +44,7 @@ public:
     }
 
     /** Set component name */
-    void setName(std::string n) {
-        name = std::move(n);
-    }
+    void setName(std::string n);
 
     /** Return component type parameters */
     const std::vector<QualifiedName>& getTypeParameters() const {
@@ -61,22 +56,13 @@ public:
         typeParams = params;
     }
 
-    ComponentType* clone() const override {
-        return new ComponentType(name, typeParams, getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << name;
-        if (!typeParams.empty()) {
-            os << "<" << join(typeParams) << ">";
-        }
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const ComponentType&>(node);
-        return name == other.name && typeParams == other.typeParams;
-    }
+private:
+    bool equal(const Node& node) const override;
+
+    ComponentType* cloning() const override;
 
 private:
     /** Component name */

@@ -36,9 +36,9 @@ namespace souffle {
  */
 class Logger {
 public:
-    Logger(std::string label, size_t iteration) : Logger(label, iteration, []() { return 0; }) {}
+    Logger(std::string label, std::size_t iteration) : Logger(label, iteration, []() { return 0; }) {}
 
-    Logger(std::string label, size_t iteration, std::function<size_t()> size)
+    Logger(std::string label, std::size_t iteration, std::function<std::size_t()> size)
             : label(std::move(label)), start(now()), iteration(iteration), size(size), preSize(size()) {
 #ifdef WIN32
         HANDLE hProcess = GetCurrentProcess();
@@ -59,11 +59,11 @@ public:
         HANDLE hProcess = GetCurrentProcess();
         PROCESS_MEMORY_COUNTERS processMemoryCounters;
         GetProcessMemoryInfo(hProcess, &processMemoryCounters, sizeof(processMemoryCounters));
-        size_t endMaxRSS = processMemoryCounters.PeakWorkingSetSize / 1000;
+        std::size_t endMaxRSS = processMemoryCounters.PeakWorkingSetSize / 1000;
 #else
         struct rusage ru {};
         getrusage(RUSAGE_SELF, &ru);
-        size_t endMaxRSS = ru.ru_maxrss;
+        std::size_t endMaxRSS = ru.ru_maxrss;
 #endif  // WIN32
         ProfileEventSingleton::instance().makeTimingEvent(
                 label, start, now(), startMaxRSS, endMaxRSS, size() - preSize, iteration);
@@ -72,9 +72,9 @@ public:
 private:
     std::string label;
     time_point start;
-    size_t startMaxRSS;
-    size_t iteration;
-    std::function<size_t()> size;
-    size_t preSize;
+    std::size_t startMaxRSS;
+    std::size_t iteration;
+    std::function<std::size_t()> size;
+    std::size_t preSize;
 };
 }  // end of namespace souffle

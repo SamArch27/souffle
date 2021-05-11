@@ -18,6 +18,7 @@
 #include "ast/IntrinsicFunctor.h"
 #include "ast/NumericConstant.h"
 #include "ast/TranslationUnit.h"
+#include "ast/analysis/Type.h"
 #include "ast/utility/Visitor.h"
 #include "souffle/utility/ContainerUtil.h"
 
@@ -29,23 +30,23 @@ void PolymorphicObjectsAnalysis::run(const TranslationUnit& translationUnit) {
 
 void PolymorphicObjectsAnalysis::print(std::ostream& /* os */) const {}
 
-FunctorOp PolymorphicObjectsAnalysis::getOverloadedFunctionOp(const IntrinsicFunctor* inf) const {
+FunctorOp PolymorphicObjectsAnalysis::getOverloadedFunctionOp(const IntrinsicFunctor& inf) const {
     return typeAnalysis->getPolymorphicOperator(inf);
 }
 
-NumericConstant::Type PolymorphicObjectsAnalysis::getInferredType(const NumericConstant* nc) const {
+NumericConstant::Type PolymorphicObjectsAnalysis::getInferredType(const NumericConstant& nc) const {
     return typeAnalysis->getPolymorphicNumericConstantType(nc);
 }
 
-bool PolymorphicObjectsAnalysis::hasInvalidType(const NumericConstant* nc) const {
+bool PolymorphicObjectsAnalysis::hasInvalidType(const NumericConstant& nc) const {
     return !typeAnalysis->hasValidTypeInfo(nc);
 }
 
-BinaryConstraintOp PolymorphicObjectsAnalysis::getOverloadedOperator(const BinaryConstraint* bc) const {
+BinaryConstraintOp PolymorphicObjectsAnalysis::getOverloadedOperator(const BinaryConstraint& bc) const {
     return typeAnalysis->getPolymorphicOperator(bc);
 }
 
-AggregateOp PolymorphicObjectsAnalysis::getOverloadedOperator(const Aggregator* agg) const {
+AggregateOp PolymorphicObjectsAnalysis::getOverloadedOperator(const Aggregator& agg) const {
     return typeAnalysis->getPolymorphicOperator(agg);
 }
 

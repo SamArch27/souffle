@@ -16,6 +16,7 @@
 
 #include "ram/Node.h"
 #include "ram/Statement.h"
+#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <ostream>
 #include <string>
@@ -44,7 +45,7 @@ public:
         return name;
     }
 
-    Call* clone() const override {
+    Call* cloning() const override {
         return new Call(name);
     }
 
@@ -54,7 +55,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Call&>(node);
+        const auto& other = asAssert<Call>(node);
         return name == other.name;
     }
 

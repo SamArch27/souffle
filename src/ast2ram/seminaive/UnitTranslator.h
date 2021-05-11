@@ -21,10 +21,6 @@
 #include <string>
 #include <vector>
 
-namespace souffle {
-class SymbolTable;
-}
-
 namespace souffle::ast {
 class Clause;
 class Relation;
@@ -38,10 +34,6 @@ class Statement;
 class TranslationUnit;
 }  // namespace souffle::ram
 
-namespace souffle::ast2ram {
-class TranslatorContext;
-}
-
 namespace souffle::ast2ram::seminaive {
 
 class UnitTranslator : public ast2ram::UnitTranslator {
@@ -53,13 +45,16 @@ public:
 
 protected:
     void addRamSubroutine(std::string subroutineID, Own<ram::Statement> subroutine);
-    Own<ram::Relation> createRamRelation(
+    virtual Own<ram::Relation> createRamRelation(
             const ast::Relation* baseRelation, std::string ramRelationName) const;
-    VecOwn<ram::Relation> createRamRelations(const std::vector<size_t>& sccOrdering) const;
+    virtual VecOwn<ram::Relation> createRamRelations(const std::vector<std::size_t>& sccOrdering) const;
     Own<ram::Statement> translateRecursiveClauses(
             const std::set<const ast::Relation*>& scc, const ast::Relation* rel) const;
     VecOwn<ram::Statement> generateClauseVersions(
             const ast::Clause* clause, const std::set<const ast::Relation*>& scc) const;
+
+    virtual void addAuxiliaryArity(
+            const ast::Relation* relation, std::map<std::string, std::string>& directives) const;
 
     /** -- Generation methods -- */
 
@@ -73,7 +68,7 @@ protected:
     Own<ram::Statement> generateLoadRelation(const ast::Relation* relation) const;
 
     /** Low-level stratum translation */
-    Own<ram::Statement> generateStratum(size_t scc) const;
+    Own<ram::Statement> generateStratum(std::size_t scc) const;
     Own<ram::Statement> generateStratumPreamble(const std::set<const ast::Relation*>& scc) const;
     Own<ram::Statement> generateStratumPostamble(const std::set<const ast::Relation*>& scc) const;
     Own<ram::Statement> generateStratumLoopBody(const std::set<const ast::Relation*>& scc) const;
@@ -84,7 +79,7 @@ protected:
     virtual Own<ram::Statement> generateClearExpiredRelations(
             const std::set<const ast::Relation*>& expiredRelations) const;
     Own<ram::Statement> generateClearRelation(const ast::Relation* relation) const;
-    Own<ram::Statement> generateMergeRelations(
+    virtual Own<ram::Statement> generateMergeRelations(
             const ast::Relation* rel, const std::string& destRelation, const std::string& srcRelation) const;
 
 private:

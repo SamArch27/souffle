@@ -33,7 +33,7 @@ public:
     virtual void computeIndices() = 0;
 
     /** Get arity of relation */
-    size_t getArity() const {
+    std::size_t getArity() const {
         return relation.getArity();
     }
 
@@ -89,7 +89,7 @@ protected:
     std::set<int> provenanceIndexNumbers;
 
     /** The number of the master index */
-    size_t masterIndex = -1;
+    std::size_t masterIndex = -1;
 
     /** Is this relation used with provenance */
     const bool isProvenance;

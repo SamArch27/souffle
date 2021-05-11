@@ -65,7 +65,7 @@ public:
 
 private:
     bool fullyNormalised{true};
-    size_t aggrScopeCount{0};
+    std::size_t aggrScopeCount{0};
     std::set<std::string> variables{};
     std::set<std::string> constants{};
     std::vector<NormalisedClauseElement> clauseElements{};

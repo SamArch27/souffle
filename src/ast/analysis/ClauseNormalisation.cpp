@@ -71,11 +71,11 @@ void NormalisedClause::addClauseAtom(
 }
 
 void NormalisedClause::addClauseBodyLiteral(const std::string& scopeID, const Literal* lit) {
-    if (const auto* atom = dynamic_cast<const Atom*>(lit)) {
+    if (const auto* atom = as<Atom>(lit)) {
         addClauseAtom("@min:atom", scopeID, atom);
-    } else if (const auto* neg = dynamic_cast<const Negation*>(lit)) {
+    } else if (const auto* neg = as<Negation>(lit)) {
         addClauseAtom("@min:neg", scopeID, neg->getAtom());
-    } else if (const auto* bc = dynamic_cast<const BinaryConstraint*>(lit)) {
+    } else if (const auto* bc = as<BinaryConstraint>(lit)) {
         QualifiedName name(toBinaryConstraintSymbol(bc->getBaseOperator()));
         name.prepend("@min:operator");
         std::vector<std::string> vars;
@@ -95,12 +95,12 @@ void NormalisedClause::addClauseBodyLiteral(const std::string& scopeID, const Li
 }
 
 std::string NormalisedClause::normaliseArgument(const Argument* arg) {
-    if (auto* stringCst = dynamic_cast<const StringConstant*>(arg)) {
+    if (auto* stringCst = as<StringConstant>(arg)) {
         std::stringstream name;
         name << "@min:cst:str" << *stringCst;
         constants.insert(name.str());
         return name.str();
-    } else if (auto* numericCst = dynamic_cast<const NumericConstant*>(arg)) {
+    } else if (auto* numericCst = as<NumericConstant>(arg)) {
         std::stringstream name;
         name << "@min:cst:num:" << *numericCst;
         constants.insert(name.str());
@@ -108,17 +108,17 @@ std::string NormalisedClause::normaliseArgument(const Argument* arg) {
     } else if (isA<NilConstant>(arg)) {
         constants.insert("@min:cst:nil");
         return "@min:cst:nil";
-    } else if (auto* var = dynamic_cast<const ast::Variable*>(arg)) {
+    } else if (auto* var = as<ast::Variable>(arg)) {
         auto name = var->getName();
         variables.insert(name);
         return name;
-    } else if (dynamic_cast<const UnnamedVariable*>(arg)) {
-        static size_t countUnnamed = 0;
+    } else if (as<UnnamedVariable>(arg)) {
+        static std::size_t countUnnamed = 0;
         std::stringstream name;
         name << "@min:unnamed:" << countUnnamed++;
         variables.insert(name.str());
         return name.str();
-    } else if (auto* aggr = dynamic_cast<const Aggregator*>(arg)) {
+    } else if (auto* aggr = as<Aggregator>(arg)) {
         // Set the scope to uniquely identify the aggregator
         std::stringstream scopeID;
         scopeID << "@min:scope:" << ++aggrScopeCount;
@@ -169,7 +169,7 @@ void ClauseNormalisationAnalysis::print(std::ostream& os) const {
     for (const auto& [clause, norm] : normalisations) {
         os << "Normalise(" << *clause << ") = {";
         const auto& els = norm.getElements();
-        for (size_t i = 0; i < els.size(); i++) {
+        for (std::size_t i = 0; i < els.size(); i++) {
             if (i != 0) {
                 os << ", ";
             }

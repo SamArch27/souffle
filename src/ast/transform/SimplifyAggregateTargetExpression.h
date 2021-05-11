@@ -18,6 +18,10 @@
 #include "ast/transform/Transformer.h"
 #include <string>
 
+namespace souffle::ast {
+class Clause;
+}
+
 namespace souffle::ast::transform {
 /**
  * Transformation pass to rename aggregation variables to make them unique.
@@ -28,11 +32,11 @@ public:
         return "SimplifyAggregateTargetExpressionTransformer";
     }
 
-    SimplifyAggregateTargetExpressionTransformer* clone() const override {
+private:
+    SimplifyAggregateTargetExpressionTransformer* cloning() const override {
         return new SimplifyAggregateTargetExpressionTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 
     /**
@@ -43,6 +47,6 @@ private:
      * @return equivalent aggregator with a simple target expression
      */
     static Aggregator* simplifyTargetExpression(
-            const TranslationUnit& tu, const Clause* clause, const Aggregator* aggregator);
+            const TranslationUnit& tu, const Clause& clause, Aggregator& aggregator);
 };
 }  // namespace souffle::ast::transform

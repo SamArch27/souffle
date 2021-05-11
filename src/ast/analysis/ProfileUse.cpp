@@ -51,11 +51,11 @@ bool ProfileUseAnalysis::hasRelationSize(const QualifiedName& rel) const {
 /**
  * Get relation size from profile
  */
-size_t ProfileUseAnalysis::getRelationSize(const QualifiedName& rel) const {
+std::size_t ProfileUseAnalysis::getRelationSize(const QualifiedName& rel) const {
     if (const auto* profRel = programRun->getRelation(rel.toString())) {
         return profRel->size();
     } else {
-        return std::numeric_limits<size_t>::max();
+        return std::numeric_limits<std::size_t>::max();
     }
 }
 

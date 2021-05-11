@@ -20,6 +20,7 @@
 #include "ram/analysis/Index.h"
 #include "souffle/RamTypes.h"
 #include "souffle/SouffleInterface.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -108,7 +109,7 @@ public:
 
     virtual bool contains(const RamDomain*) const = 0;
 
-    virtual size_t size() const = 0;
+    virtual std::size_t size() const = 0;
 
     virtual void purge() = 0;
 
@@ -131,14 +132,14 @@ public:
     /**
      * Return the order of an index.
      */
-    virtual Order getIndexOrder(size_t) const = 0;
+    virtual Order getIndexOrder(std::size_t) const = 0;
 
     /**
      * Obtains a view on an index of this relation, facilitating hint-supported accesses.
      *
      * This function is virtual because view creation require at least one indirect dispatch.
      */
-    virtual IndexViewPtr createView(const size_t&) const = 0;
+    virtual IndexViewPtr createView(const std::size_t&) const = 0;
 
 protected:
     std::string relName;
@@ -150,10 +151,10 @@ protected:
 /**
  * A relation, composed of a collection of indexes.
  */
-template <size_t _Arity, template <size_t> typename Structure>
+template <std::size_t _Arity, template <std::size_t> typename Structure>
 class Relation : public RelationWrapper {
 public:
-    static constexpr size_t Arity = _Arity;
+    static constexpr std::size_t Arity = _Arity;
     using Attribute = uint32_t;
     using AttributeSet = std::set<Attribute>;
     using Index = interpreter::Index<Arity, Structure>;
@@ -180,8 +181,8 @@ public:
     /**
      * Creates a relation, build all necessary indexes.
      */
-    Relation(
-            size_t auxiliaryArity, const std::string& name, const ram::analysis::IndexCluster& indexSelection)
+    Relation(std::size_t auxiliaryArity, const std::string& name,
+            const ram::analysis::IndexCluster& indexSelection)
             : RelationWrapper(Arity, auxiliaryArity, name) {
         for (const auto& order : indexSelection.getAllOrders()) {
             ram::analysis::LexOrder fullOrder = order;
@@ -190,7 +191,7 @@ public:
 
             // This operation is not performance critical.
             // Not using constexpr Arity to avoid compiler warning. (When Arity == 0)
-            for (size_t i = 0; i < getArity(); ++i) {
+            for (std::size_t i = 0; i < getArity(); ++i) {
                 if (set.find(i) == set.end()) {
                     fullOrder.push_back(i);
                 }
@@ -220,15 +221,15 @@ public:
         return contains(constructTuple(data));
     }
 
-    IndexViewPtr createView(const size_t& indexPos) const override {
+    IndexViewPtr createView(const std::size_t& indexPos) const override {
         return mk<View>(indexes[indexPos]->createView());
     }
 
-    size_t size() const override {
+    std::size_t size() const override {
         return __size();
     }
 
-    Order getIndexOrder(size_t idx) const override {
+    Order getIndexOrder(std::size_t idx) const override {
         return indexes[idx]->getOrder();
     }
 
@@ -249,7 +250,7 @@ public:
         const RamDomain* operator*() override {
             const auto& tuple = *iter;
             // Not using constexpr Arity to avoid compiler warning. (When Arity == 0)
-            for (size_t i = 0; i < order.size(); ++i) {
+            for (std::size_t i = 0; i < order.size(); ++i) {
                 data[order[i]] = tuple[i];
             }
             return data;
@@ -260,7 +261,7 @@ public:
         }
 
         bool equal(const RelationWrapper::iterator_base& other) const override {
-            if (auto* o = dynamic_cast<const iterator_base*>(&other)) {
+            if (auto* o = as<iterator_base>(other)) {
                 return iter == o->iter;
             }
             return false;
@@ -289,7 +290,7 @@ public:
         if (!(main->insert(tuple))) {
             return false;
         }
-        for (size_t i = 1; i < indexes.size(); ++i) {
+        for (std::size_t i = 1; i < indexes.size(); ++i) {
             indexes[i]->insert(tuple);
         }
         return true;
@@ -314,7 +315,7 @@ public:
     /**
      * Tests whether this relation contains any element between the given boundaries.
      */
-    bool contains(const size_t& indexPos, const Tuple& low, const Tuple& high) const {
+    bool contains(const std::size_t& indexPos, const Tuple& low, const Tuple& high) const {
         return indexes[indexPos]->contains(low, high);
     }
 
@@ -330,22 +331,22 @@ public:
     /**
      * Returns a partitioned list of iterators for parallel computation
      */
-    std::vector<souffle::range<iterator>> partitionScan(size_t partitionCount) const {
+    std::vector<souffle::range<iterator>> partitionScan(std::size_t partitionCount) const {
         return main->partitionScan(partitionCount);
     }
 
     /**
      * Obtains a pair of iterators covering the interval between the two given entries.
      */
-    souffle::range<iterator> range(const size_t& indexPos, const Tuple& low, const Tuple& high) const {
+    souffle::range<iterator> range(const std::size_t& indexPos, const Tuple& low, const Tuple& high) const {
         return indexes[indexPos]->range(low, high);
     }
 
     /**
      * Returns a partitioned list of iterators coving elements in range [low, high]
      */
-    std::vector<souffle::range<iterator>> partitionRange(
-            const size_t& indexPos, const Tuple& low, const Tuple& high, size_t partitionCount) const {
+    std::vector<souffle::range<iterator>> partitionRange(const std::size_t& indexPos, const Tuple& low,
+            const Tuple& high, std::size_t partitionCount) const {
         return indexes[indexPos]->partitionRange(low, high, partitionCount);
     }
 
@@ -360,7 +361,7 @@ public:
     /**
      * Return number of tuples in relation (full-order)
      */
-    size_t __size() const {
+    std::size_t __size() const {
         return main->size();
     }
 
@@ -387,13 +388,13 @@ public:
         return main->contains(tuple);
     }
 
-    Index* getIndex(size_t idx) {
+    Index* getIndex(std::size_t idx) {
         return indexes[idx];
     }
 
 protected:
     // Number of height parameters of relation
-    size_t auxiliaryArity;
+    std::size_t auxiliaryArity;
 
     // a map of managed indexes
     VecOwn<Index> indexes;

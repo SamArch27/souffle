@@ -28,6 +28,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -60,6 +61,9 @@ protected:
         /**
          * Required for identifying type of iterator
          * (NB: LLVM has no typeinfo).
+         *
+         * Note: The above statement is not true anymore - should this be made to work the same
+         * as Node::operator==?
          *
          * TODO (Honghyw) : Provide a clear documentation of what id is used for.
          */
@@ -332,20 +336,20 @@ public:
      * which are the primitive types in Souffle.
      * <type name> is the name given by the user in the Souffle program
      *
-     * @param The index of the column starting starting from 0 (size_t)
+     * @param The index of the column starting starting from 0 (std::size_t)
      * @return The constant string of the attribute type
      */
-    virtual const char* getAttrType(size_t) const = 0;
+    virtual const char* getAttrType(std::size_t) const = 0;
 
     /**
      * Get the attribute name of a relation at the column specified by the parameter.
      * The attribute name is the name given to the type by the user in the .decl statement. For example, for
      * ".decl edge (node1:Node, node2:Node)", the attribute names are node1 and node2.
      *
-     * @param The index of the column starting starting from 0 (size_t)
+     * @param The index of the column starting starting from 0 (std::size_t)
      * @return The constant string of the attribute name
      */
-    virtual const char* getAttrName(size_t) const = 0;
+    virtual const char* getAttrName(std::size_t) const = 0;
 
     /**
      * Return the arity of a relation.
@@ -454,7 +458,7 @@ class tuple {
      * helps to make sure we access an insert a tuple within the bound by making sure pos never exceeds the
      * arity of the relation.
      */
-    size_t pos;
+    std::size_t pos;
 
 public:
     /**
@@ -503,7 +507,7 @@ public:
     /**
      * Return the number of elements in the tuple.
      *
-     * @return the number of elements in the tuple (size_t).
+     * @return the number of elements in the tuple (std::size_t).
      */
     Relation::arity_type size() const {
         assert(array.size() <= std::numeric_limits<Relation::arity_type>::max());
@@ -520,9 +524,9 @@ public:
      * only be used by friendly classes such as
      * iterators; users should not use this interface.
      *
-     * @param idx This is the idx of element in a tuple (size_t).
+     * @param idx This is the idx of element in a tuple (std::size_t).
      */
-    RamDomain& operator[](size_t idx) {
+    RamDomain& operator[](std::size_t idx) {
         return array[idx];
     }
 
@@ -536,9 +540,9 @@ public:
      * only be used by friendly classes such as
      * iterators; users should not use this interface.
      *
-     * @param idx This is the idx of element in a tuple (size_t).
+     * @param idx This is the idx of element in a tuple (std::size_t).
      */
-    const RamDomain& operator[](size_t idx) const {
+    const RamDomain& operator[](std::size_t idx) const {
         return array[idx];
     }
 
@@ -559,7 +563,7 @@ public:
     tuple& operator<<(const std::string& str) {
         assert(pos < size() && "exceeded tuple's size");
         assert(*relation.getAttrType(pos) == 's' && "wrong element type");
-        array[pos++] = relation.getSymbolTable().lookup(str);
+        array[pos++] = relation.getSymbolTable().encode(str);
         return *this;
     }
 
@@ -616,7 +620,7 @@ public:
     tuple& operator>>(std::string& str) {
         assert(pos < size() && "exceeded tuple's size");
         assert(*relation.getAttrType(pos) == 's' && "wrong element type");
-        str = relation.getSymbolTable().resolve(array[pos++]);
+        str = relation.getSymbolTable().decode(array[pos++]);
         return *this;
     }
 
@@ -833,8 +837,12 @@ public:
      * @param name The name of the target relation (const std::string)
      * @return The size of the target relation (std::size_t)
      */
-    std::size_t getRelationSize(const std::string& name) const {
-        return getRelation(name)->size();
+    std::optional<std::size_t> getRelationSize(const std::string& name) const {
+        if (auto* rel = getRelation(name)) {
+            return rel->size();
+        }
+
+        return std::nullopt;
     }
 
     /**
@@ -843,8 +851,12 @@ public:
      * @param name The name of the target relation (const std::string)
      * @return The name of the target relation (std::string)
      */
-    std::string getRelationName(const std::string& name) const {
-        return getRelation(name)->getName();
+    std::optional<std::string> getRelationName(const std::string& name) const {
+        if (auto* rel = getRelation(name)) {
+            return rel->getName();
+        }
+
+        return std::nullopt;
     }
 
     /**
@@ -945,7 +957,7 @@ public:
     /**
      * Helper function for the wrapper function Relation::insert() and Relation::contains().
      */
-    template <typename Tuple, size_t N>
+    template <typename Tuple, std::size_t N>
     struct tuple_insert {
         static void add(const Tuple& t, souffle::tuple& t1) {
             tuple_insert<Tuple, N - 1>::add(t, t1);

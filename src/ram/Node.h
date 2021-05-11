@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ram/utility/LambdaNodeMapper.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <functional>
 #include <iostream>
@@ -54,10 +55,10 @@ public:
         return !(*this == other);
     }
 
-    /**
-     * @brief Create a clone (i.e. deep copy) of this node
-     */
-    virtual Node* clone() const = 0;
+    /** @brief Create a clone (i.e. deep copy) of this node as a smart-pointer */
+    Own<Node> cloneImpl() const {
+        return Own<Node>(cloning());
+    }
 
     /**
      * @brief Apply the mapper to all child nodes
@@ -109,6 +110,11 @@ protected:
     virtual bool equal(const Node&) const {
         return true;
     }
+
+    /**
+     * @brief Create a cloning (i.e. deep copy) of this node
+     */
+    virtual Node* cloning() const = 0;
 };
 
 }  // namespace souffle::ram

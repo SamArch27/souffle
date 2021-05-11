@@ -21,6 +21,7 @@
 #include "ast/Relation.h"
 #include "ast/UnnamedVariable.h"
 #include "ast/Variable.h"
+#include "ast/utility/NodeMapper.h"
 #include "ast/utility/Utils.h"
 #include "ast2ram/utility/Location.h"
 #include "ram/Clear.h"
@@ -72,7 +73,7 @@ void nameUnnamedVariables(ast::Clause* clause) {
             node->apply(*this);
 
             // replace unknown variables
-            if (dynamic_cast<ast::UnnamedVariable*>(node.get()) != nullptr) {
+            if (isA<ast::UnnamedVariable>(node)) {
                 auto name = " _unnamed_var" + toString(++counter);
                 return mk<ast::Variable>(name);
             }

@@ -18,18 +18,11 @@
 
 #include "ast/Argument.h"
 #include "ast/Literal.h"
-#include "ast/Node.h"
 #include "ast/QualifiedName.h"
-#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/ContainerUtil.h"
-#include "souffle/utility/StreamUtil.h"
-#include <algorithm>
+#include "souffle/utility/Types.h"
 #include <cstddef>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <utility>
+#include <iosfwd>
 #include <vector>
 
 namespace souffle::ast {
@@ -44,8 +37,7 @@ namespace souffle::ast {
  */
 class Atom : public Literal {
 public:
-    Atom(QualifiedName name = {}, VecOwn<Argument> args = {}, SrcLocation loc = {})
-            : Literal(std::move(loc)), name(std::move(name)), arguments(std::move(args)) {}
+    Atom(QualifiedName name = {}, VecOwn<Argument> args = {}, SrcLocation loc = {});
 
     /** Return qualified name */
     const QualifiedName& getQualifiedName() const {
@@ -53,53 +45,32 @@ public:
     }
 
     /** Return arity of the atom */
-    size_t getArity() const {
+    std::size_t getArity() const {
         return arguments.size();
     }
 
     /** Set qualified name */
-    void setQualifiedName(QualifiedName n) {
-        name = std::move(n);
-    }
+    void setQualifiedName(QualifiedName n);
 
     /** Add argument to the atom */
-    void addArgument(Own<Argument> arg) {
-        arguments.push_back(std::move(arg));
-    }
+    void addArgument(Own<Argument> arg);
 
     /** Return arguments */
-    std::vector<Argument*> getArguments() const {
-        return toPtrVector(arguments);
-    }
+    std::vector<Argument*> getArguments() const;
 
-    Atom* clone() const override {
-        return new Atom(name, souffle::clone(arguments), getSrcLoc());
-    }
-
-    void apply(const NodeMapper& map) override {
-        for (auto& arg : arguments) {
-            arg = map(std::move(arg));
-        }
-    }
-
-    std::vector<const Node*> getChildNodes() const override {
-        std::vector<const Node*> res;
-        for (auto& cur : arguments) {
-            res.push_back(cur.get());
-        }
-        return res;
-    }
+    void apply(const NodeMapper& map) override;
 
 protected:
-    void print(std::ostream& os) const override {
-        os << getQualifiedName() << "(" << join(arguments) << ")";
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Atom&>(node);
-        return name == other.name && equal_targets(arguments, other.arguments);
-    }
+    NodeVec getChildNodesImpl() const override;
 
+private:
+    bool equal(const Node& node) const override;
+
+    Atom* cloning() const override;
+
+private:
     /** Name of atom */
     QualifiedName name;
 

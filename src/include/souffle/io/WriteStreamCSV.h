@@ -49,7 +49,7 @@ protected:
     void writeNextTupleCSV(std::ostream& destination, const RamDomain* tuple) {
         writeNextTupleElement(destination, typeAttributes.at(0), tuple[0]);
 
-        for (size_t col = 1; col < arity; ++col) {
+        for (std::size_t col = 1; col < arity; ++col) {
             destination << delimiter;
             writeNextTupleElement(destination, typeAttributes.at(col), tuple[col]);
         }
@@ -59,7 +59,7 @@ protected:
 
     void writeNextTupleElement(std::ostream& destination, const std::string& type, RamDomain value) {
         switch (type[0]) {
-            case 's': destination << symbolTable.unsafeResolve(value); break;
+            case 's': destination << symbolTable.unsafeDecode(value); break;
             case 'i': destination << value; break;
             case 'u': destination << ramBitCast<RamUnsigned>(value); break;
             case 'f': destination << ramBitCast<RamFloat>(value); break;

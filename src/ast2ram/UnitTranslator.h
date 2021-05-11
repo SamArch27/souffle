@@ -19,10 +19,6 @@
 
 #include "souffle/utility/ContainerUtil.h"
 
-namespace souffle {
-class SymbolTable;
-}
-
 namespace souffle::ast {
 class TranslationUnit;
 }
@@ -44,7 +40,6 @@ public:
 
 protected:
     Own<TranslatorContext> context;
-    Own<SymbolTable> symbolTable;
 };
 
 }  // namespace souffle::ast2ram

@@ -56,10 +56,9 @@ inline Own<TranslationUnit> makePrintedATU(Own<TranslationUnit>& tu) {
 }
 
 inline Own<Clause> makeClauseA(Own<Argument> headArgument) {
-    auto headAtom = mk<Atom>("A");
+    auto clause = mk<Clause>("A");
+    auto headAtom = clause->getHead();
     headAtom->addArgument(std::move(headArgument));
-    auto clause = mk<Clause>();
-    clause->setHead(std::move(headAtom));
     return clause;
 }
 

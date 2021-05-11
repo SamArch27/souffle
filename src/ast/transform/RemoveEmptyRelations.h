@@ -38,11 +38,11 @@ public:
      */
     static bool removeEmptyRelations(TranslationUnit& translationUnit);
 
-    RemoveEmptyRelationsTransformer* clone() const override {
+private:
+    RemoveEmptyRelationsTransformer* cloning() const override {
         return new RemoveEmptyRelationsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         return removeEmptyRelations(translationUnit);
     }

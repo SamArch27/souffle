@@ -37,10 +37,10 @@ public:
     ProvenanceExistenceCheck(std::string rel, VecOwn<Expression> vals)
             : AbstractExistenceCheck(rel, std::move(vals)) {}
 
-    ProvenanceExistenceCheck* clone() const override {
+    ProvenanceExistenceCheck* cloning() const override {
         VecOwn<Expression> newValues;
         for (auto& cur : values) {
-            newValues.emplace_back(cur->clone());
+            newValues.emplace_back(cur->cloning());
         }
         return new ProvenanceExistenceCheck(relation, std::move(newValues));
     }

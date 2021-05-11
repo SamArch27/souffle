@@ -20,6 +20,7 @@
 #include "ram/TupleOperation.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <memory>
 #include <string>
@@ -39,7 +40,7 @@ public:
     RelationOperation(std::string rel, int ident, Own<Operation> nested, std::string profileText = "")
             : TupleOperation(ident, std::move(nested), std::move(profileText)), relation(std::move(rel)) {}
 
-    RelationOperation* clone() const override = 0;
+    RelationOperation* cloning() const override = 0;
 
     /** @brief Get search relation */
     const std::string& getRelation() const {
@@ -48,7 +49,7 @@ public:
 
 protected:
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const RelationOperation&>(node);
+        const auto& other = asAssert<RelationOperation>(node);
         return TupleOperation::equal(other) && relation == other.relation;
     }
 

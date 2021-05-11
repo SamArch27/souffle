@@ -27,7 +27,6 @@
 #include "ast/Relation.h"
 #include "ast/TranslationUnit.h"
 #include "ast/Type.h"
-#include "ast/analysis/AuxArity.h"
 #include "ast/analysis/TypeEnvironment.h"
 #include "ast/analysis/TypeSystem.h"
 #include "ast/transform/Transformer.h"
@@ -56,11 +55,11 @@ public:
         return "IOAttributesTransformer";
     }
 
-    IOAttributesTransformer* clone() const override {
+private:
+    IOAttributesTransformer* cloning() const override {
         return new IOAttributesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         bool changed = false;
 
@@ -74,7 +73,6 @@ private:
     bool setAttributeParams(TranslationUnit& translationUnit) {
         bool changed = false;
         Program& program = translationUnit.getProgram();
-        auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
 
         for (Directive* io : program.getDirectives()) {
             if (io->getType() == ast::DirectiveType::limitsize) {
@@ -89,10 +87,9 @@ private:
             }
 
             // Casting due to json11.h type requirements.
-            long long arity{static_cast<long long>(rel->getArity() - auxArityAnalysis->getArity(rel))};
-            long long auxArity{static_cast<long long>(auxArityAnalysis->getArity(rel))};
+            long long arity{static_cast<long long>(rel->getArity())};
 
-            json11::Json relJson = json11::Json::object{{"arity", arity}, {"auxArity", auxArity},
+            json11::Json relJson = json11::Json::object{{"arity", arity},
                     {"params", json11::Json::array(attributesParams.begin(), attributesParams.end())}};
 
             json11::Json params = json11::Json::object{
@@ -124,15 +121,7 @@ private:
             for (const auto* attribute : rel->getAttributes()) {
                 attributeNames.push_back(attribute->getName());
             }
-
-            if (Global::config().has("provenance")) {
-                auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
-                std::vector<std::string> originalAttributeNames(
-                        attributeNames.begin(), attributeNames.end() - auxArityAnalysis->getArity(rel));
-                io->addParameter("attributeNames", toString(join(originalAttributeNames, delimiter)));
-            } else {
-                io->addParameter("attributeNames", toString(join(attributeNames, delimiter)));
-            }
+            io->addParameter("attributeNames", toString(join(attributeNames, delimiter)));
             changed = true;
         }
         return changed;
@@ -141,7 +130,6 @@ private:
     bool setAttributeTypes(TranslationUnit& translationUnit) {
         bool changed = false;
         Program& program = translationUnit.getProgram();
-        auto auxArityAnalysis = translationUnit.getAnalysis<analysis::AuxiliaryArityAnalysis>();
         auto typeEnv =
                 &translationUnit.getAnalysis<analysis::TypeEnvironmentAnalysis>()->getTypeEnvironment();
 
@@ -157,10 +145,9 @@ private:
             }
 
             // Casting due to json11.h type requirements.
-            long long arity{static_cast<long long>(rel->getArity() - auxArityAnalysis->getArity(rel))};
-            long long auxArity{static_cast<long long>(auxArityAnalysis->getArity(rel))};
+            long long arity{static_cast<long long>(rel->getArity())};
 
-            json11::Json relJson = json11::Json::object{{"arity", arity}, {"auxArity", auxArity},
+            json11::Json relJson = json11::Json::object{{"arity", arity},
                     {"types", json11::Json::array(attributesTypes.begin(), attributesTypes.end())}};
 
             json11::Json types =
@@ -199,10 +186,8 @@ private:
 
         std::map<std::string, json11::Json> sumTypes;
 
-        visitDepthFirst(program.getTypes(), [&](const AlgebraicDataType& astAlgebraicDataType) {
-            auto& sumType =
-                    dynamic_cast<const analysis::AlgebraicDataType&>(typeEnv.getType(astAlgebraicDataType));
-
+        visit(program.getTypes(), [&](const AlgebraicDataType& astAlgebraicDataType) {
+            auto& sumType = asAssert<analysis::AlgebraicDataType>(typeEnv.getType(astAlgebraicDataType));
             auto& branches = sumType.getBranches();
 
             std::vector<json11::Json> branchesInfo;
@@ -250,7 +235,7 @@ private:
                 for (const analysis::Type* field : as<analysis::RecordType>(type)->getFields()) {
                     elementTypes.push_back(getTypeQualifier(*field));
                 }
-                const size_t recordArity = elementTypes.size();
+                const std::size_t recordArity = elementTypes.size();
                 json11::Json recordInfo = json11::Json::object{
                         {"types", std::move(elementTypes)}, {"arity", static_cast<long long>(recordArity)}};
                 records.emplace(getTypeQualifier(type), std::move(recordInfo));
@@ -280,7 +265,7 @@ private:
                 for (const auto field : as<ast::RecordType>(astType)->getFields()) {
                     elementParams.push_back(field->getName());
                 }
-                const size_t recordArity = elementParams.size();
+                const std::size_t recordArity = elementParams.size();
                 json11::Json recordInfo = json11::Json::object{
                         {"params", std::move(elementParams)}, {"arity", static_cast<long long>(recordArity)}};
                 records.emplace(astType->getQualifiedName().toString(), std::move(recordInfo));

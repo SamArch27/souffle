@@ -43,7 +43,7 @@ bool ReplaceSingletonVariablesTransformer::transform(TranslationUnit& translatio
         replaceSingletons(std::set<std::string>& singletons) : singletons(singletons) {}
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (auto* var = dynamic_cast<ast::Variable*>(node.get())) {
+            if (auto* var = as<ast::Variable>(node)) {
                 if (singletons.find(var->getName()) != singletons.end()) {
                     return mk<UnnamedVariable>();
                 }
@@ -58,7 +58,7 @@ bool ReplaceSingletonVariablesTransformer::transform(TranslationUnit& translatio
             std::set<std::string> nonsingletons;
             std::set<std::string> vars;
 
-            visitDepthFirst(*clause, [&](const ast::Variable& var) {
+            visit(*clause, [&](const ast::Variable& var) {
                 const std::string& name = var.getName();
                 if (vars.find(name) != vars.end()) {
                     // Variable seen before, so not a singleton variable
@@ -73,14 +73,14 @@ bool ReplaceSingletonVariablesTransformer::transform(TranslationUnit& translatio
             // Don't unname singleton variables occurring in records.
             // TODO (azreika): remove this check once issue #420 is fixed
             std::set<std::string> recordVars;
-            visitDepthFirst(*clause, [&](const RecordInit& rec) {
-                visitDepthFirst(rec, [&](const ast::Variable& var) { ignoredVars.insert(var.getName()); });
+            visit(*clause, [&](const RecordInit& rec) {
+                visit(rec, [&](const ast::Variable& var) { ignoredVars.insert(var.getName()); });
             });
 
             // Don't unname singleton variables occuring in constraints.
             std::set<std::string> constraintVars;
-            visitDepthFirst(*clause, [&](const Constraint& cons) {
-                visitDepthFirst(cons, [&](const ast::Variable& var) { ignoredVars.insert(var.getName()); });
+            visit(*clause, [&](const Constraint& cons) {
+                visit(cons, [&](const ast::Variable& var) { ignoredVars.insert(var.getName()); });
             });
 
             std::set<std::string> singletons;

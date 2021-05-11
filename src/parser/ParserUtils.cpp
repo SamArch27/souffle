@@ -67,10 +67,10 @@ void RuleBody::conjunct(RuleBody other) {
             clause cur;
 
             for (const auto& lit : clauseA) {
-                cur.emplace_back(lit.clone());
+                cur.emplace_back(lit.cloneImpl());
             }
             for (const auto& lit : clauseB) {
-                insert(cur, lit.clone());
+                insert(cur, lit.cloneImpl());
             }
 
             insert(res, std::move(cur));
@@ -91,7 +91,7 @@ VecOwn<ast::Clause> RuleBody::toClauseBodies() const {
     // collect clause results
     VecOwn<ast::Clause> bodies;
     for (const clause& cur : dnf) {
-        bodies.push_back(mk<ast::Clause>());
+        bodies.push_back(mk<ast::Clause>("*"));
         ast::Clause& clause = *bodies.back();
 
         for (const literal& lit : cur) {
@@ -100,11 +100,10 @@ VecOwn<ast::Clause> RuleBody::toClauseBodies() const {
             // negate if necessary
             if (lit.negated) {
                 // negate
-                if (auto* atom = dynamic_cast<ast::Atom*>(&*base)) {
+                if (auto* atom = as<ast::Atom>(*base)) {
                     base.release();
-                    base = mk<ast::Negation>(Own<ast::Atom>(atom));
-                    base->setSrcLoc(atom->getSrcLoc());
-                } else if (auto* cstr = dynamic_cast<ast::Constraint*>(&*base)) {
+                    base = mk<ast::Negation>(Own<ast::Atom>(atom), atom->getSrcLoc());
+                } else if (auto* cstr = as<ast::Constraint>(*base)) {
                     negateConstraintInPlace(*cstr);
                 }
             }

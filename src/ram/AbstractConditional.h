@@ -39,7 +39,7 @@ public:
         assert(condition != nullptr && "Condition is a null-pointer");
     }
 
-    AbstractConditional* clone() const override = 0;
+    AbstractConditional* cloning() const override = 0;
 
     /** @brief Get condition that must be satisfied */
     const Condition& getCondition() const {
@@ -60,7 +60,7 @@ public:
 
 protected:
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const AbstractConditional&>(node);
+        const auto& other = asAssert<AbstractConditional>(node);
         return NestedOperation::equal(node) && equal_ptr(condition, other.condition);
     }
 

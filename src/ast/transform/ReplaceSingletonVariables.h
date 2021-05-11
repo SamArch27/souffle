@@ -31,11 +31,11 @@ public:
         return "ReplaceSingletonVariablesTransformer";
     }
 
-    ReplaceSingletonVariablesTransformer* clone() const override {
+private:
+    ReplaceSingletonVariablesTransformer* cloning() const override {
         return new ReplaceSingletonVariablesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

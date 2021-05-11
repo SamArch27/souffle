@@ -51,11 +51,11 @@ public:
         return "FoldAnonymousRecords";
     }
 
-    FoldAnonymousRecords* clone() const override {
+private:
+    FoldAnonymousRecords* cloning() const override {
         return new FoldAnonymousRecords();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 
     /**

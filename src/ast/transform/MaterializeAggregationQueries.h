@@ -20,7 +20,12 @@
 #include "ast/Aggregator.h"
 #include "ast/TranslationUnit.h"
 #include "ast/transform/Transformer.h"
+#include <set>
 #include <string>
+
+namespace souffle::ast {
+class Clause;
+}
 
 namespace souffle::ast::transform {
 /**
@@ -42,11 +47,11 @@ public:
      */
     static bool materializeAggregationQueries(TranslationUnit& translationUnit);
 
-    MaterializeAggregationQueriesTransformer* clone() const override {
+private:
+    MaterializeAggregationQueriesTransformer* cloning() const override {
         return new MaterializeAggregationQueriesTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         return materializeAggregationQueries(translationUnit);
     }

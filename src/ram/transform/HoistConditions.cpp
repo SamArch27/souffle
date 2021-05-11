@@ -41,18 +41,18 @@ bool HoistConditionsTransformer::hoistConditions(Program& program) {
 
     // hoist conditions to the most outer scope if they
     // don't depend on TupleOperations
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         Own<Condition> newCondition;
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (auto* filter = dynamic_cast<Filter*>(node.get())) {
+            if (auto* filter = as<Filter>(node)) {
                 const Condition& condition = filter->getCondition();
                 // if filter condition is independent of any TupleOperation,
                 // delete the filter operation and collect condition
                 if (rla->getLevel(&condition) == -1) {
                     changed = true;
-                    newCondition = addCondition(std::move(newCondition), souffle::clone(&condition));
+                    newCondition = addCondition(std::move(newCondition), clone(condition));
                     node->apply(makeLambdaRamMapper(filterRewriter));
-                    return souffle::clone(&filter->getOperation());
+                    return clone(filter->getOperation());
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));
@@ -64,23 +64,23 @@ bool HoistConditionsTransformer::hoistConditions(Program& program) {
             // insert new filter operation at outer-most level of the query
             changed = true;
             auto* nestedOp = const_cast<Operation*>(&mQuery->getOperation());
-            mQuery->rewrite(nestedOp, mk<Filter>(std::move(newCondition), souffle::clone(nestedOp)));
+            mQuery->rewrite(nestedOp, mk<Filter>(std::move(newCondition), clone(nestedOp)));
         }
     });
 
     // hoist conditions for each TupleOperation operation
-    visitDepthFirst(program, [&](const TupleOperation& search) {
+    visit(program, [&](const TupleOperation& search) {
         Own<Condition> newCondition;
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (auto* filter = dynamic_cast<Filter*>(node.get())) {
+            if (auto* filter = as<Filter>(node)) {
                 const Condition& condition = filter->getCondition();
                 // if filter condition matches level of TupleOperation,
                 // delete the filter operation and collect condition
                 if (rla->getLevel(&condition) == search.getTupleId()) {
                     changed = true;
-                    newCondition = addCondition(std::move(newCondition), souffle::clone(&condition));
+                    newCondition = addCondition(std::move(newCondition), clone(condition));
                     node->apply(makeLambdaRamMapper(filterRewriter));
-                    return souffle::clone(&filter->getOperation());
+                    return clone(filter->getOperation());
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));
@@ -92,7 +92,7 @@ bool HoistConditionsTransformer::hoistConditions(Program& program) {
             // insert new filter operation after the search operation
             changed = true;
             tupleOp->rewrite(&tupleOp->getOperation(),
-                    mk<Filter>(std::move(newCondition), souffle::clone(&tupleOp->getOperation())));
+                    mk<Filter>(std::move(newCondition), clone(tupleOp->getOperation())));
         }
     });
     return changed;

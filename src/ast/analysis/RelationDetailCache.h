@@ -21,10 +21,11 @@
 #include "ast/QualifiedName.h"
 #include "ast/Relation.h"
 #include "ast/analysis/Analysis.h"
+#include "souffle/utility/ContainerUtil.h"
 #include <cassert>
 #include <map>
-#include <set>
 #include <string>
+#include <vector>
 
 namespace souffle::ast {
 
@@ -47,27 +48,27 @@ public:
     void print(std::ostream& os) const override;
 
     Relation* getRelation(const QualifiedName& name) const {
-        if (nameToRelation.find(name) != nameToRelation.end()) {
+        if (contains(nameToRelation, name)) {
             return nameToRelation.at(name);
         }
         return nullptr;
     }
 
-    std::set<Clause*> getClauses(const Relation* rel) const {
+    std::vector<Clause*> getClauses(const Relation* rel) const {
         assert(rel != nullptr && "invalid relation");
         return getClauses(rel->getQualifiedName());
     }
 
-    std::set<Clause*> getClauses(const QualifiedName& name) const {
-        if (nameToClauses.find(name) != nameToClauses.end()) {
+    std::vector<Clause*> getClauses(const QualifiedName& name) const {
+        if (contains(nameToClauses, name)) {
             return nameToClauses.at(name);
         }
-        return std::set<Clause*>();
+        return std::vector<Clause*>();
     }
 
 private:
     std::map<QualifiedName, Relation*> nameToRelation;
-    std::map<QualifiedName, std::set<Clause*>> nameToClauses;
+    std::map<QualifiedName, std::vector<Clause*>> nameToClauses;
 };
 
 }  // namespace analysis

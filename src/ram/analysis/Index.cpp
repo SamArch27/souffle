@@ -36,7 +36,7 @@
 
 namespace souffle::ram::analysis {
 
-SearchSignature::SearchSignature(size_t arity) : constraints(arity, AttributeConstraint::None) {}
+SearchSignature::SearchSignature(std::size_t arity) : constraints(arity, AttributeConstraint::None) {}
 
 bool SearchSignature::operator==(const SearchSignature& other) const {
     assert(constraints.size() == other.constraints.size());
@@ -62,7 +62,7 @@ const AttributeConstraint& SearchSignature::operator[](std::size_t pos) const {
     return constraints[pos];
 }
 
-size_t SearchSignature::arity() const {
+std::size_t SearchSignature::arity() const {
     return constraints.size();
 }
 
@@ -75,7 +75,7 @@ bool SearchSignature::precedes(const SearchSignature& other) const {
     }
 
     // (1) LHS is a subset of RHS
-    for (size_t i = 0; i < other.arity(); ++i) {
+    for (std::size_t i = 0; i < other.arity(); ++i) {
         if (constraints[i] != AttributeConstraint::None) {
             if (other.constraints[i] == AttributeConstraint::None) {
                 return false;
@@ -84,7 +84,7 @@ bool SearchSignature::precedes(const SearchSignature& other) const {
     }
 
     // (2) If RHS has an inequality then LHS can't have that attribute
-    for (size_t i = 0; i < other.arity(); ++i) {
+    for (std::size_t i = 0; i < other.arity(); ++i) {
         if (other.constraints[i] == AttributeConstraint::Inequal) {
             if (constraints[i] != AttributeConstraint::None) {
                 return false;
@@ -96,7 +96,7 @@ bool SearchSignature::precedes(const SearchSignature& other) const {
 SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const SearchSignature& rhs) {
     assert(lhs.arity() == rhs.arity());
     SearchSignature delta(lhs.arity());
-    for (size_t i = 0; i < lhs.arity(); ++i) {
+    for (std::size_t i = 0; i < lhs.arity(); ++i) {
         // if rhs is empty then delta is just lhs
         if (rhs[i] == AttributeConstraint::None) {
             delta.constraints[i] = lhs[i];
@@ -108,15 +108,15 @@ SearchSignature SearchSignature::getDelta(const SearchSignature& lhs, const Sear
     return delta;
 }
 
-SearchSignature SearchSignature::getFullSearchSignature(size_t arity) {
+SearchSignature SearchSignature::getFullSearchSignature(std::size_t arity) {
     SearchSignature res(arity);
     std::for_each(res.begin(), res.end(), [](auto& constraint) { constraint = AttributeConstraint::Equal; });
     return res;
 }
 
 std::ostream& operator<<(std::ostream& out, const SearchSignature& signature) {
-    size_t len = signature.constraints.size();
-    for (size_t i = 0; i < len; ++i) {
+    std::size_t len = signature.constraints.size();
+    for (std::size_t i = 0; i < len; ++i) {
         switch (signature.constraints[i]) {
             case AttributeConstraint::None: out << 0; break;
             case AttributeConstraint::Equal: out << 1; break;
@@ -287,16 +287,16 @@ IndexCluster MinIndexSelectionStrategy::solve(const SearchSet& searches) const {
 
             // Rebuild the search from the order
             SearchSignature k(search.arity());
-            size_t numConstraints = std::count_if(
+            std::size_t numConstraints = std::count_if(
                     search.begin(), search.end(), [](auto c) { return c != AttributeConstraint::None; });
 
             // Map the k-th prefix of the order to a search
-            for (size_t i = 0; i < numConstraints; i++) {
+            for (std::size_t i = 0; i < numConstraints; i++) {
                 k[orders[idx][i]] = AttributeConstraint::Equal;
             }
 
             // Validate that the prefix concides with the original search (ignoring inequalities)
-            for (size_t i = 0; i < search.arity(); ++i) {
+            for (std::size_t i = 0; i < search.arity(); ++i) {
                 if (k[i] == AttributeConstraint::None && search[i] != AttributeConstraint::None) {
                     assert("incorrect lexicographical order");
                 }
@@ -309,7 +309,7 @@ IndexCluster MinIndexSelectionStrategy::solve(const SearchSet& searches) const {
 
     // Return the index selection
     for (const auto& search : searches) {
-        size_t orderIndex = map(search, orders, chains);
+        std::size_t orderIndex = map(search, orders, chains);
         indexSelection.insert({search, orders.at(orderIndex)});
     }
 
@@ -392,20 +392,20 @@ void IndexAnalysis::run(const TranslationUnit& translationUnit) {
     // visit all nodes to collect searches of each relation
 
     // visit all nodes to collect searches of each relation
-    visitDepthFirst(translationUnit.getProgram(), [&](const Node& node) {
-        if (const auto* indexSearch = dynamic_cast<const IndexOperation*>(&node)) {
+    visit(translationUnit.getProgram(), [&](const Node& node) {
+        if (const auto* indexSearch = as<IndexOperation>(node)) {
             relationToSearches[indexSearch->getRelation()].insert(getSearchSignature(indexSearch));
-        } else if (const auto* exists = dynamic_cast<const ExistenceCheck*>(&node)) {
+        } else if (const auto* exists = as<ExistenceCheck>(node)) {
             relationToSearches[exists->getRelation()].insert(getSearchSignature(exists));
-        } else if (const auto* provExists = dynamic_cast<const ProvenanceExistenceCheck*>(&node)) {
+        } else if (const auto* provExists = as<ProvenanceExistenceCheck>(node)) {
             relationToSearches[provExists->getRelation()].insert(getSearchSignature(provExists));
-        } else if (const auto* ramRel = dynamic_cast<const Relation*>(&node)) {
+        } else if (const auto* ramRel = as<Relation>(node)) {
             relationToSearches[ramRel->getName()].insert(getSearchSignature(ramRel));
         }
     });
 
     // A swap happen between rel A and rel B indicates A should include all indices of B, vice versa.
-    visitDepthFirst(translationUnit.getProgram(), [&](const Swap& swap) {
+    visit(translationUnit.getProgram(), [&](const Swap& swap) {
         // Note: this naive approach will not work if there exists chain or cyclic swapping.
         // e.g.  swap(relA, relB) swap(relB, relC) swap(relC, relA)
         // One need to keep merging the search set until a fixed point where no more index is introduced
@@ -470,10 +470,10 @@ void IndexAnalysis::print(std::ostream& os) const {
 namespace {
 // handles equality constraints
 template <typename Iter>
-SearchSignature searchSignature(size_t arity, Iter const& bgn, Iter const& end) {
+SearchSignature searchSignature(std::size_t arity, Iter const& bgn, Iter const& end) {
     SearchSignature keys(arity);
 
-    size_t i = 0;
+    std::size_t i = 0;
     for (auto cur = bgn; cur != end; ++cur, ++i) {
         if (!isUndefValue(*cur)) {
             keys[i] = AttributeConstraint::Equal;
@@ -483,19 +483,19 @@ SearchSignature searchSignature(size_t arity, Iter const& bgn, Iter const& end) 
 }
 
 template <typename Seq>
-SearchSignature searchSignature(size_t arity, Seq const& xs) {
+SearchSignature searchSignature(std::size_t arity, Seq const& xs) {
     return searchSignature(arity, xs.begin(), xs.end());
 }
 }  // namespace
 
 SearchSignature IndexAnalysis::getSearchSignature(const IndexOperation* search) const {
     const Relation* rel = &relAnalysis->lookup(search->getRelation());
-    size_t arity = rel->getArity();
+    std::size_t arity = rel->getArity();
 
     auto lower = search->getRangePattern().first;
     auto upper = search->getRangePattern().second;
     SearchSignature keys(arity);
-    for (size_t i = 0; i < arity; ++i) {
+    for (std::size_t i = 0; i < arity; ++i) {
         // if both bounds are undefined
         if (isUndefValue(lower[i]) && isUndefValue(upper[i])) {
             keys[i] = AttributeConstraint::None;
@@ -517,14 +517,14 @@ SearchSignature IndexAnalysis::getSearchSignature(const ProvenanceExistenceCheck
     SearchSignature keys(values.size());
 
     // all payload attributes should be equalities
-    for (size_t i = 0; i < values.size() - auxiliaryArity; i++) {
+    for (std::size_t i = 0; i < values.size() - auxiliaryArity; i++) {
         if (!isUndefValue(values[i])) {
             keys[i] = AttributeConstraint::Equal;
         }
     }
 
     // all auxiliary attributes should be free
-    for (size_t i = values.size() - auxiliaryArity; i < values.size(); i++) {
+    for (std::size_t i = values.size() - auxiliaryArity; i < values.size(); i++) {
         keys[i] = AttributeConstraint::None;
     }
 

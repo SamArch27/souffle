@@ -79,9 +79,9 @@ public:
      */
     using ExpressionPair = std::pair<Own<Expression>, Own<Expression>>;
 
-    ExpressionPair getExpressionPair(const Constraint* binRelOp, size_t& element, int identifier);
+    ExpressionPair getExpressionPair(const Constraint* binRelOp, std::size_t& element, int identifier);
     ExpressionPair getLowerUpperExpression(
-            Condition* c, size_t& element, int level, RelationRepresentation rep);
+            Condition* c, std::size_t& element, int level, RelationRepresentation rep);
 
     /**
      * @param AttributeTypes to indicate type of each attribute in the relation

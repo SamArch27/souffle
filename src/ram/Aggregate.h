@@ -60,9 +60,9 @@ public:
         return res;
     }
 
-    Aggregate* clone() const override {
-        return new Aggregate(souffle::clone(&getOperation()), function, relation, souffle::clone(expression),
-                souffle::clone(condition), getTupleId());
+    Aggregate* cloning() const override {
+        return new Aggregate(
+                clone(getOperation()), function, relation, clone(expression), clone(condition), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {
@@ -85,7 +85,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Aggregate&>(node);
+        const auto& other = asAssert<Aggregate>(node);
         return RelationOperation::equal(other) && AbstractAggregate::equal(node);
     }
 };

@@ -51,13 +51,19 @@ private:
     std::map<std::string, unsigned> idxMap;
 
     /** Frequency profiling of non-existence checks */
-    std::map<std::string, size_t> neIdxMap;
+    std::map<std::string, std::size_t> neIdxMap;
 
     /** Cache for generated types for relations */
     std::set<std::string> typeCache;
 
     /** Relation map */
     std::map<std::string, const ram::Relation*> relationMap;
+
+    /** Symbol map */
+    mutable std::map<std::string, unsigned> symbolMap;
+
+    /** Symbol map */
+    mutable std::vector<std::string> symbolIndex;
 
 protected:
     /** Get record table */
@@ -86,7 +92,7 @@ protected:
     unsigned lookupFreqIdx(const std::string& txt);
 
     /** Lookup read counter */
-    size_t lookupReadIdx(const std::string& txt);
+    std::size_t lookupReadIdx(const std::string& txt);
 
     /** Lookup relation by relation name */
     const ram::Relation* lookup(const std::string& relName) {
@@ -95,9 +101,22 @@ protected:
         return it->second;
     }
 
+    /** Lookup symbol index */
+    std::size_t convertSymbol2Idx(const std::string& symbol) const {
+        auto it = symbolMap.find(symbol);
+        if (it != symbolMap.end()) {
+            return it->second;
+        } else {
+            symbolIndex.push_back(symbol);
+            std::size_t idx = symbolMap.size();
+            symbolMap[symbol] = idx;
+            return idx;
+        }
+    }
+
 public:
     explicit Synthesiser(ram::TranslationUnit& tUnit) : translationUnit(tUnit) {
-        ram::visitDepthFirst(tUnit.getProgram(),
+        visit(tUnit.getProgram(),
                 [&](const ram::Relation& relation) { relationMap[relation.getName()] = &relation; });
     }
 

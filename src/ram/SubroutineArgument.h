@@ -18,6 +18,7 @@
 
 #include "ram/Expression.h"
 #include "ram/Node.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cstdlib>
 #include <ostream>
 
@@ -33,14 +34,14 @@ namespace souffle::ram {
  */
 class SubroutineArgument : public Expression {
 public:
-    SubroutineArgument(size_t number) : number(number) {}
+    SubroutineArgument(std::size_t number) : number(number) {}
 
     /** @brief Get argument */
-    size_t getArgument() const {
+    std::size_t getArgument() const {
         return number;
     }
 
-    SubroutineArgument* clone() const override {
+    SubroutineArgument* cloning() const override {
         return new SubroutineArgument(number);
     }
 
@@ -50,12 +51,12 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const SubroutineArgument&>(node);
+        const auto& other = asAssert<SubroutineArgument>(node);
         return number == other.number;
     }
 
     /** Argument number */
-    const size_t number;
+    const std::size_t number;
 };
 
 }  // namespace souffle::ram

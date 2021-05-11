@@ -18,6 +18,7 @@
 #include "ram/Statement.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <memory>
 #include <utility>
@@ -64,7 +65,7 @@ public:
 
 protected:
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const ListStatement&>(node);
+        const auto& other = asAssert<ListStatement>(node);
         return equal_targets(statements, other.statements);
     }
 

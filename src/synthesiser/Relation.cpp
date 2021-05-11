@@ -10,6 +10,7 @@
 #include "RelationTag.h"
 #include "ram/analysis/Index.h"
 #include "souffle/SouffleInterface.h"
+#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -29,7 +30,7 @@ using ram::analysis::SearchSignature;
 std::string Relation::getTypeAttributeString(const std::vector<std::string>& attributeTypes,
         const std::unordered_set<uint32_t>& attributesUsed) const {
     std::stringstream type;
-    for (size_t i = 0; i < attributeTypes.size(); ++i) {
+    for (std::size_t i = 0; i < attributeTypes.size(); ++i) {
         // consider only attributes used in a lex-order
         if (attributesUsed.find(i) != attributesUsed.end()) {
             switch (attributeTypes[i][0]) {
@@ -123,7 +124,7 @@ void DirectRelation::computeIndices() {
     // generate a full index if no indices exist
     assert(!inds.empty() && "no full index in relation");
 
-    size_t index_nr = 0;
+    std::size_t index_nr = 0;
     // expand all search orders to be full
     for (auto& ind : inds) {
         // use a set as a cache for fast lookup
@@ -135,7 +136,7 @@ void DirectRelation::computeIndices() {
         // and also add provenance annotations to the indices
         if (isProvenance) {
             // expand index to be full
-            for (size_t i = 0; i < getArity() - relation.getAuxiliaryArity(); i++) {
+            for (std::size_t i = 0; i < getArity() - relation.getAuxiliaryArity(); i++) {
                 if (curIndexElems.find(i) == curIndexElems.end()) {
                     ind.push_back(i);
                 }
@@ -188,11 +189,11 @@ std::string DirectRelation::getTypeName() {
 
 /** Generate type struct of a direct indexed relation */
 void DirectRelation::generateTypeStruct(std::ostream& out) {
-    size_t arity = getArity();
-    size_t auxiliaryArity = relation.getAuxiliaryArity();
+    std::size_t arity = getArity();
+    std::size_t auxiliaryArity = relation.getAuxiliaryArity();
     auto types = relation.getAttributeTypes();
     const auto& inds = getIndices();
-    size_t numIndexes = inds.size();
+    std::size_t numIndexes = inds.size();
     std::map<LexOrder, int> indexToNumMap;
 
     bool hintsOff = Global::config().get("hints") != "on";
@@ -208,7 +209,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
         out << "struct updater_" << getTypeName() << " {\n";
         out << "void update(t_tuple& old_t, const t_tuple& new_t) {\n";
 
-        for (size_t i = arity - auxiliaryArity; i < arity; i++) {
+        for (std::size_t i = arity - auxiliaryArity; i < arity; i++) {
             out << "old_t[" << i << "] = new_t[" << i << "];\n";
         }
 
@@ -217,7 +218,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     }
 
     // generate the btree type for each relation
-    for (size_t i = 0; i < inds.size(); i++) {
+    for (std::size_t i = 0; i < inds.size(); i++) {
         auto& ind = inds[i];
 
         if (i < indexSelection.getAllOrders().size()) {
@@ -235,12 +236,12 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
             }
         }
 
-        auto genstruct = [&](std::string name, size_t bound) {
+        auto genstruct = [&](std::string name, std::size_t bound) {
             out << "struct " << name << "{\n";
             out << " int operator()(const t_tuple& a, const t_tuple& b) const {\n";
             out << "  return ";
-            std::function<void(size_t)> gencmp = [&](size_t i) {
-                size_t attrib = ind[i];
+            std::function<void(std::size_t)> gencmp = [&](std::size_t i) {
+                std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
                 out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib
@@ -257,8 +258,8 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
             out << ";\n }\n";
             out << "bool less(const t_tuple& a, const t_tuple& b) const {\n";
             out << "  return ";
-            std::function<void(size_t)> genless = [&](size_t i) {
-                size_t attrib = ind[i];
+            std::function<void(std::size_t)> genless = [&](std::size_t i) {
+                std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
                 out << "(" << typecast << "(a[" << attrib << "]) < " << typecast << "(b[" << attrib << "]))";
@@ -273,8 +274,8 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
             out << ";\n }\n";
             out << "bool equal(const t_tuple& a, const t_tuple& b) const {\n";
             out << "return ";
-            std::function<void(size_t)> geneq = [&](size_t i) {
-                size_t attrib = ind[i];
+            std::function<void(std::size_t)> geneq = [&](std::size_t i) {
+                std::size_t attrib = ind[i];
                 const auto& typecast = typecasts[attrib];
 
                 out << "(" << typecast << "(a[" << attrib << "]) == " << typecast << "(b[" << attrib << "]))";
@@ -324,7 +325,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // create a struct storing hints for each btree
     out << "struct context {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "t_ind_" << i << "::operation_hints hints_" << i << "_lower"
             << ";\n";
         out << "t_ind_" << i << "::operation_hints hints_" << i << "_upper"
@@ -347,7 +348,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     out << (hintsOff ? "g" : "h");
     out << ".hints_" << masterIndex << "_lower"
         << ")) {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex && provenanceIndexNumbers.find(i) == provenanceIndexNumbers.end()) {
             out << "ind_" << i << ".insert(t, ";
             out << (hintsOff ? "g" : "h");
@@ -369,7 +370,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     std::vector<std::string> decls;
     std::vector<std::string> params;
-    for (size_t i = 0; i < arity; i++) {
+    for (std::size_t i = 0; i < arity; i++) {
         decls.push_back("RamDomain a" + std::to_string(i));
         params.push_back("a" + std::to_string(i));
     }
@@ -432,14 +433,14 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
     // lowerUpperRange methods for each pattern which is used to search this relation
     for (auto search : indexSelection.getSearches()) {
         auto& lexOrder = indexSelection.getLexOrder(search);
-        size_t indNum = indexToNumMap[lexOrder];
+        std::size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<t_ind_" << indNum << "::iterator> lowerUpperRange_" << search;
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // count size of search pattern
-        size_t eqSize = 0;
-        for (size_t column = 0; column < arity; column++) {
+        std::size_t eqSize = 0;
+        for (std::size_t column = 0; column < arity; column++) {
             if (search[column] == analysis::AttributeConstraint::Equal) {
                 eqSize++;
             }
@@ -500,7 +501,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // purge method
     out << "void purge() {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "ind_" << i << ".clear();\n";
     }
     out << "}\n";
@@ -527,7 +528,7 @@ void DirectRelation::generateTypeStruct(std::ostream& out) {
 
     // printStatistics method
     out << "void printStatistics(std::ostream& o) const {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "o << \" arity " << arity << " direct b-tree index " << i << " lex-order " << inds[i]
             << "\\n\";\n";
         out << "ind_" << i << ".printStats(o);\n";
@@ -551,7 +552,7 @@ void IndirectRelation::computeIndices() {
     assert(!inds.empty() && "no full index in relation");
 
     // check for full index
-    for (size_t i = 0; i < inds.size(); i++) {
+    for (std::size_t i = 0; i < inds.size(); i++) {
         auto& ind = inds[i];
         if (ind.size() == getArity()) {
             masterIndex = i;
@@ -588,10 +589,10 @@ std::string IndirectRelation::getTypeName() {
 
 /** Generate type struct of a indirect indexed relation */
 void IndirectRelation::generateTypeStruct(std::ostream& out) {
-    size_t arity = getArity();
+    std::size_t arity = getArity();
     const auto& inds = getIndices();
     auto types = relation.getAttributeTypes();
-    size_t numIndexes = inds.size();
+    std::size_t numIndexes = inds.size();
     std::map<LexOrder, int> indexToNumMap;
     bool hintsOff = Global::config().get("hints") != "on";
 
@@ -607,7 +608,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << "Lock insert_lock;\n";
 
     // btree types
-    for (size_t i = 0; i < inds.size(); i++) {
+    for (std::size_t i = 0; i < inds.size(); i++) {
         auto ind = inds[i];
 
         if (i < indexSelection.getAllOrders().size()) {
@@ -630,8 +631,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << "struct " << comparator << "{\n";
         out << " int operator()(const t_tuple *a, const t_tuple *b) const {\n";
         out << "  return ";
-        std::function<void(size_t)> gencmp = [&](size_t i) {
-            size_t attrib = ind[i];
+        std::function<void(std::size_t)> gencmp = [&](std::size_t i) {
+            std::size_t attrib = ind[i];
             const auto& typecast = typecasts[attrib];
             out << "(" << typecast << "((*a)[" << attrib << "]) <" << typecast << " ((*b)[" << attrib
                 << "])) ? -1 : ((" << typecast << "((*a)[" << attrib << "]) > " << typecast << "((*b)["
@@ -647,8 +648,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << ";\n }\n";
         out << "bool less(const t_tuple *a, const t_tuple *b) const {\n";
         out << "  return ";
-        std::function<void(size_t)> genless = [&](size_t i) {
-            size_t attrib = ind[i];
+        std::function<void(std::size_t)> genless = [&](std::size_t i) {
+            std::size_t attrib = ind[i];
             const auto& typecast = typecasts[attrib];
             out << typecast << " ((*a)[" << attrib << "]) < " << typecast << "((*b)[" << attrib << "])";
             if (i + 1 < ind.size()) {
@@ -662,8 +663,8 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
         out << ";\n }\n";
         out << "bool equal(const t_tuple *a, const t_tuple *b) const {\n";
         out << "return ";
-        std::function<void(size_t)> geneq = [&](size_t i) {
-            size_t attrib = ind[i];
+        std::function<void(std::size_t)> geneq = [&](std::size_t i) {
+            std::size_t attrib = ind[i];
             const auto& typecast = typecasts[attrib];
             out << typecast << "((*a)[" << attrib << "]) == " << typecast << "((*b)[" << attrib << "])";
             if (i + 1 < ind.size()) {
@@ -685,14 +686,14 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     }
 
     // typedef deref iterators
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "using iterator_" << i << " = IterDerefWrapper<typename t_ind_" << i << "::iterator>;\n";
     }
     out << "using iterator = iterator_" << masterIndex << ";\n";
 
     // Create a struct storing the context hints for each index
     out << "struct context {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "t_ind_" << i << "::operation_hints hints_" << i << "_lower;\n";
         out << "t_ind_" << i << "::operation_hints hints_" << i << "_upper;\n";
     }
@@ -722,7 +723,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     out << (hintsOff ? "g" : "h");
     out << ".hints_" << masterIndex << "_lower);\n";
     out << "}\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex) {
             if (hintsOff) {
                 out << "context g;\n";
@@ -746,7 +747,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
 
     std::vector<std::string> decls;
     std::vector<std::string> params;
-    for (size_t i = 0; i < arity; i++) {
+    for (std::size_t i = 0; i < arity; i++) {
         decls.push_back("RamDomain a" + std::to_string(i));
         params.push_back("a" + std::to_string(i));
     }
@@ -807,14 +808,14 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
     // lowerUpperRange methods for each pattern which is used to search this relation
     for (auto search : indexSelection.getSearches()) {
         auto& lexOrder = indexSelection.getLexOrder(search);
-        size_t indNum = indexToNumMap[lexOrder];
+        std::size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<iterator_" << indNum << "> lowerUpperRange_" << search;
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // count size of search pattern
-        size_t eqSize = 0;
-        for (size_t column = 0; column < arity; column++) {
+        std::size_t eqSize = 0;
+        for (std::size_t column = 0; column < arity; column++) {
             if (search[column] == analysis::AttributeConstraint::Equal) {
                 eqSize++;
             }
@@ -835,7 +836,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
             out << ");\n";
             out << "    auto fin = end();\n";
             out << "    if (pos != fin) {fin = pos; ++fin;}\n";
-            out << "    return make_range(pos, fin);\n";
+            out << "    return range<iterator_" << indNum << ">(pos, fin);\n";
             out << "}\n";
         }
         // if lower > upper then we have an empty range
@@ -879,7 +880,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // purge method
     out << "void purge() {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "ind_" << i << ".clear();\n";
     }
     out << "dataTable.clear();\n";
@@ -896,7 +897,7 @@ void IndirectRelation::generateTypeStruct(std::ostream& out) {
 
     // printStatistics method
     out << "void printStatistics(std::ostream& o) const {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "o << \" arity " << arity << " indirect b-tree index " << i << " lex-order " << inds[i]
             << "\\n\";\n";
         out << "ind_" << i << ".printStats(o);\n";
@@ -926,7 +927,7 @@ void BrieRelation::computeIndices() {
             std::set<int> curIndexElems(ind.begin(), ind.end());
 
             // expand index to be full
-            for (size_t i = 0; i < getArity(); i++) {
+            for (std::size_t i = 0; i < getArity(); i++) {
                 if (curIndexElems.find(i) == curIndexElems.end()) {
                     ind.push_back(i);
                 }
@@ -966,9 +967,9 @@ std::string BrieRelation::getTypeName() {
 
 /** Generate type struct of a brie relation */
 void BrieRelation::generateTypeStruct(std::ostream& out) {
-    size_t arity = getArity();
+    std::size_t arity = getArity();
     const auto& inds = getIndices();
-    size_t numIndexes = inds.size();
+    std::size_t numIndexes = inds.size();
     std::map<LexOrder, int> indexToNumMap;
 
     // struct definition
@@ -976,7 +977,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     out << "static constexpr Relation::arity_type Arity = " << arity << ";\n";
 
     // define trie structures
-    for (size_t i = 0; i < inds.size(); i++) {
+    for (std::size_t i = 0; i < inds.size(); i++) {
         if (i < indexSelection.getAllOrders().size()) {
             indexToNumMap[indexSelection.getAllOrders()[i]] = i;
         }
@@ -986,7 +987,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     out << "using t_tuple = t_ind_" << masterIndex << "::entry_type;\n";
 
     // generate auxiliary iterators that use orderOut
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         // generate auxiliary iterators which orderOut
         out << "class iterator_" << i << " : public std::iterator<std::forward_iterator_tag, t_tuple> {\n";
         out << "    using nested_iterator = typename t_ind_" << i << "::iterator;\n";
@@ -1027,7 +1028,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
 
     // hints struct
     out << "struct context {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "t_ind_" << i << "::op_context hints_" << i << ";\n";
     }
     out << "};\n";
@@ -1042,7 +1043,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     out << "bool insert(const t_tuple& t, context& h) {\n";
     out << "if (ind_" << masterIndex << ".insert(orderIn_" << masterIndex << "(t), h.hints_" << masterIndex
         << ")) {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         if (i != masterIndex) {
             out << "ind_" << i << ".insert(orderIn_" << i << "(t), h.hints_" << i << ");\n";
         }
@@ -1062,7 +1063,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     // insert method
     std::vector<std::string> decls;
     std::vector<std::string> params;
-    for (size_t i = 0; i < arity; i++) {
+    for (std::size_t i = 0; i < arity; i++) {
         decls.push_back("RamDomain a" + std::to_string(i));
         params.push_back("a" + std::to_string(i));
     }
@@ -1113,14 +1114,14 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     // loweUpperRange methods
     for (auto search : indexSelection.getSearches()) {
         auto& lexOrder = indexSelection.getLexOrder(search);
-        size_t indNum = indexToNumMap[lexOrder];
+        std::size_t indNum = indexToNumMap[lexOrder];
 
         out << "range<iterator_" << indNum << "> lowerUpperRange_" << search;
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
 
         // compute size of sub-index
-        size_t indSize = 0;
-        for (size_t i = 0; i < arity; i++) {
+        std::size_t indSize = 0;
+        for (std::size_t i = 0; i < arity; i++) {
             if (search[i] != analysis::AttributeConstraint::None) {
                 indSize++;
             }
@@ -1154,7 +1155,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
 
     // purge method
     out << "void purge() {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "ind_" << i << ".clear();\n";
     }
     out << "}\n";
@@ -1170,7 +1171,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
 
     // TODO: finish printStatistics method
     out << "void printStatistics(std::ostream& o) const {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "o << \" arity " << arity << " brie index " << i << " lex-order " << inds[i] << "\\n\";\n";
         ;
         out << "ind_" << i << ".printStats(o);\n";
@@ -1178,11 +1179,11 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
     out << "}\n";
 
     // orderOut and orderIn methods for reordering tuples according to index orders
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         auto ind = inds[i];
         out << "static t_tuple orderIn_" << i << "(const t_tuple& t) {\n";
         out << "t_tuple res;\n";
-        for (size_t j = 0; j < ind.size(); j++) {
+        for (std::size_t j = 0; j < ind.size(); j++) {
             out << "res[" << j << "] = t[" << ind[j] << "];\n";
         }
         out << "return res;\n";
@@ -1190,7 +1191,7 @@ void BrieRelation::generateTypeStruct(std::ostream& out) {
 
         out << "static t_tuple orderOut_" << i << "(const t_tuple& t) {\n";
         out << "t_tuple res;\n";
-        for (size_t j = 0; j < ind.size(); j++) {
+        for (std::size_t j = 0; j < ind.size(); j++) {
             out << "res[" << ind[j] << "] = t[" << j << "];\n";
         }
         out << "return res;\n";
@@ -1221,7 +1222,7 @@ std::string EqrelRelation::getTypeName() {
 void EqrelRelation::generateTypeStruct(std::ostream& out) {
     constexpr souffle::Relation::arity_type arity = 2;
     const auto& inds = getIndices();
-    size_t numIndexes = inds.size();
+    std::size_t numIndexes = inds.size();
     std::map<LexOrder, int> indexToNumMap;
 
     // struct definition
@@ -1333,7 +1334,7 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
     for (int i = 1; i < 4; i++) {
         SearchSignature s(arity);
         // if the bit is set then set it in the search signature
-        for (size_t j = 0; j < arity; j++) {
+        for (std::size_t j = 0; j < arity; j++) {
             if (i & (1 << j)) {
                 s[j] = analysis::AttributeConstraint::Equal;
             }
@@ -1342,8 +1343,8 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
         out << "range<iterator> lowerUpperRange_" << s;
         out << "(const t_tuple& lower, const t_tuple& upper, context& h) const {\n";
         // compute size of sub-index
-        size_t indSize = 0;
-        for (size_t column = 0; column < 2; column++) {
+        std::size_t indSize = 0;
+        for (std::size_t column = 0; column < 2; column++) {
             if (((i >> column) & 1) != 0) {
                 indSize++;
             }
@@ -1375,7 +1376,7 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
 
     // purge method
     out << "void purge() {\n";
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         out << "ind_" << i << ".clear();\n";
     }
     out << "}\n";
@@ -1396,11 +1397,11 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
 
     // generate orderIn and orderOut methods which reorder tuples
     // according to index orders
-    for (size_t i = 0; i < numIndexes; i++) {
+    for (std::size_t i = 0; i < numIndexes; i++) {
         auto ind = inds[i];
         out << "static t_tuple orderIn_" << i << "(const t_tuple& t) {\n";
         out << "t_tuple res;\n";
-        for (size_t j = 0; j < ind.size(); j++) {
+        for (std::size_t j = 0; j < ind.size(); j++) {
             out << "res[" << j << "] = t[" << ind[j] << "];\n";
         }
         out << "return res;\n";
@@ -1408,7 +1409,7 @@ void EqrelRelation::generateTypeStruct(std::ostream& out) {
 
         out << "static t_tuple orderOut_" << i << "(const t_tuple& t) {\n";
         out << "t_tuple res;\n";
-        for (size_t j = 0; j < ind.size(); j++) {
+        for (std::size_t j = 0; j < ind.size(); j++) {
             out << "res[" << ind[j] << "] = t[" << j << "];\n";
         }
         out << "return res;\n";

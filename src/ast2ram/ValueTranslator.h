@@ -20,10 +20,6 @@
 #include "ast/utility/Visitor.h"
 #include "souffle/utility/ContainerUtil.h"
 
-namespace souffle {
-class SymbolTable;
-}
-
 namespace souffle::ast {
 class Argument;
 }
@@ -39,15 +35,14 @@ class ValueIndex;
 
 class ValueTranslator : public ast::Visitor<Own<ram::Expression>> {
 public:
-    ValueTranslator(const TranslatorContext& context, SymbolTable& symbolTable, const ValueIndex& index)
-            : context(context), symbolTable(symbolTable), index(index) {}
+    ValueTranslator(const TranslatorContext& context, const ValueIndex& index)
+            : context(context), index(index) {}
     virtual ~ValueTranslator() = default;
 
     virtual Own<ram::Expression> translateValue(const ast::Argument* arg) = 0;
 
 protected:
     const TranslatorContext& context;
-    SymbolTable& symbolTable;
     const ValueIndex& index;
 };
 

@@ -53,10 +53,10 @@ void MaterializeAggregationQueriesTransformer::instantiateUnnamedVariables(Claus
     struct InstantiateUnnamedVariables : public NodeMapper {
         mutable int count = 0;
         Own<Node> operator()(Own<Node> node) const override {
-            if (isA<UnnamedVariable>(node.get())) {
+            if (isA<UnnamedVariable>(node)) {
                 return mk<Variable>("_" + toString(count++));
             }
-            if (isA<Aggregator>(node.get())) {
+            if (isA<Aggregator>(node)) {
                 // then DON'T recurse
                 return node;
             }
@@ -92,7 +92,7 @@ std::set<std::string> MaterializeAggregationQueriesTransformer::distinguishHeadA
         headArguments.insert(localVarName);
     }
     // find local variables of inner aggregate and remove them
-    visitDepthFirst(aggregate, [&](const Aggregator& innerAggregate) {
+    visit(aggregate, [&](const Aggregator& innerAggregate) {
         if (aggregate == innerAggregate) {
             return;
         }
@@ -116,16 +116,16 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
      **/
     struct NegateAggregateAtoms : public NodeMapper {
         std::unique_ptr<Node> operator()(std::unique_ptr<Node> node) const override {
-            if (auto* aggregate = dynamic_cast<Aggregator*>(node.get())) {
+            if (auto* aggregate = as<Aggregator>(node)) {
                 /**
                  * Go through body literals. If the literal is an atom,
                  * then replace the atom with a negated version of the atom, so that
                  * injected parameters that occur in an inner aggregate don't "seem" grounded.
                  **/
-                std::vector<Own<Literal>> newBody;
+                VecOwn<Literal> newBody;
                 for (const auto& lit : aggregate->getBodyLiterals()) {
-                    if (auto* atom = dynamic_cast<Atom*>(lit)) {
-                        newBody.push_back(mk<Negation>(souffle::clone(atom)));
+                    if (auto* atom = as<Atom>(lit)) {
+                        newBody.push_back(mk<Negation>(clone(atom)));
                     }
                 }
                 aggregate->setBody(std::move(newBody));
@@ -135,7 +135,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
         }
     };
 
-    auto aggClauseInnerAggregatesMasked = souffle::clone(&aggClause);
+    auto aggClauseInnerAggregatesMasked = clone(aggClause);
     aggClauseInnerAggregatesMasked->setHead(mk<Atom>("*"));
     NegateAggregateAtoms update;
     aggClauseInnerAggregatesMasked->apply(update);
@@ -146,7 +146,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
 
     std::set<std::string> alreadyGrounded;
     for (const auto& argPair : analysis::getGroundedTerms(translationUnit, *aggClauseInnerAggregatesMasked)) {
-        const auto* variable = dynamic_cast<const ast::Variable*>(argPair.first);
+        const auto* variable = as<ast::Variable>(argPair.first);
         bool variableIsGrounded = argPair.second;
         if (variable == nullptr || variableIsGrounded) {
             continue;
@@ -166,7 +166,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
         for (const auto& lit : originalClause.getBodyLiterals()) {
             // -1. This may not be the same literal
             bool originalAggregateFound = false;
-            visitDepthFirst(*lit, [&](const Aggregator& a) {
+            visit(*lit, [&](const Aggregator& a) {
                 if (a == aggregate) {
                     originalAggregateFound = true;
                     return;
@@ -181,7 +181,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
             }
             // 1. Variable must occur in this literal
             bool variableOccursInLit = false;
-            visitDepthFirst(*lit, [&](const Variable& var) {
+            visit(*lit, [&](const Variable& var) {
                 if (var.getName() == ungroundedVariableName) {
                     variableOccursInLit = true;
                 }
@@ -190,11 +190,11 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
                 continue;
             }
             // 2. Variable must be grounded by this literal.
-            auto singleLiteralClause = mk<Clause>();
-            singleLiteralClause->addToBody(souffle::clone(lit));
+            auto singleLiteralClause = mk<Clause>("*");
+            singleLiteralClause->addToBody(clone(lit));
             bool variableGroundedByLiteral = false;
             for (const auto& argPair : analysis::getGroundedTerms(translationUnit, *singleLiteralClause)) {
-                const auto* var = dynamic_cast<const ast::Variable*>(argPair.first);
+                const auto* var = as<ast::Variable>(argPair.first);
                 if (var == nullptr) {
                     continue;
                 }
@@ -210,7 +210,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
             //  the relation must be of a lower stratum for us to be able to add it. (not implemented)
             //  sanitise the atom by removing any unnecessary arguments that aren't constants
             //  or basically just any other variables
-            if (const auto* atom = dynamic_cast<const Atom*>(lit)) {
+            if (const auto* atom = as<Atom>(lit)) {
                 // Right now we only allow things to be grounded by atoms.
                 // This is limiting but the case of it being grounded by
                 // something else becomes complicated VERY quickly.
@@ -219,9 +219,9 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
                 // remove other unnecessary bloating arguments and replace with an underscore
                 VecOwn<Argument> arguments;
                 for (auto arg : atom->getArguments()) {
-                    if (auto* var = dynamic_cast<ast::Variable*>(arg)) {
+                    if (auto* var = as<ast::Variable>(arg)) {
                         if (var->getName() == ungroundedVariableName) {
-                            arguments.emplace_back(arg->clone());
+                            arguments.emplace_back(clone(arg));
                             continue;
                         }
                     }
@@ -230,7 +230,7 @@ void MaterializeAggregationQueriesTransformer::groundInjectedParameters(
 
                 auto groundingAtom =
                         mk<Atom>(atom->getQualifiedName(), std::move(arguments), atom->getSrcLoc());
-                aggClause.addToBody(souffle::clone(groundingAtom));
+                aggClause.addToBody(clone(groundingAtom));
                 alreadyGrounded.insert(ungroundedVariableName);
             }
         }
@@ -261,16 +261,16 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
      *
      **/
     std::set<const Aggregator*> innerAggregates;
-    visitDepthFirst(program, [&](const Aggregator& agg) {
-        visitDepthFirst(agg, [&](const Aggregator& innerAgg) {
+    visit(program, [&](const Aggregator& agg) {
+        visit(agg, [&](const Aggregator& innerAgg) {
             if (agg != innerAgg) {
                 innerAggregates.insert(&innerAgg);
             }
         });
     });
 
-    visitDepthFirst(program, [&](const Clause& clause) {
-        visitDepthFirst(clause, [&](const Aggregator& agg) {
+    visit(program, [&](Clause& clause) {
+        visit(clause, [&](Aggregator& agg) {
             if (!needsMaterializedRelation(agg)) {
                 return;
             }
@@ -280,11 +280,9 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             }
             // begin materialisation process
             auto aggregateBodyRelationName = analysis::findUniqueRelationName(program, "__agg_subclause");
-            auto aggClause = mk<Clause>();
             // quickly copy in all the literals from the aggregate body
-            for (const auto& lit : agg.getBodyLiterals()) {
-                aggClause->addToBody(souffle::clone(lit));
-            }
+            auto aggClause = mk<Clause>(aggregateBodyRelationName);
+            aggClause->setBodyLiterals(clone(agg.getBodyLiterals()));
             if (agg.getBaseOperator() == AggregateOp::COUNT) {
                 instantiateUnnamedVariables(*aggClause);
             }
@@ -293,13 +291,12 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             // the head must contain all injected/local variables, but not variables
             // local to any inner aggregates. So we'll just take a set minus here.
             // auto aggClauseHead = mk<Atom>(aggregateBodyRelationName);
-            auto* aggClauseHead = new Atom(aggregateBodyRelationName);
+            auto* aggClauseHead = aggClause->getHead();
             std::set<std::string> headArguments = distinguishHeadArguments(translationUnit, clause, agg);
             // insert the head arguments into the head atom
             for (const auto& variableName : headArguments) {
                 aggClauseHead->addArgument(mk<Variable>(variableName));
             }
-            aggClause->setHead(Own<Atom>(aggClauseHead));
             // add them to the relation as well (need to do a bit of type analysis to make this work)
             auto aggRel = mk<Relation>(aggregateBodyRelationName);
             std::map<const Argument*, analysis::TypeSet> argTypes =
@@ -322,13 +319,12 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
             // so we should just quickly fetch the set of local variables for this aggregate.
             auto localVariables = analysis::getLocalVariables(translationUnit, clause, agg);
             if (agg.getTargetExpression() != nullptr) {
-                const auto* targetExpressionVariable =
-                        dynamic_cast<const Variable*>(agg.getTargetExpression());
+                const auto* targetExpressionVariable = as<Variable>(agg.getTargetExpression());
                 localVariables.erase(targetExpressionVariable->getName());
             }
             VecOwn<Argument> args;
             for (auto arg : aggClauseHead->getArguments()) {
-                if (auto* var = dynamic_cast<ast::Variable*>(arg)) {
+                if (auto* var = as<ast::Variable>(arg)) {
                     // replace local variable by underscore if local, only injected or
                     // target variables will appear
                     if (localVariables.find(var->getName()) != localVariables.end()) {
@@ -336,14 +332,14 @@ bool MaterializeAggregationQueriesTransformer::materializeAggregationQueries(
                         continue;
                     }
                 }
-                args.emplace_back(arg->clone());
+                args.emplace_back(clone(arg));
             }
             auto aggAtom =
                     mk<Atom>(aggClauseHead->getQualifiedName(), std::move(args), aggClauseHead->getSrcLoc());
 
             VecOwn<Literal> newBody;
             newBody.push_back(std::move(aggAtom));
-            const_cast<Aggregator&>(agg).setBody(std::move(newBody));
+            agg.setBody(std::move(newBody));
             // Now we can just add these new things (relation and its single clause) to the program
             program.addClause(std::move(aggClause));
             program.addRelation(std::move(aggRel));
@@ -358,7 +354,7 @@ bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(const A
     int countAtoms = 0;
     const Atom* atom = nullptr;
     for (const auto& literal : agg.getBodyLiterals()) {
-        const Atom* currentAtom = dynamic_cast<const Atom*>(literal);
+        const Atom* currentAtom = as<Atom>(literal);
         if (currentAtom != nullptr) {
             ++countAtoms;
             atom = currentAtom;
@@ -371,7 +367,7 @@ bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(const A
 
     bool seenInnerAggregate = false;
     // If we have an aggregate within this aggregate => materialize
-    visitDepthFirst(agg, [&](const Aggregator& innerAgg) {
+    visit(agg, [&](const Aggregator& innerAgg) {
         if (agg != innerAgg) {
             seenInnerAggregate = true;
         }
@@ -385,7 +381,7 @@ bool MaterializeAggregationQueriesTransformer::needsMaterializedRelation(const A
     bool duplicates = false;
     std::set<std::string> vars;
     if (atom != nullptr) {
-        visitDepthFirst(*atom, [&](const ast::Variable& var) {
+        visit(*atom, [&](const ast::Variable& var) {
             duplicates = duplicates || !vars.insert(var.getName()).second;
         });
     }

@@ -26,7 +26,7 @@ struct Location {
     const int identifier;
     const int element;
 
-    // TODO (azreika): change these to size_t
+    // TODO (azreika): change these to std::size_t
     Location(int ident, int elem) : identifier(ident), element(elem) {}
 
     Location(const Location& l) = default;

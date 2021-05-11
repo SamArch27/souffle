@@ -203,23 +203,23 @@ struct get_full_index<0> {
 
 }  // namespace index_utils
 
-template <size_t Arity>
+template <std::size_t Arity>
 using t_tuple = typename souffle::Tuple<RamDomain, Arity>;
 
 // The comparator to be used for B-tree nodes.
-template <size_t Arity>
+template <std::size_t Arity>
 using comparator = typename index_utils::get_full_index<Arity>::type::comparator;
 
 // Alias for btree_set
-template <size_t Arity>
+template <std::size_t Arity>
 using Btree = btree_set<t_tuple<Arity>, comparator<Arity>>;
 
 // Alias for Trie
-template <size_t Arity>
+template <std::size_t Arity>
 using Brie = Trie<Arity>;
 
 // Updater for Provenance
-template <size_t Arity>
+template <std::size_t Arity>
 struct ProvenanceUpdater {
     void update(t_tuple<Arity>& old_t, const t_tuple<Arity>& new_t) {
         old_t[Arity - 2] = new_t[Arity - 2];
@@ -228,14 +228,14 @@ struct ProvenanceUpdater {
 };
 
 // Alias for Provenance
-template <size_t Arity>
+template <std::size_t Arity>
 using Provenance = btree_set<t_tuple<Arity>, comparator<Arity>, std::allocator<t_tuple<Arity>>, 256,
         typename detail::default_strategy<t_tuple<Arity>>::type, comparator<Arity - 2>,
         ProvenanceUpdater<Arity>>;
 
 // Alias for Eqrel
 // Note: require Arity = 2.
-template <size_t Arity>
+template <std::size_t Arity>
 using Eqrel = EquivalenceRelation<t_tuple<Arity>>;
 
 };  // namespace souffle::interpreter

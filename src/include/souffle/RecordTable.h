@@ -32,7 +32,7 @@ namespace souffle {
 /** @brief Bidirectional mappping between records and record references */
 class RecordMap {
     /** arity of record */
-    const size_t arity;
+    const std::size_t arity;
 
     /** hash function for unordered record map */
     struct RecordHash {
@@ -55,7 +55,8 @@ class RecordMap {
     std::vector<std::vector<RamDomain>> indexToRecord;
 
 public:
-    explicit RecordMap(size_t arity) : arity(arity), indexToRecord(1) {}  // note: index 0 element left free
+    explicit RecordMap(std::size_t arity)
+            : arity(arity), indexToRecord(1) {}  // note: index 0 element left free
 
     /** @brief converts record to a record reference */
     // TODO (b-scholz): replace vector<RamDomain> with something more memory-frugal
@@ -89,7 +90,7 @@ public:
         // copied for the newly created entry but this will be the less
         // frequent case.
         std::vector<RamDomain> tmp(arity);
-        for (size_t i = 0; i < arity; i++) {
+        for (std::size_t i = 0; i < arity; i++) {
             tmp[i] = tuple[i];
         }
         return pack(std::move(tmp));
@@ -110,12 +111,12 @@ public:
     virtual ~RecordTable() = default;
 
     /** @brief convert record to record reference */
-    RamDomain pack(const RamDomain* tuple, size_t arity) {
+    RamDomain pack(const RamDomain* tuple, std::size_t arity) {
         return lookupArity(arity).pack(tuple);
     }
     /** @brief convert record reference to a record */
-    const RamDomain* unpack(RamDomain ref, size_t arity) const {
-        std::unordered_map<size_t, RecordMap>::const_iterator iter;
+    const RamDomain* unpack(RamDomain ref, std::size_t arity) const {
+        std::unordered_map<std::size_t, RecordMap>::const_iterator iter;
 #pragma omp critical(RecordTableGetForArity)
         {
             // Find a previously emplaced map
@@ -127,8 +128,8 @@ public:
 
 private:
     /** @brief lookup RecordMap for a given arity; if it does not exist, create new RecordMap */
-    RecordMap& lookupArity(size_t arity) {
-        std::unordered_map<size_t, RecordMap>::iterator mapsIterator;
+    RecordMap& lookupArity(std::size_t arity) {
+        std::unordered_map<std::size_t, RecordMap>::iterator mapsIterator;
 #pragma omp critical(RecordTableGetForArity)
         {
             // This will create a new map if it doesn't exist yet.
@@ -138,7 +139,7 @@ private:
     }
 
     /** Arity/RecordMap association */
-    std::unordered_map<size_t, RecordMap> maps;
+    std::unordered_map<std::size_t, RecordMap> maps;
 };
 
 /** @brief helper to convert tuple to record reference for the synthesiser */

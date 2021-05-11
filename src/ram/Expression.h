@@ -26,7 +26,7 @@ namespace souffle::ram {
  */
 class Expression : public Node {
 public:
-    Expression* clone() const override = 0;
+    Expression* cloning() const override = 0;
 };
 
 }  // namespace souffle::ram

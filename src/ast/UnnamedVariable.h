@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include <ostream>
+#include <iosfwd>
 
 namespace souffle::ast {
 
@@ -29,14 +29,11 @@ class UnnamedVariable : public Argument {
 public:
     using Argument::Argument;
 
-    UnnamedVariable* clone() const override {
-        return new UnnamedVariable(getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& os) const override {
-        os << "_";
-    }
+    void print(std::ostream& os) const override;
+
+private:
+    UnnamedVariable* cloning() const override;
 };
 
 }  // namespace souffle::ast

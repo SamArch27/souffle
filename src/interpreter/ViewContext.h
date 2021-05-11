@@ -62,22 +62,22 @@ public:
     }
 
     /** @brief Return Views information for outer filter operation */
-    std::vector<std::array<size_t, 3>>& getViewInfoForFilter() {
+    std::vector<std::array<std::size_t, 3>>& getViewInfoForFilter() {
         return viewInfoForFilter;
     }
 
     /** @brief Return Views information for nested operation */
-    std::vector<std::array<size_t, 3>>& getViewInfoForNested() {
+    std::vector<std::array<std::size_t, 3>>& getViewInfoForNested() {
         return viewInfoForNested;
     }
 
     /** @brief Add View creation information into the list for outer filter.  */
-    void addViewInfoForFilter(size_t relId, size_t indexPos, size_t viewPos) {
+    void addViewInfoForFilter(std::size_t relId, std::size_t indexPos, std::size_t viewPos) {
         viewInfoForFilter.push_back({relId, indexPos, viewPos});
     }
 
     /** @brief Add View creation information into the list for nested oprations. */
-    void addViewInfoForNested(size_t relId, size_t indexPos, size_t viewPos) {
+    void addViewInfoForNested(std::size_t relId, std::size_t indexPos, std::size_t viewPos) {
         viewInfoForNested.push_back({relId, indexPos, viewPos});
     }
 
@@ -92,9 +92,9 @@ private:
     /** Vector of nested operations */
     VecOwn<Node> nestedViewOps;
     /** Vector of View information in filter operations */
-    std::vector<std::array<size_t, 3>> viewInfoForFilter;
+    std::vector<std::array<std::size_t, 3>> viewInfoForFilter;
     /** Vector of View information in nested operations */
-    std::vector<std::array<size_t, 3>> viewInfoForNested;
+    std::vector<std::array<std::size_t, 3>> viewInfoForNested;
 };
 
 }  // namespace souffle::interpreter

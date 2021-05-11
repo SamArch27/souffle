@@ -36,7 +36,7 @@
 namespace testutil {
 
 template <typename T>
-std::vector<T> generateRandomVector(const size_t vectorSize, const int seed = 3) {
+std::vector<T> generateRandomVector(const std::size_t vectorSize, const int seed = 3) {
     std::vector<T> values(vectorSize);
 
     std::default_random_engine randomGenerator(seed);
@@ -70,11 +70,11 @@ static class TestCase* base = nullptr;
 
 class TestCase {
 private:
-    TestCase* next;     // next test case (linked by constructor)
-    std::string group;  // group name of test
-    std::string test;   // test name of test
-    size_t num_checks;  // number of checks
-    size_t num_failed;  // number of failed checks
+    TestCase* next;          // next test case (linked by constructor)
+    std::string group;       // group name of test
+    std::string test;        // test name of test
+    std::size_t num_checks;  // number of checks
+    std::size_t num_failed;  // number of failed checks
 
 protected:
     std::ostream& logstream;  // logfile
@@ -156,14 +156,14 @@ public:
     /**
      * get number of checks
      */
-    size_t getChecks() const {
+    std::size_t getChecks() const {
         return num_checks;
     }
 
     /**
      * get number of failed checks
      */
-    size_t getFailed() const {
+    std::size_t getFailed() const {
         return num_failed;
     }
 };

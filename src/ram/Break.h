@@ -47,8 +47,8 @@ public:
     Break(Own<Condition> cond, Own<Operation> nested, std::string profileText = "")
             : AbstractConditional(std::move(cond), std::move(nested), std::move(profileText)) {}
 
-    Break* clone() const override {
-        return new Break(souffle::clone(condition), souffle::clone(&getOperation()), getProfileText());
+    Break* cloning() const override {
+        return new Break(clone(condition), clone(getOperation()), getProfileText());
     }
 
 protected:

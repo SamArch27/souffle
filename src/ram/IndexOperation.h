@@ -88,16 +88,16 @@ public:
         }
     }
 
-    IndexOperation* clone() const override {
+    IndexOperation* cloning() const override {
         RamPattern resQueryPattern;
         for (const auto& i : queryPattern.first) {
-            resQueryPattern.first.emplace_back(i->clone());
+            resQueryPattern.first.emplace_back(i->cloning());
         }
         for (const auto& i : queryPattern.second) {
-            resQueryPattern.second.emplace_back(i->clone());
+            resQueryPattern.second.emplace_back(i->cloning());
         }
-        return new IndexOperation(relation, getTupleId(), std::move(resQueryPattern),
-                souffle::clone(&getOperation()), getProfileText());
+        return new IndexOperation(
+                relation, getTupleId(), std::move(resQueryPattern), clone(getOperation()), getProfileText());
     }
 
     /** @brief Helper method for printing */
@@ -147,7 +147,7 @@ public:
 
 protected:
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const IndexOperation&>(node);
+        const auto& other = asAssert<IndexOperation>(node);
         return RelationOperation::equal(other) &&
                equal_targets(queryPattern.first, other.queryPattern.first) &&
                equal_targets(queryPattern.second, other.queryPattern.second);

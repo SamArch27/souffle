@@ -67,7 +67,7 @@ protected:
             return nullptr;
         }
         std::string line;
-        Own<RamDomain[]> tuple = std::make_unique<RamDomain[]>(typeAttributes.size());
+        Own<RamDomain[]> tuple = mk<RamDomain[]>(typeAttributes.size());
 
         if (!getline(file, line)) {
             return nullptr;
@@ -78,11 +78,11 @@ protected:
         }
         ++lineNumber;
 
-        size_t start = 0;
-        size_t end = 0;
-        size_t columnsFilled = 0;
+        std::size_t start = 0;
+        std::size_t end = 0;
+        std::size_t columnsFilled = 0;
         for (uint32_t column = 0; columnsFilled < arity; column++) {
-            size_t charactersRead = 0;
+            std::size_t charactersRead = 0;
             std::string element = nextElement(line, start, end);
             if (inputMap.count(column) == 0) {
                 continue;
@@ -93,7 +93,7 @@ protected:
                 auto&& ty = typeAttributes.at(inputMap[column]);
                 switch (ty[0]) {
                     case 's': {
-                        tuple[inputMap[column]] = symbolTable.unsafeLookup(element);
+                        tuple[inputMap[column]] = symbolTable.unsafeEncode(element);
                         charactersRead = element.size();
                         break;
                     }
@@ -139,7 +139,7 @@ protected:
      * Read an unsigned element. Possible bases are 2, 10, 16
      * Base is indicated by the first two chars.
      */
-    RamUnsigned readRamUnsigned(const std::string& element, size_t& charactersRead) {
+    RamUnsigned readRamUnsigned(const std::string& element, std::size_t& charactersRead) {
         // Sanity check
         assert(element.size() > 0);
 
@@ -156,13 +156,13 @@ protected:
         return value;
     }
 
-    std::string nextElement(const std::string& line, size_t& start, size_t& end) {
+    std::string nextElement(const std::string& line, std::size_t& start, std::size_t& end) {
         std::string element;
 
         // Handle record/tuple delimiter coincidence.
         if (delimiter.find(',') != std::string::npos) {
             int record_parens = 0;
-            size_t next_delimiter = line.find(delimiter, start);
+            std::size_t next_delimiter = line.find(delimiter, start);
 
             // Find first delimiter after the record.
             while (end < std::min(next_delimiter, line.length()) || record_parens != 0) {
@@ -236,7 +236,7 @@ protected:
 
     const std::string delimiter;
     std::istream& file;
-    size_t lineNumber;
+    std::size_t lineNumber;
     std::map<int, int> inputMap;
 };
 

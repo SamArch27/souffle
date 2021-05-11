@@ -56,8 +56,8 @@ public:
         return {body.get()};
     }
 
-    Loop* clone() const override {
-        return new Loop(souffle::clone(body));
+    Loop* cloning() const override {
+        return new Loop(clone(body));
     }
 
     void apply(const NodeMapper& map) override {
@@ -72,7 +72,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Loop&>(node);
+        const auto& other = asAssert<Loop>(node);
         return equal_ptr(body, other.body);
     }
 

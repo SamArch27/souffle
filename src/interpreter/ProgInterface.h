@@ -28,6 +28,7 @@
 #include "souffle/RamTypes.h"
 #include "souffle/SouffleInterface.h"
 #include "souffle/SymbolTable.h"
+#include "souffle/utility/MiscUtil.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -93,19 +94,19 @@ public:
     }
 
     /** Get attribute type */
-    const char* getAttrType(size_t idx) const override {
+    const char* getAttrType(std::size_t idx) const override {
         assert(idx < getArity() && "exceeded tuple size");
         return types[idx].c_str();
     }
 
     /** Get attribute name */
-    const char* getAttrName(size_t idx) const override {
+    const char* getAttrName(std::size_t idx) const override {
         assert(idx < getArity() && "exceeded tuple size");
         return attrNames[idx].c_str();
     }
 
     /** Get number of tuples in relation */
-    size_t size() const override {
+    std::size_t size() const override {
         return relation.size();
     }
 
@@ -135,10 +136,10 @@ protected:
             tup.rewind();
 
             // construct the tuple to return
-            for (size_t i = 0; i < ramRelationInterface->getArity(); i++) {
+            for (std::size_t i = 0; i < ramRelationInterface->getArity(); i++) {
                 switch (*(ramRelationInterface->getAttrType(i))) {
                     case 's': {
-                        std::string s = ramRelationInterface->getSymbolTable().resolve((*it)[i]);
+                        std::string s = ramRelationInterface->getSymbolTable().decode((*it)[i]);
                         tup << s;
                         break;
                     }
@@ -168,12 +169,8 @@ protected:
     protected:
         /** Check equivalence */
         bool equal(const souffle::Relation::iterator_base& o) const override {
-            try {
-                auto& iter = dynamic_cast<const RelInterface::iterator_base&>(o);
-                return ramRelationInterface == iter.ramRelationInterface && it == iter.it;
-            } catch (const std::bad_cast& e) {
-                return false;
-            }
+            auto& iter = asAssert<RelInterface::iterator_base>(o);
+            return ramRelationInterface == iter.ramRelationInterface && it == iter.it;
         }
 
     private:
@@ -214,7 +211,7 @@ public:
 
         // Retrieve AST Relations and store them in a map
         std::map<std::string, const ram::Relation*> map;
-        visitDepthFirst(prog, [&](const ram::Relation& rel) { map[rel.getName()] = &rel; });
+        visit(prog, [&](const ram::Relation& rel) { map[rel.getName()] = &rel; });
 
         // Build wrapper relations for Souffle's interface
         for (auto& relHandler : exec.getRelationMap()) {
@@ -235,7 +232,7 @@ public:
             interfaces.push_back(interface);
             bool input = false;
             bool output = false;
-            visitDepthFirst(prog, [&](const ram::IO& io) {
+            visit(prog, [&](const ram::IO& io) {
                 if (map[io.getRelation()] == &rel) {
                     const std::string& op = io.get("operation");
                     if (op == "input") {

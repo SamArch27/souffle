@@ -51,16 +51,16 @@ public:
     }
 
     // Creates a natural order for the given arity.
-    static Order create(size_t arity) {
+    static Order create(std::size_t arity) {
         Order res;
         res.order.resize(arity);
-        for (size_t i = 0; i < arity; i++) {
+        for (std::size_t i = 0; i < arity; i++) {
             res.order[i] = i;
         }
         return res;
     }
 
-    size_t size() const {
+    std::size_t size() const {
         return order.size();
     }
 
@@ -75,8 +75,8 @@ public:
             }
         }
         // Check that there are no duplicates.
-        for (size_t i = 0; i < order.size(); i++) {
-            for (size_t j = i + 1; j < order.size(); j++) {
+        for (std::size_t i = 0; i < order.size(); i++) {
+            for (std::size_t j = i + 1; j < order.size(); j++) {
                 if (order[i] == order[j]) {
                     return false;
                 }
@@ -88,10 +88,10 @@ public:
     /**
      * Encode the tuple with order
      */
-    template <size_t Arity>
+    template <std::size_t Arity>
     Tuple<RamDomain, Arity> encode(const Tuple<RamDomain, Arity>& entry) const {
         Tuple<RamDomain, Arity> res{};
-        for (size_t i = 0; i < Arity; ++i) {
+        for (std::size_t i = 0; i < Arity; ++i) {
             res[i] = entry[order[i]];
         }
         return res;
@@ -100,10 +100,10 @@ public:
     /**
      * Decode the tuple by order
      */
-    template <size_t Arity>
+    template <std::size_t Arity>
     Tuple<RamDomain, Arity> decode(const Tuple<RamDomain, Arity>& entry) const {
         Tuple<RamDomain, Arity> res{};
-        for (size_t i = 0; i < Arity; ++i) {
+        for (std::size_t i = 0; i < Arity; ++i) {
             res[order[i]] = entry[i];
         }
         return res;
@@ -121,7 +121,7 @@ public:
         return !(*this == other);
     }
 
-    Attribute operator[](const size_t idx) const {
+    Attribute operator[](const std::size_t idx) const {
         return order[idx];
     }
 
@@ -142,10 +142,10 @@ struct ViewWrapper {
 /**
  * An index is an abstraction of a data structure
  */
-template <size_t _Arity, template <size_t> typename Structure>
+template <std::size_t _Arity, template <std::size_t> typename Structure>
 class Index {
 public:
-    static constexpr size_t Arity = _Arity;
+    static constexpr std::size_t Arity = _Arity;
     using Data = Structure<Arity>;
     using Tuple = typename souffle::Tuple<RamDomain, Arity>;
     using iterator = typename Data::iterator;
@@ -225,7 +225,7 @@ public:
     /**
      * Obtains the number of elements stored in this index.
      */
-    size_t size() const {
+    std::size_t size() const {
         return data.size();
     }
 
@@ -316,10 +316,10 @@ public:
  * A partial specialize template for nullary indexes.
  * No complex data structure is required.
  */
-template <template <size_t> typename Structure>
+template <template <std::size_t> typename Structure>
 class Index<0, Structure> {
 public:
-    static constexpr size_t Arity = 0;
+    static constexpr std::size_t Arity = 0;
     using Tuple = typename souffle::Tuple<RamDomain, 0>;
 
 protected:
@@ -397,7 +397,7 @@ public:
         return !data;
     }
 
-    size_t size() const {
+    std::size_t size() const {
         return data ? 1 : 0;
     }
 

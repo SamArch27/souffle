@@ -29,7 +29,7 @@ bool PragmaChecker::transform(TranslationUnit& translationUnit) {
     Program& program = translationUnit.getProgram();
 
     // Take in pragma options from the datalog file
-    visitDepthFirst(program, [&](const Pragma& pragma) {
+    visit(program, [&](const Pragma& pragma) {
         std::pair<std::string, std::string> kvp = pragma.getkvp();
 
         // Command line options take precedence

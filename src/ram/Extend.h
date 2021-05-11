@@ -48,7 +48,7 @@ public:
         return getSecondRelation();
     }
 
-    Extend* clone() const override {
+    Extend* cloning() const override {
         auto* res = new Extend(second, first);
         return res;
     }

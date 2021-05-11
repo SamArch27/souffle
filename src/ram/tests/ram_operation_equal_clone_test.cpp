@@ -8,9 +8,9 @@
 
 /************************************************************************
  *
- * @file ram_operation_equal_clone_test.cpp
+ * @file ram_operation_equal_cloning_test.cpp
  *
- * Tests equal and clone function of Condition classes.
+ * Tests equal and cloning function of Condition classes.
  *
  ***********************************************************************/
 
@@ -20,7 +20,6 @@
 #include "RelationTag.h"
 #include "ram/Aggregate.h"
 #include "ram/Break.h"
-#include "ram/Choice.h"
 #include "ram/Condition.h"
 #include "ram/Conjunction.h"
 #include "ram/Constraint.h"
@@ -28,17 +27,18 @@
 #include "ram/ExistenceCheck.h"
 #include "ram/Expression.h"
 #include "ram/Filter.h"
+#include "ram/IfExists.h"
 #include "ram/IndexAggregate.h"
-#include "ram/IndexChoice.h"
+#include "ram/IndexIfExists.h"
 #include "ram/IndexScan.h"
+#include "ram/Insert.h"
 #include "ram/Negation.h"
 #include "ram/Operation.h"
 #include "ram/PackRecord.h"
-#include "ram/ParallelChoice.h"
-#include "ram/ParallelIndexChoice.h"
+#include "ram/ParallelIfExists.h"
+#include "ram/ParallelIndexIfExists.h"
 #include "ram/ParallelIndexScan.h"
 #include "ram/ParallelScan.h"
-#include "ram/Project.h"
 #include "ram/Relation.h"
 #include "ram/Scan.h"
 #include "ram/SignedConstant.h"
@@ -72,7 +72,7 @@ TEST(RamScan, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Scan* c = a.clone();
+    Scan* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -95,7 +95,7 @@ TEST(RamParallelScan, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ParallelScan* c = a.clone();
+    ParallelScan* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -106,32 +106,32 @@ TEST(RamIndexScan, CloneAndEquals) {
     Relation vertex("vertex", 1, 1, {"x"}, {"i"}, RelationRepresentation::DEFAULT);
     // get vertices contain self loop
     // FOR t1 IN edge ON INDEX t1.x = t1.1 AND t1.y = ⊥
-    //  PROJECT (t1.0) INTO vertex
-    VecOwn<Expression> a_project_args;
-    a_project_args.emplace_back(new TupleElement(1, 0));
-    auto a_project = mk<Project>("vertex", std::move(a_project_args));
+    //  INSERT (t1.0) INTO vertex
+    VecOwn<Expression> a_insert_args;
+    a_insert_args.emplace_back(new TupleElement(1, 0));
+    auto a_insert = mk<Insert>("vertex", std::move(a_insert_args));
     RamPattern a_criteria;
     a_criteria.first.emplace_back(new TupleElement(1, 1));
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new TupleElement(1, 1));
     a_criteria.second.emplace_back(new UndefValue);
 
-    IndexScan a("edge", 1, std::move(a_criteria), std::move(a_project), "IndexScan test");
+    IndexScan a("edge", 1, std::move(a_criteria), std::move(a_insert), "IndexScan test");
 
-    VecOwn<Expression> b_project_args;
-    b_project_args.emplace_back(new TupleElement(1, 0));
-    auto b_project = mk<Project>("vertex", std::move(b_project_args));
+    VecOwn<Expression> b_insert_args;
+    b_insert_args.emplace_back(new TupleElement(1, 0));
+    auto b_insert = mk<Insert>("vertex", std::move(b_insert_args));
     RamPattern b_criteria;
     b_criteria.first.emplace_back(new TupleElement(1, 1));
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new TupleElement(1, 1));
     b_criteria.second.emplace_back(new UndefValue);
 
-    IndexScan b("edge", 1, std::move(b_criteria), std::move(b_project), "IndexScan test");
+    IndexScan b("edge", 1, std::move(b_criteria), std::move(b_insert), "IndexScan test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    IndexScan* c = a.clone();
+    IndexScan* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -142,43 +142,43 @@ TEST(RamParallelIndexScan, CloneAndEquals) {
     Relation new_edge("new_edge", 2, 1, {"x", "y"}, {"i", "i"}, RelationRepresentation::DEFAULT);
     // get edges direct to vertex 5
     // PARALLEL FOR t1 IN edge ON INDEX t1.x = ⊥ AND t1.y = 5
-    //  PROJECT (t1.0, t1.1) INTO new_edge
-    VecOwn<Expression> a_project_args;
-    a_project_args.emplace_back(new TupleElement(1, 0));
-    a_project_args.emplace_back(new TupleElement(1, 1));
-    auto a_project = mk<Project>("new_edge", std::move(a_project_args));
+    //  INSERT (t1.0, t1.1) INTO new_edge
+    VecOwn<Expression> a_insert_args;
+    a_insert_args.emplace_back(new TupleElement(1, 0));
+    a_insert_args.emplace_back(new TupleElement(1, 1));
+    auto a_insert = mk<Insert>("new_edge", std::move(a_insert_args));
     RamPattern a_criteria;
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.first.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
 
-    ParallelIndexScan a("edge", 1, std::move(a_criteria), std::move(a_project), "ParallelIndexScan test");
+    ParallelIndexScan a("edge", 1, std::move(a_criteria), std::move(a_insert), "ParallelIndexScan test");
 
-    VecOwn<Expression> b_project_args;
-    b_project_args.emplace_back(new TupleElement(1, 0));
-    b_project_args.emplace_back(new TupleElement(1, 1));
-    auto b_project = mk<Project>("new_edge", std::move(b_project_args));
+    VecOwn<Expression> b_insert_args;
+    b_insert_args.emplace_back(new TupleElement(1, 0));
+    b_insert_args.emplace_back(new TupleElement(1, 1));
+    auto b_insert = mk<Insert>("new_edge", std::move(b_insert_args));
     RamPattern b_criteria;
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.first.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
 
-    ParallelIndexScan b("edge", 1, std::move(b_criteria), std::move(b_project), "ParallelIndexScan test");
+    ParallelIndexScan b("edge", 1, std::move(b_criteria), std::move(b_insert), "ParallelIndexScan test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ParallelIndexScan* c = a.clone();
+    ParallelIndexScan* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
 }
 
-TEST(RamChoice, CloneAndEquals) {
+TEST(RamIfExists, CloneAndEquals) {
     Relation edge("edge", 2, 1, {"x", "y"}, {"i", "i"}, RelationRepresentation::DEFAULT);
     // choose an edge not adjcent to vertex 5
-    // CHOICE t1 IN edge WHERE NOT t1.0 = 5 AND NOT t1.1 = 5
+    // IF EXISTS t1 IN edge WHERE NOT t1.0 = 5 AND NOT t1.1 = 5
     //  RETURN (t1.0, t1.1)
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new TupleElement(1, 0));
@@ -191,7 +191,7 @@ TEST(RamChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto a_neg2 = mk<Negation>(std::move(a_constraint2));
     auto a_cond = mk<Conjunction>(std::move(a_neg1), std::move(a_neg2));
-    Choice a("edge", 1, std::move(a_cond), std::move(a_return), "Choice test");
+    IfExists a("edge", 1, std::move(a_cond), std::move(a_return), "IfExists test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -204,21 +204,21 @@ TEST(RamChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto b_neg2 = mk<Negation>(std::move(b_constraint2));
     auto b_cond = mk<Conjunction>(std::move(b_neg1), std::move(b_neg2));
-    Choice b("edge", 1, std::move(b_cond), std::move(b_return), "Choice test");
+    IfExists b("edge", 1, std::move(b_cond), std::move(b_return), "IfExists test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Choice* c = a.clone();
+    IfExists* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
 }
 
-TEST(RamParallelChoice, CloneAndEquals) {
+TEST(RamParallelIfExists, CloneAndEquals) {
     Relation edge("edge", 2, 1, {"x", "y"}, {"i", "i"}, RelationRepresentation::DEFAULT);
     // parallel choose an edge not adjcent to vertex 5
-    // PARALLEL CHOICE t1 IN edge WHERE NOT t1.0 = 5 AND NOT t1.1 = 5
+    // PARALLEL IF EXISTS t1 IN edge WHERE NOT t1.0 = 5 AND NOT t1.1 = 5
     //  RETURN (t1.0, t1.1)
     VecOwn<Expression> a_return_args;
     a_return_args.emplace_back(new TupleElement(1, 0));
@@ -231,7 +231,7 @@ TEST(RamParallelChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto a_neg2 = mk<Negation>(std::move(a_constraint2));
     auto a_cond = mk<Conjunction>(std::move(a_neg1), std::move(a_neg2));
-    ParallelChoice a("edge", 1, std::move(a_cond), std::move(a_return), "ParallelChoice test");
+    ParallelIfExists a("edge", 1, std::move(a_cond), std::move(a_return), "ParallelIfExists test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -244,18 +244,18 @@ TEST(RamParallelChoice, CloneAndEquals) {
             mk<Constraint>(BinaryConstraintOp::EQ, mk<TupleElement>(1, 1), mk<SignedConstant>(5));
     auto b_neg2 = mk<Negation>(std::move(b_constraint2));
     auto b_cond = mk<Conjunction>(std::move(b_neg1), std::move(b_neg2));
-    ParallelChoice b("edge", 1, std::move(b_cond), std::move(b_return), "ParallelChoice test");
+    ParallelIfExists b("edge", 1, std::move(b_cond), std::move(b_return), "ParallelIfExists test");
 
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ParallelChoice* c = a.clone();
+    ParallelIfExists* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
 }
 
-TEST(RamIndexChoice, CloneAndEquals) {
+TEST(RamIndexIfExists, CloneAndEquals) {
     Relation edge("edge", 2, 1, {"x", "y"}, {"i", "i"}, RelationRepresentation::DEFAULT);
     // FOR t1 IN edge ON INDEX t1.x = 5 AND t1.y = ⊥
     // WHERE NOT t1.1 = 5
@@ -271,8 +271,8 @@ TEST(RamIndexChoice, CloneAndEquals) {
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
-    IndexChoice a(
-            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexChoice test");
+    IndexIfExists a(
+            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexIfExists test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -285,18 +285,18 @@ TEST(RamIndexChoice, CloneAndEquals) {
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
-    IndexChoice b(
-            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexChoice test");
+    IndexIfExists b(
+            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexIfExists test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    IndexChoice* c = a.clone();
+    IndexIfExists* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
 }
 
-TEST(RamiParallelIndexChoice, CloneAndEquals) {
+TEST(RamiParallelIndexIfExists, CloneAndEquals) {
     Relation edge("edge", 2, 1, {"x", "y"}, {"i", "i"}, RelationRepresentation::DEFAULT);
     // PARALLEL FOR t1 IN edge ON INDEX t1.x = 5 AND t1.y = ⊥
     // WHERE NOT t1.1 = 5
@@ -312,8 +312,8 @@ TEST(RamiParallelIndexChoice, CloneAndEquals) {
     a_criteria.first.emplace_back(new UndefValue);
     a_criteria.second.emplace_back(new SignedConstant(5));
     a_criteria.second.emplace_back(new UndefValue);
-    ParallelIndexChoice a(
-            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexChoice test");
+    ParallelIndexIfExists a(
+            "edge", 1, std::move(a_neg), std::move(a_criteria), std::move(a_return), "IndexIfExists test");
 
     VecOwn<Expression> b_return_args;
     b_return_args.emplace_back(new TupleElement(1, 0));
@@ -326,12 +326,12 @@ TEST(RamiParallelIndexChoice, CloneAndEquals) {
     b_criteria.first.emplace_back(new UndefValue);
     b_criteria.second.emplace_back(new SignedConstant(5));
     b_criteria.second.emplace_back(new UndefValue);
-    ParallelIndexChoice b(
-            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexChoice test");
+    ParallelIndexIfExists b(
+            "edge", 1, std::move(b_neg), std::move(b_criteria), std::move(b_return), "IndexIfExists test");
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    ParallelIndexChoice* c = a.clone();
+    ParallelIndexIfExists* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -353,7 +353,7 @@ TEST(RamAggregate, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Aggregate* c = a.clone();
+    Aggregate* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -390,7 +390,7 @@ TEST(RamIndexAggregate, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    IndexAggregate* c = a.clone();
+    IndexAggregate* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -419,7 +419,7 @@ TEST(RamUnpackedRecord, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    UnpackRecord* c = a.clone();
+    UnpackRecord* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -447,7 +447,7 @@ TEST(RamFilter, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Filter* c = a.clone();
+    Filter* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -469,28 +469,28 @@ TEST(RamBreak, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Break* c = a.clone();
+    Break* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
 }
 
-TEST(RamProject, CloneAndEquals) {
+TEST(RamInsert, CloneAndEquals) {
     Relation A("A", 2, 1, {"a", "b"}, {"i", "i"}, RelationRepresentation::DEFAULT);
-    // PROJECT (t0.1, t0.3) INTO A
+    // INSERT (t0.1, t0.3) INTO A
     VecOwn<Expression> a_args;
     a_args.emplace_back(new TupleElement(0, 1));
     a_args.emplace_back(new TupleElement(0, 3));
-    Project a("A", std::move(a_args));
+    Insert a("A", std::move(a_args));
 
     VecOwn<Expression> b_args;
     b_args.emplace_back(new TupleElement(0, 1));
     b_args.emplace_back(new TupleElement(0, 3));
-    Project b("A", std::move(b_args));
+    Insert b("A", std::move(b_args));
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Project* c = a.clone();
+    Insert* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -510,7 +510,7 @@ TEST(RamSubroutineReturn, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    SubroutineReturn* c = a.clone();
+    SubroutineReturn* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
@@ -526,7 +526,7 @@ TEST(RamSubroutineReturn, CloneAndEquals) {
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
-    SubroutineReturn* f = d.clone();
+    SubroutineReturn* f = d.cloning();
     EXPECT_EQ(d, *f);
     EXPECT_NE(&d, f);
     delete f;

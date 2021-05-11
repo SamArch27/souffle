@@ -19,9 +19,8 @@
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
-#include <ostream>
+#include <iosfwd>
 #include <string>
-#include <utility>
 
 namespace souffle::ast {
 
@@ -35,8 +34,7 @@ namespace souffle::ast {
  */
 class Attribute : public Node {
 public:
-    Attribute(std::string n, QualifiedName t, SrcLocation loc = {})
-            : Node(std::move(loc)), name(std::move(n)), typeName(std::move(t)) {}
+    Attribute(std::string n, QualifiedName t, SrcLocation loc = {});
 
     /** Return attribute name */
     const std::string& getName() const {
@@ -49,23 +47,15 @@ public:
     }
 
     /** Set type name */
-    void setTypeName(QualifiedName name) {
-        typeName = std::move(name);
-    }
-
-    Attribute* clone() const override {
-        return new Attribute(name, typeName, getSrcLoc());
-    }
+    void setTypeName(QualifiedName name);
 
 protected:
-    void print(std::ostream& os) const override {
-        os << name << ":" << typeName;
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Attribute&>(node);
-        return name == other.name && typeName == other.typeName;
-    }
+private:
+    bool equal(const Node& node) const override;
+
+    Attribute* cloning() const override;
 
 private:
     /** Attribute name */

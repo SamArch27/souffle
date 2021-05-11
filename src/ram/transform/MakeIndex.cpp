@@ -42,10 +42,10 @@ namespace souffle::ram::transform {
 using ExpressionPair = std::pair<Own<Expression>, Own<Expression>>;
 
 ExpressionPair MakeIndexTransformer::getExpressionPair(
-        const Constraint* binRelOp, size_t& element, int identifier) {
+        const Constraint* binRelOp, std::size_t& element, int identifier) {
     if (isLessEqual(binRelOp->getOperator())) {
         // Tuple[level, element] <= <expr>
-        if (const auto* lhs = dynamic_cast<const TupleElement*>(&binRelOp->getLHS())) {
+        if (const auto* lhs = as<TupleElement>(binRelOp->getLHS())) {
             const Expression* rhs = &binRelOp->getRHS();
             if (lhs->getTupleId() == identifier && rla->getLevel(rhs) < identifier) {
                 element = lhs->getElement();
@@ -53,7 +53,7 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
             }
         }
         // <expr> <= Tuple[level, element]
-        if (const auto* rhs = dynamic_cast<const TupleElement*>(&binRelOp->getRHS())) {
+        if (const auto* rhs = as<TupleElement>(binRelOp->getRHS())) {
             const Expression* lhs = &binRelOp->getLHS();
             if (rhs->getTupleId() == identifier && rla->getLevel(lhs) < identifier) {
                 element = rhs->getElement();
@@ -64,7 +64,7 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
 
     if (isGreaterEqual(binRelOp->getOperator())) {
         // Tuple[level, element] >= <expr>
-        if (const auto* lhs = dynamic_cast<const TupleElement*>(&binRelOp->getLHS())) {
+        if (const auto* lhs = as<TupleElement>(binRelOp->getLHS())) {
             const Expression* rhs = &binRelOp->getRHS();
             if (lhs->getTupleId() == identifier && rla->getLevel(rhs) < identifier) {
                 element = lhs->getElement();
@@ -72,7 +72,7 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
             }
         }
         // <expr> >= Tuple[level, element]
-        if (const auto* rhs = dynamic_cast<const TupleElement*>(&binRelOp->getRHS())) {
+        if (const auto* rhs = as<TupleElement>(binRelOp->getRHS())) {
             const Expression* lhs = &binRelOp->getLHS();
             if (rhs->getTupleId() == identifier && rla->getLevel(lhs) < identifier) {
                 element = rhs->getElement();
@@ -86,8 +86,8 @@ ExpressionPair MakeIndexTransformer::getExpressionPair(
 // Retrieves the <expr1> <= Tuple[level, element] <= <expr2> part of the constraint as a pair { <expr1>,
 // <expr2> }
 ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
-        Condition* c, size_t& element, int identifier, RelationRepresentation rep) {
-    if (auto* binRelOp = dynamic_cast<Constraint*>(c)) {
+        Condition* c, std::size_t& element, int identifier, RelationRepresentation rep) {
+    if (auto* binRelOp = as<Constraint>(c)) {
         bool interpreter = !Global::config().has("compile") && !Global::config().has("dl-program") &&
                            !Global::config().has("generate") && !Global::config().has("swig");
         bool provenance = Global::config().has("provenance");
@@ -122,14 +122,14 @@ ExpressionPair MakeIndexTransformer::getLowerUpperExpression(
         }
 
         if (isEqConstraint(op)) {
-            if (const auto* lhs = dynamic_cast<const TupleElement*>(&binRelOp->getLHS())) {
+            if (const auto* lhs = as<TupleElement>(binRelOp->getLHS())) {
                 const Expression* rhs = &binRelOp->getRHS();
                 if (lhs->getTupleId() == identifier && rla->getLevel(rhs) < identifier) {
                     element = lhs->getElement();
                     return {clone(rhs), clone(rhs)};
                 }
             }
-            if (const auto* rhs = dynamic_cast<const TupleElement*>(&binRelOp->getRHS())) {
+            if (const auto* rhs = as<TupleElement>(binRelOp->getRHS())) {
                 const Expression* lhs = &binRelOp->getLHS();
                 if (rhs->getTupleId() == identifier && rla->getLevel(lhs) < identifier) {
                     element = rhs->getElement();
@@ -166,7 +166,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
     std::vector<Own<Condition>> toAppend;
     auto it = conditionList.begin();
     while (it != conditionList.end()) {
-        auto* binRelOp = dynamic_cast<Constraint*>(it->get());
+        auto* binRelOp = as<Constraint>(*it);
         if (binRelOp == nullptr) {
             ++it;
             continue;
@@ -175,13 +175,13 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
         bool transformable = false;
 
         if (isStrictIneqConstraint(binRelOp->getOperator())) {
-            if (const auto* lhs = dynamic_cast<const TupleElement*>(&binRelOp->getLHS())) {
+            if (const auto* lhs = as<TupleElement>(binRelOp->getLHS())) {
                 const Expression* rhs = &binRelOp->getRHS();
                 if (lhs->getTupleId() == identifier && rla->getLevel(rhs) < identifier) {
                     transformable = true;
                 }
             }
-            if (const auto* rhs = dynamic_cast<const TupleElement*>(&binRelOp->getRHS())) {
+            if (const auto* rhs = as<TupleElement>(binRelOp->getRHS())) {
                 const Expression* lhs = &binRelOp->getLHS();
                 if (rhs->getTupleId() == identifier && rla->getLevel(lhs) < identifier) {
                     transformable = true;
@@ -192,10 +192,10 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
         if (transformable) {
             // append the weak version of inequality
             toAppend.emplace_back(mk<Constraint>(convertStrictToWeakIneqConstraint(binRelOp->getOperator()),
-                    clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
+                    clone(binRelOp->getLHS()), clone(binRelOp->getRHS())));
             // append the != constraint
             toAppend.emplace_back(mk<Constraint>(convertStrictToNotEqualConstraint(binRelOp->getOperator()),
-                    clone(&binRelOp->getLHS()), clone(&binRelOp->getRHS())));
+                    clone(binRelOp->getLHS()), clone(binRelOp->getRHS())));
 
             // remove the strict version of inequality
             it = conditionList.erase(it);
@@ -211,8 +211,8 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
     // 1. Equalities come before inequalities
     // 2. Conditions are ordered by the index of the constraint i.e. t0.0 comes before t0.1
     auto cmp = [&](auto& c1, auto& c2) -> bool {
-        auto* cond1 = dynamic_cast<Constraint*>(c1.get());
-        auto* cond2 = dynamic_cast<Constraint*>(c2.get());
+        auto* cond1 = as<Constraint>(c1);
+        auto* cond2 = as<Constraint>(c2);
         // place non-conditions at the end
         if (!cond1 && !cond2) {
             return c1.get() < c2.get();
@@ -246,8 +246,8 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
             return false;
         }
 
-        size_t attr1 = 0;
-        size_t attr2 = 0;
+        std::size_t attr1 = 0;
+        std::size_t attr2 = 0;
         const auto p1 = getExpressionPair(cond1, attr1, identifier);
         const auto p2 = getExpressionPair(cond2, attr2, identifier);
 
@@ -276,9 +276,8 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
 
     // Build query pattern and remaining condition
     bool seenInequality = false;
-    size_t arity = queryPattern.first.size();
-
-    for (size_t i = 0; i < arity; ++i) {
+    std::size_t arity = queryPattern.first.size();
+    for (std::size_t i = 0; i < arity; ++i) {
         // ignore attributes with no constraints
         if (isUndefValue(queryPattern.first[i].get()) && isUndefValue(queryPattern.second[i].get())) {
             continue;
@@ -293,7 +292,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
     }
 
     for (auto& cond : conditionList) {
-        size_t element = 0;
+        std::size_t element = 0;
         Own<Expression> lowerExpression;
         Own<Expression> upperExpression;
         std::tie(lowerExpression, upperExpression) =
@@ -348,19 +347,19 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
                 // simply hoist <expr1> = <expr2> to the outer loop
                 if (newLowerBound && newUpperBound) {
                     addCondition(mk<Constraint>(
-                            getEqConstraint(type), souffle::clone(lowerBound), std::move(lowerExpression)));
+                            getEqConstraint(type), clone(lowerBound), std::move(lowerExpression)));
                 }
                 // new lower bound i.e. Tuple[level, element] >= <expr2>
                 // we need to hoist <expr1> >= <expr2> to the outer loop
                 else if (newLowerBound && !newUpperBound) {
-                    addCondition(mk<Constraint>(getGreaterEqualConstraint(type), souffle::clone(lowerBound),
-                            std::move(lowerExpression)));
+                    addCondition(mk<Constraint>(
+                            getGreaterEqualConstraint(type), clone(lowerBound), std::move(lowerExpression)));
                 }
                 // new upper bound i.e. Tuple[level, element] <= <expr2>
                 // we need to hoist <expr1> <= <expr2> to the outer loop
                 else if (!newLowerBound && newUpperBound) {
-                    addCondition(mk<Constraint>(getLessEqualConstraint(type), souffle::clone(lowerBound),
-                            std::move(upperExpression)));
+                    addCondition(mk<Constraint>(
+                            getLessEqualConstraint(type), clone(lowerBound), std::move(upperExpression)));
                 }
                 // if either bound is defined but they aren't equal we must consider the cases for updating
                 // them note that at this point we know that if we have a lower/upper bound it can't be the
@@ -371,14 +370,14 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
                     // if Tuple[level, element] >= <expr1> and we see Tuple[level, element] = <expr2>
                     // need to hoist <expr2> >= <expr1> to the outer loop
                     if (!firstLowerBound) {
-                        addCondition(mk<Constraint>(getGreaterEqualConstraint(type),
-                                souffle::clone(lowerExpression), std::move(lowerBound)));
+                        addCondition(mk<Constraint>(getGreaterEqualConstraint(type), clone(lowerExpression),
+                                std::move(lowerBound)));
                     }
                     // if Tuple[level, element] <= <expr1> and we see Tuple[level, element] = <expr2>
                     // need to hoist <expr2> <= <expr1> to the outer loop
                     if (!firstUpperBound) {
-                        addCondition(mk<Constraint>(getLessEqualConstraint(type),
-                                souffle::clone(upperExpression), std::move(upperBound)));
+                        addCondition(mk<Constraint>(
+                                getLessEqualConstraint(type), clone(upperExpression), std::move(upperBound)));
                     }
                     // finally replace bounds with equality constraint
                     lowerBound = std::move(lowerExpression);
@@ -411,7 +410,7 @@ Own<Condition> MakeIndexTransformer::constructPattern(const std::vector<std::str
 }
 
 Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
-    if (dynamic_cast<const True*>(&agg->getCondition()) == nullptr) {
+    if (!isA<True>(agg->getCondition())) {
         const Relation& rel = relAnalysis->lookup(agg->getRelation());
         int identifier = agg->getTupleId();
         RamPattern queryPattern;
@@ -424,16 +423,16 @@ Own<Operation> MakeIndexTransformer::rewriteAggregate(const Aggregate* agg) {
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
                 toConjunctionList(&agg->getCondition()), identifier, const_cast<Relation&>(rel));
         if (indexable) {
-            return mk<IndexAggregate>(souffle::clone(&agg->getOperation()), agg->getFunction(),
-                    agg->getRelation(), souffle::clone(&agg->getExpression()), std::move(condition),
-                    std::move(queryPattern), agg->getTupleId());
+            return mk<IndexAggregate>(clone(agg->getOperation()), agg->getFunction(), agg->getRelation(),
+                    clone(agg->getExpression()), std::move(condition), std::move(queryPattern),
+                    agg->getTupleId());
         }
     }
     return nullptr;
 }
 
 Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
-    if (const auto* filter = dynamic_cast<const Filter*>(&scan->getOperation())) {
+    if (const auto* filter = as<Filter>(scan->getOperation())) {
         const Relation& rel = relAnalysis->lookup(scan->getRelation());
         const int identifier = scan->getTupleId();
         RamPattern queryPattern;
@@ -446,7 +445,7 @@ Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
         Own<Condition> condition = constructPattern(rel.getAttributeTypes(), queryPattern, indexable,
                 toConjunctionList(&filter->getCondition()), identifier, const_cast<Relation&>(rel));
         if (indexable) {
-            Own<Operation> op = souffle::clone(&filter->getOperation());
+            Own<Operation> op = clone(filter->getOperation());
             if (!isTrue(condition.get())) {
                 op = mk<Filter>(std::move(condition), std::move(op));
             }
@@ -458,7 +457,7 @@ Own<Operation> MakeIndexTransformer::rewriteScan(const Scan* scan) {
 }
 
 Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
-    if (const auto* filter = dynamic_cast<const Filter*>(&iscan->getOperation())) {
+    if (const auto* filter = as<Filter>(iscan->getOperation())) {
         const Relation& rel = relAnalysis->lookup(iscan->getRelation());
         const int identifier = iscan->getTupleId();
 
@@ -474,7 +473,7 @@ Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
         if (indexable) {
             // Merge Index Pattern here
 
-            Own<Operation> op = souffle::clone(&filter->getOperation());
+            Own<Operation> op = clone(filter->getOperation());
             if (!isTrue(condition.get())) {
                 op = mk<Filter>(std::move(condition), std::move(op));
             }
@@ -487,9 +486,9 @@ Own<Operation> MakeIndexTransformer::rewriteIndexScan(const IndexScan* iscan) {
 
 bool MakeIndexTransformer::makeIndex(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> scanRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (const Scan* scan = dynamic_cast<Scan*>(node.get())) {
+            if (const Scan* scan = as<Scan>(node)) {
                 const Relation& rel = relAnalysis->lookup(scan->getRelation());
                 if (rel.getRepresentation() != RelationRepresentation::INFO) {
                     if (Own<Operation> op = rewriteScan(scan)) {
@@ -497,12 +496,12 @@ bool MakeIndexTransformer::makeIndex(Program& program) {
                         node = std::move(op);
                     }
                 }
-            } else if (const IndexScan* iscan = dynamic_cast<IndexScan*>(node.get())) {
+            } else if (const IndexScan* iscan = as<IndexScan>(node)) {
                 if (Own<Operation> op = rewriteIndexScan(iscan)) {
                     changed = true;
                     node = std::move(op);
                 }
-            } else if (const Aggregate* agg = dynamic_cast<Aggregate*>(node.get())) {
+            } else if (const Aggregate* agg = as<Aggregate>(node)) {
                 if (Own<Operation> op = rewriteAggregate(agg)) {
                     changed = true;
                     node = std::move(op);

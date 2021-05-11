@@ -28,11 +28,11 @@ public:
         return "PragmaChecker";
     }
 
-    PragmaChecker* clone() const override {
+private:
+    PragmaChecker* cloning() const override {
         return new PragmaChecker();
     }
 
-private:
     bool transform(TranslationUnit&) override;
 };
 

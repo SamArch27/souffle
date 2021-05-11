@@ -53,7 +53,7 @@ public:
 
     void setDebugReport() override {
         for (auto& i : pipeline) {
-            if (auto* mt = dynamic_cast<MetaTransformer*>(i.get())) {
+            if (auto* mt = as<MetaTransformer>(i)) {
                 mt->setDebugReport();
             } else {
                 i = mk<DebugReporter>(std::move(i));
@@ -64,7 +64,7 @@ public:
     void setVerbosity(bool verbose) override {
         this->verbose = verbose;
         for (auto& cur : pipeline) {
-            if (auto* mt = dynamic_cast<MetaTransformer*>(cur.get())) {
+            if (auto* mt = as<MetaTransformer>(cur)) {
                 mt->setVerbosity(verbose);
             }
         }
@@ -72,9 +72,9 @@ public:
 
     void disableTransformers(const std::set<std::string>& transforms) override {
         for (auto& i : pipeline) {
-            if (auto* mt = dynamic_cast<MetaTransformer*>(i.get())) {
+            if (auto* mt = as<MetaTransformer>(i)) {
                 mt->disableTransformers(transforms);
-            } else if (transforms.find(i->getName()) != transforms.end()) {
+            } else if (transforms.find(i->getName()) != transforms.end() && i->isSwitchable()) {
                 i = mk<NullTransformer>();
             }
         }
@@ -82,14 +82,6 @@ public:
 
     std::string getName() const override {
         return "PipelineTransformer";
-    }
-
-    PipelineTransformer* clone() const override {
-        VecOwn<Transformer> transformers;
-        for (const auto& transformer : pipeline) {
-            transformers.push_back(souffle::clone(transformer));
-        }
-        return new PipelineTransformer(std::move(transformers));
     }
 
 protected:
@@ -100,6 +92,15 @@ protected:
             changed |= applySubtransformer(translationUnit, transformer.get());
         }
         return changed;
+    }
+
+private:
+    PipelineTransformer* cloning() const override {
+        VecOwn<Transformer> transformers;
+        for (const auto& transformer : pipeline) {
+            transformers.push_back(clone(transformer));
+        }
+        return new PipelineTransformer(std::move(transformers));
     }
 };
 

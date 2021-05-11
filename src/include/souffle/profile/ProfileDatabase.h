@@ -116,7 +116,7 @@ public:
 
     // read directory
     DirectoryEntry* readDirectoryEntry(const std::string& keyToRead) const {
-        return dynamic_cast<DirectoryEntry*>(readEntry(keyToRead));
+        return as<DirectoryEntry>(readEntry(keyToRead));
     }
 
     // accept visitor
@@ -145,12 +145,12 @@ public:
  */
 class SizeEntry : public Entry {
 private:
-    size_t size;  // size
+    std::size_t size;  // size
 public:
-    SizeEntry(const std::string& key, size_t size) : Entry(key), size(size) {}
+    SizeEntry(const std::string& key, std::size_t size) : Entry(key), size(size) {}
 
     // get size
-    size_t getSize() const {
+    std::size_t getSize() const {
         return size;
     }
 
@@ -273,7 +273,7 @@ inline void Visitor::visit(DirectoryEntry& e) {
 
 class Counter : public Visitor {
 private:
-    size_t ctr{0};
+    std::size_t ctr{0};
     std::string key;
 
 public:
@@ -284,7 +284,7 @@ public:
             ctr += e.getSize();
         }
     }
-    size_t getCounter() const {
+    std::size_t getCounter() const {
         return ctr;
     }
 };
@@ -306,7 +306,7 @@ protected:
             assert(!key.empty() && "Key is empty!");
             DirectoryEntry* newDir = dir->readDirectoryEntry(key);
             if (newDir == nullptr) {
-                newDir = dynamic_cast<DirectoryEntry*>(dir->writeEntry(mk<DirectoryEntry>(key)));
+                newDir = as<DirectoryEntry>(dir->writeEntry(mk<DirectoryEntry>(key)));
             }
             assert(newDir != nullptr && "Attempting to overwrite an existing entry");
             dir = newDir;
@@ -362,7 +362,7 @@ public:
     }
 
     // add size entry
-    void addSizeEntry(std::vector<std::string> qualifier, size_t size) {
+    void addSizeEntry(std::vector<std::string> qualifier, std::size_t size) {
         assert(qualifier.size() > 0 && "no qualifier");
         std::vector<std::string> path(qualifier.begin(), qualifier.end() - 1);
         DirectoryEntry* dir = lookupPath(path);
@@ -379,7 +379,7 @@ public:
         DirectoryEntry* dir = lookupPath(path);
 
         const std::string& key = qualifier.back();
-        Own<TextEntry> entry = std::make_unique<TextEntry>(key, text);
+        Own<TextEntry> entry = mk<TextEntry>(key, text);
         dir->writeEntry(std::move(entry));
     }
 
@@ -390,7 +390,7 @@ public:
         DirectoryEntry* dir = lookupPath(path);
 
         const std::string& key = qualifier.back();
-        Own<DurationEntry> entry = std::make_unique<DurationEntry>(key, start, end);
+        Own<DurationEntry> entry = mk<DurationEntry>(key, start, end);
         dir->writeEntry(std::move(entry));
     }
 
@@ -401,12 +401,12 @@ public:
         DirectoryEntry* dir = lookupPath(path);
 
         const std::string& key = qualifier.back();
-        Own<TimeEntry> entry = std::make_unique<TimeEntry>(key, time);
+        Own<TimeEntry> entry = mk<TimeEntry>(key, time);
         dir->writeEntry(std::move(entry));
     }
 
     // compute sum
-    size_t computeSum(const std::vector<std::string>& qualifier) {
+    std::size_t computeSum(const std::vector<std::string>& qualifier) {
         assert(qualifier.size() > 0 && "no qualifier");
         std::vector<std::string> path(qualifier.begin(), qualifier.end() - 1);
         DirectoryEntry* dir = lookupPath(path);
@@ -438,13 +438,13 @@ public:
      */
     std::map<std::string, std::string> getStringMap(const std::vector<std::string>& path) const {
         std::map<std::string, std::string> kvps;
-        auto* parent = dynamic_cast<DirectoryEntry*>(lookupEntry(path));
+        auto* parent = as<DirectoryEntry>(lookupEntry(path));
         if (parent == nullptr) {
             return kvps;
         }
 
         for (const auto& key : parent->getKeys()) {
-            auto* text = dynamic_cast<TextEntry*>(parent->readEntry(key));
+            auto* text = as<TextEntry>(parent->readEntry(key));
             if (text != nullptr) {
                 kvps[key] = text->getText();
             }

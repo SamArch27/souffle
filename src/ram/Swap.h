@@ -40,7 +40,7 @@ class Swap : public BinRelationStatement {
 public:
     Swap(std::string f, std::string s) : BinRelationStatement(f, s) {}
 
-    Swap* clone() const override {
+    Swap* cloning() const override {
         return new Swap(first, second);
     }
 

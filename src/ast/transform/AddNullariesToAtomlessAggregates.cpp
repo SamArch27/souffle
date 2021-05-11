@@ -34,7 +34,7 @@ namespace souffle::ast::transform {
 bool AddNullariesToAtomlessAggregatesTransformer::transform(TranslationUnit& translationUnit) {
     bool changed{false};
     Program& program = translationUnit.getProgram();
-    visitDepthFirst(program, [&](const Aggregator& agg) {
+    visit(program, [&](Aggregator& agg) {
         bool seenAtom{false};
         for (const auto& literal : agg.getBodyLiterals()) {
             if (isA<Atom>(literal)) {
@@ -47,26 +47,22 @@ bool AddNullariesToAtomlessAggregatesTransformer::transform(TranslationUnit& tra
         // We will add in the Tautology atom to the body of this aggregate now
         changed = true;
         // +Tautology()
-        auto nullaryAtom = mk<Atom>();
-        std::string relName = "+Tautology";
-        nullaryAtom->setQualifiedName(relName);
+        std::string const relName = "+Tautology";
 
         if (getRelation(program, relName) == nullptr) {
             // +Tautology().
-            auto fact = mk<Clause>();
-            fact->setHead(souffle::clone(nullaryAtom));
+            auto fact = mk<Clause>(relName);
             // .decl +Tautology()
-            auto tautologyRel = mk<Relation>();
-            tautologyRel->setQualifiedName(relName);
+            auto tautologyRel = mk<Relation>(relName);
             program.addRelation(std::move(tautologyRel));
             program.addClause(std::move(fact));
         }
         VecOwn<Literal> newBody;
         for (const auto& lit : agg.getBodyLiterals()) {
-            newBody.push_back(souffle::clone(lit));
+            newBody.push_back(clone(lit));
         }
-        newBody.push_back(souffle::clone(nullaryAtom));
-        const_cast<Aggregator&>(agg).setBody(std::move(newBody));
+        newBody.push_back(mk<Atom>(relName));
+        agg.setBody(std::move(newBody));
     });
     return changed;
 }

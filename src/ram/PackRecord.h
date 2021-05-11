@@ -20,6 +20,7 @@
 #include "ram/Node.h"
 #include "ram/utility/NodeMapper.h"
 #include "souffle/utility/ContainerUtil.h"
+#include "souffle/utility/MiscUtil.h"
 #include "souffle/utility/StreamUtil.h"
 #include <cassert>
 #include <memory>
@@ -54,10 +55,10 @@ public:
         return res;
     }
 
-    PackRecord* clone() const override {
+    PackRecord* cloning() const override {
         auto* res = new PackRecord({});
         for (auto& cur : arguments) {
-            res->arguments.emplace_back(cur->clone());
+            res->arguments.emplace_back(cur->cloning());
         }
         return res;
     }
@@ -75,7 +76,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const PackRecord&>(node);
+        const auto& other = asAssert<PackRecord>(node);
         return equal_targets(arguments, other.arguments);
     }
 

@@ -47,17 +47,17 @@ public:
     void print(std::ostream& os) const override;
 
     // Numeric constants
-    bool hasInvalidType(const NumericConstant* nc) const;
-    NumericConstant::Type getInferredType(const NumericConstant* nc) const;
+    bool hasInvalidType(const NumericConstant& nc) const;
+    NumericConstant::Type getInferredType(const NumericConstant& nc) const;
 
     // Functors
-    FunctorOp getOverloadedFunctionOp(const IntrinsicFunctor* inf) const;
+    FunctorOp getOverloadedFunctionOp(const IntrinsicFunctor& inf) const;
 
     // Binary constraints
-    BinaryConstraintOp getOverloadedOperator(const BinaryConstraint* bc) const;
+    BinaryConstraintOp getOverloadedOperator(const BinaryConstraint& bc) const;
 
     // Aggregators
-    AggregateOp getOverloadedOperator(const Aggregator* agg) const;
+    AggregateOp getOverloadedOperator(const Aggregator& agg) const;
 
 private:
     const TypeAnalysis* typeAnalysis = nullptr;

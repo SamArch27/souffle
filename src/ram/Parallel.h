@@ -50,10 +50,10 @@ public:
     Parallel(Own<Statement> first, Own<Stmts>... rest)
             : ListStatement(std::move(first), std::move(rest)...) {}
 
-    Parallel* clone() const override {
+    Parallel* cloning() const override {
         auto* res = new Parallel();
         for (auto& cur : statements) {
-            res->statements.push_back(souffle::clone(cur));
+            res->statements.push_back(clone(cur));
         }
         return res;
     }

@@ -16,16 +16,11 @@
 
 #pragma once
 
-#include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "ast/Type.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/StreamUtil.h"
-#include <algorithm>
 #include <cstddef>
-#include <iostream>
-#include <string>
-#include <utility>
+#include <iosfwd>
 #include <vector>
 
 namespace souffle::ast {
@@ -43,37 +38,30 @@ namespace souffle::ast {
  */
 class UnionType : public Type {
 public:
-    UnionType(QualifiedName name, std::vector<QualifiedName> types, SrcLocation loc = {})
-            : Type(std::move(name), std::move(loc)), types(std::move(types)) {}
+    UnionType(QualifiedName name, std::vector<QualifiedName> types, SrcLocation loc = {});
 
     /** Return list of unioned types */
     const std::vector<QualifiedName>& getTypes() const {
         return types;
     }
 
-    /** Add another unioned type */
-    void add(QualifiedName type) {
-        types.push_back(std::move(type));
+    std::vector<QualifiedName>& getTypes() {
+        return types;
     }
+
+    /** Add another unioned type */
+    void add(QualifiedName type);
 
     /** Set type */
-    void setType(size_t idx, QualifiedName type) {
-        types.at(idx) = std::move(type);
-    }
-
-    UnionType* clone() const override {
-        return new UnionType(getQualifiedName(), types, getSrcLoc());
-    }
+    void setType(std::size_t idx, QualifiedName type);
 
 protected:
-    void print(std::ostream& os) const override {
-        os << ".type " << getQualifiedName() << " = " << join(types, " | ");
-    }
+    void print(std::ostream& os) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const UnionType&>(node);
-        return getQualifiedName() == other.getQualifiedName() && types == other.types;
-    }
+private:
+    bool equal(const Node& node) const override;
+
+    UnionType* cloning() const override;
 
 private:
     /** List of unioned types */

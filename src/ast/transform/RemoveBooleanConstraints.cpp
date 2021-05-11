@@ -40,7 +40,7 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
 
     // If any boolean constraints exist, they will be removed
     bool changed = false;
-    visitDepthFirst(program, [&](const BooleanConstraint&) { changed = true; });
+    visit(program, [&](const BooleanConstraint&) { changed = true; });
 
     // Remove true and false constant literals from all aggregators
     struct removeBools : public NodeMapper {
@@ -48,13 +48,13 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
             // Remove them from child nodes
             node->apply(*this);
 
-            if (auto* aggr = dynamic_cast<Aggregator*>(node.get())) {
+            if (auto* aggr = as<Aggregator>(node)) {
                 bool containsTrue = false;
                 bool containsFalse = false;
 
                 // Check if aggregator body contains booleans.
                 for (Literal* lit : aggr->getBodyLiterals()) {
-                    if (auto* bc = dynamic_cast<BooleanConstraint*>(lit)) {
+                    if (auto* bc = as<BooleanConstraint>(lit)) {
                         if (bc->isTrue()) {
                             containsTrue = true;
                         } else {
@@ -65,7 +65,7 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
 
                 // Only keep literals that aren't boolean constraints
                 if (containsFalse || containsTrue) {
-                    auto replacementAggregator = souffle::clone(aggr);
+                    auto replacementAggregator = clone(aggr);
                     VecOwn<Literal> newBody;
 
                     bool isEmpty = true;
@@ -76,7 +76,7 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
                             // Don't add in boolean constraints
                             if (!isA<BooleanConstraint>(lit)) {
                                 isEmpty = false;
-                                newBody.push_back(souffle::clone(lit));
+                                newBody.push_back(clone(lit));
                             }
                         }
 
@@ -117,7 +117,7 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
             bool containsFalse = false;
 
             for (Literal* lit : clause->getBodyLiterals()) {
-                if (auto* bc = dynamic_cast<BooleanConstraint*>(lit)) {
+                if (auto* bc = as<BooleanConstraint>(lit)) {
                     bc->isTrue() ? containsTrue = true : containsFalse = true;
                 }
             }
@@ -126,12 +126,12 @@ bool RemoveBooleanConstraintsTransformer::transform(TranslationUnit& translation
                 // Clause will always fail
                 program.removeClause(clause);
             } else if (containsTrue) {
-                auto replacementClause = Own<Clause>(cloneHead(clause));
+                auto replacementClause = cloneHead(*clause);
 
                 // Only keep non-'true' literals
                 for (Literal* lit : clause->getBodyLiterals()) {
                     if (!isA<BooleanConstraint>(lit)) {
-                        replacementClause->addToBody(souffle::clone(lit));
+                        replacementClause->addToBody(clone(lit));
                     }
                 }
 

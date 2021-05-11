@@ -52,7 +52,7 @@ public:
         return relation;
     }
 
-    EmptinessCheck* clone() const override {
+    EmptinessCheck* cloning() const override {
         return new EmptinessCheck(relation);
     }
 
@@ -62,7 +62,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const EmptinessCheck&>(node);
+        const auto& other = asAssert<EmptinessCheck>(node);
         return relation == other.relation;
     }
 

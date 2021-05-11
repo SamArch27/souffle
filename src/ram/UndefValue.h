@@ -29,7 +29,7 @@ namespace souffle::ram {
  */
 class UndefValue : public Expression {
 public:
-    UndefValue* clone() const override {
+    UndefValue* cloning() const override {
         return new UndefValue();
     }
 

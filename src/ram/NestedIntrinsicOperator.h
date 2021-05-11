@@ -76,9 +76,8 @@ public:
         return res;
     }
 
-    NestedIntrinsicOperator* clone() const override {
-        return new NestedIntrinsicOperator(
-                op, souffle::clone(args), souffle::clone(&getOperation()), getTupleId());
+    NestedIntrinsicOperator* cloning() const override {
+        return new NestedIntrinsicOperator(op, clone(args), clone(getOperation()), getTupleId());
     }
 
     void apply(const NodeMapper& map) override {
@@ -97,7 +96,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        auto&& other = static_cast<const NestedIntrinsicOperator&>(node);
+        auto&& other = asAssert<NestedIntrinsicOperator>(node);
         return TupleOperation::equal(node) && op == other.op && equal_targets(args, other.args);
     }
 

@@ -14,14 +14,14 @@
 
 #pragma once
 
-#include "ast2ram/seminaive/ClauseTranslator.h"
+#include "ast2ram/provenance/ClauseTranslator.h"
 
 namespace souffle::ast {
+class Atom;
 class Clause;
-}
+}  // namespace souffle::ast
 
 namespace souffle::ram {
-class Condition;
 class Operation;
 class Statement;
 }  // namespace souffle::ram
@@ -32,15 +32,16 @@ class TranslatorContext;
 
 namespace souffle::ast2ram::provenance {
 
-class SubproofGenerator : public ast2ram::seminaive::ClauseTranslator {
+class SubproofGenerator : public ast2ram::provenance::ClauseTranslator {
 public:
-    SubproofGenerator(const TranslatorContext& context, SymbolTable& symbolTable);
+    SubproofGenerator(const TranslatorContext& context);
     ~SubproofGenerator();
 
 protected:
     Own<ram::Statement> createRamFactQuery(const ast::Clause& clause) const override;
     Own<ram::Statement> createRamRuleQuery(const ast::Clause& clause) override;
-    Own<ram::Operation> addNegatedAtom(Own<ram::Operation> op, const ast::Atom* atom) const override;
+    Own<ram::Operation> addNegatedAtom(
+            Own<ram::Operation> op, const ast::Clause& clause, const ast::Atom* atom) const override;
     Own<ram::Operation> generateReturnInstantiatedValues(const ast::Clause& clause) const;
     Own<ram::Operation> addBodyLiteralConstraints(
             const ast::Clause& clause, Own<ram::Operation> op) const override;

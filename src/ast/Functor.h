@@ -17,8 +17,6 @@
 #pragma once
 
 #include "ast/Term.h"
-#include "souffle/TypeAttribute.h"
-#include <cstddef>
 
 namespace souffle::ast {
 
@@ -28,9 +26,6 @@ namespace souffle::ast {
  */
 
 class Functor : public Term {
-public:
-    Functor* clone() const override = 0;
-
 protected:
     using Term::Term;
 };

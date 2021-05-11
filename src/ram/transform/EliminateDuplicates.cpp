@@ -30,9 +30,9 @@ namespace souffle::ram::transform {
 
 bool EliminateDuplicatesTransformer::eliminateDuplicates(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         std::function<Own<Node>(Own<Node>)> filterRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (const Filter* filter = dynamic_cast<Filter*>(node.get())) {
+            if (const Filter* filter = as<Filter>(node)) {
                 const Condition* condition = &filter->getCondition();
                 VecOwn<Condition> conds = toConjunctionList(condition);
                 bool eliminatedDuplicate = false;
@@ -48,8 +48,7 @@ bool EliminateDuplicatesTransformer::eliminateDuplicates(Program& program) {
                 }
                 if (eliminatedDuplicate) {
                     changed = true;
-                    node = mk<Filter>(
-                            Own<Condition>(toCondition(conds)), souffle::clone(&filter->getOperation()));
+                    node = mk<Filter>(Own<Condition>(toCondition(conds)), clone(filter->getOperation()));
                 }
             }
             node->apply(makeLambdaRamMapper(filterRewriter));

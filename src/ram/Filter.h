@@ -47,8 +47,8 @@ public:
     Filter(Own<Condition> cond, Own<Operation> nested, std::string profileText = "")
             : AbstractConditional(std::move(cond), std::move(nested), std::move(profileText)) {}
 
-    Filter* clone() const override {
-        return new Filter(souffle::clone(condition), souffle::clone(&getOperation()), getProfileText());
+    Filter* cloning() const override {
+        return new Filter(clone(condition), clone(getOperation()), getProfileText());
     }
 
 protected:

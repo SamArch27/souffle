@@ -35,11 +35,11 @@ public:
     // `apply` but doesn't immediately bail if any errors are found.
     void verify(TranslationUnit& translationUnit);
 
-    TypeChecker* clone() const override {
+private:
+    TypeChecker* cloning() const override {
         return new TypeChecker();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override {
         verify(translationUnit);
         return false;

@@ -77,7 +77,7 @@ std::set<QualifiedName> MagicSetTransformer::getTriviallyIgnoredRelations(const 
         // Any relations not dependent on any atoms
         bool hasRules = false;
         for (const auto* clause : getClauses(program, rel->getQualifiedName())) {
-            visitDepthFirst(clause->getBodyLiterals(), [&](const Atom& /* atom */) { hasRules = true; });
+            visit(clause->getBodyLiterals(), [&](const Atom& /* atom */) { hasRules = true; });
         }
         if (!hasRules) {
             triviallyIgnoredRelations.insert(rel->getQualifiedName());
@@ -125,7 +125,7 @@ std::set<QualifiedName> MagicSetTransformer::getWeaklyIgnoredRelations(const Tra
     }
 
     // - Any relation with a neglabel
-    visitDepthFirst(program, [&](const Atom& atom) {
+    visit(program, [&](const Atom& atom) {
         const auto& qualifiers = atom.getQualifiedName().getQualifiers();
         if (!qualifiers.empty() && qualifiers[0] == "@neglabel") {
             weaklyIgnoredRelations.insert(atom.getQualifiedName());
@@ -137,8 +137,8 @@ std::set<QualifiedName> MagicSetTransformer::getWeaklyIgnoredRelations(const Tra
             {BinaryConstraintOp::FEQ, BinaryConstraintOp::FNE, BinaryConstraintOp::FLE,
                     BinaryConstraintOp::FGE, BinaryConstraintOp::FLT, BinaryConstraintOp::FGT});
     for (const auto* clause : program.getClauses()) {
-        visitDepthFirst(*clause, [&](const BinaryConstraint& bc) {
-            if (contains(floatOps, polyAnalysis.getOverloadedOperator(&bc))) {
+        visit(*clause, [&](const BinaryConstraint& bc) {
+            if (contains(floatOps, polyAnalysis.getOverloadedOperator(bc))) {
                 weaklyIgnoredRelations.insert(clause->getHead()->getQualifiedName());
             }
         });
@@ -148,8 +148,8 @@ std::set<QualifiedName> MagicSetTransformer::getWeaklyIgnoredRelations(const Tra
     const std::set<FunctorOp> orderDepFuncOps(
             {FunctorOp::MOD, FunctorOp::FDIV, FunctorOp::DIV, FunctorOp::UMOD});
     for (const auto* clause : program.getClauses()) {
-        visitDepthFirst(*clause, [&](const IntrinsicFunctor& functor) {
-            if (contains(orderDepFuncOps, polyAnalysis.getOverloadedFunctionOp(&functor))) {
+        visit(*clause, [&](const IntrinsicFunctor& functor) {
+            if (contains(orderDepFuncOps, polyAnalysis.getOverloadedFunctionOp(functor))) {
                 weaklyIgnoredRelations.insert(clause->getHead()->getQualifiedName());
             }
         });
@@ -179,10 +179,9 @@ std::set<QualifiedName> MagicSetTransformer::getWeaklyIgnoredRelations(const Tra
     // - Any atom appearing in a clause containing a counter
     for (auto* clause : program.getClauses()) {
         bool containsCounter = false;
-        visitDepthFirst(*clause, [&](const Counter& /* counter */) { containsCounter = true; });
+        visit(*clause, [&](const Counter& /* counter */) { containsCounter = true; });
         if (containsCounter) {
-            visitDepthFirst(*clause,
-                    [&](const Atom& atom) { weaklyIgnoredRelations.insert(atom.getQualifiedName()); });
+            visit(*clause, [&](const Atom& atom) { weaklyIgnoredRelations.insert(atom.getQualifiedName()); });
         }
     }
 
@@ -199,7 +198,7 @@ std::set<QualifiedName> MagicSetTransformer::getWeaklyIgnoredRelations(const Tra
     //    any relation that appears after A in any clause, otherwise a magic-set might be created that
     //    requires R to be neglabelled.
     for (const auto& relName : stronglyIgnoredRelations) {
-        precedenceGraph.visitDepthFirst(getRelation(program, relName), [&](const auto* dependentRel) {
+        precedenceGraph.visit(getRelation(program, relName), [&](const auto* dependentRel) {
             const auto& depName = dependentRel->getQualifiedName();
             for (const auto* clause : program.getClauses()) {
                 const auto& atoms = getBodyLiterals<Atom>(*clause);
@@ -226,7 +225,7 @@ std::set<QualifiedName> MagicSetTransformer::getStronglyIgnoredRelations(const T
     // - Any atom appearing at the head of a clause containing a counter
     for (const auto* clause : program.getClauses()) {
         bool containsCounter = false;
-        visitDepthFirst(*clause, [&](const Counter& /* counter */) { containsCounter = true; });
+        visit(*clause, [&](const Counter& /* counter */) { containsCounter = true; });
         if (containsCounter) {
             stronglyIgnoredRelations.insert(clause->getHead()->getQualifiedName());
         }
@@ -238,7 +237,7 @@ std::set<QualifiedName> MagicSetTransformer::getStronglyIgnoredRelations(const T
         // - To prevent poslabelling issues, all dependent strata should also be strongly ignored
         std::set<QualifiedName> dependentRelations;
         for (const auto& relName : stronglyIgnoredRelations) {
-            precedenceGraph.visitDepthFirst(getRelation(program, relName), [&](const auto* dependentRel) {
+            precedenceGraph.visit(getRelation(program, relName), [&](const auto* dependentRel) {
                 dependentRelations.insert(dependentRel->getQualifiedName());
             });
         }
@@ -253,8 +252,7 @@ std::set<QualifiedName> MagicSetTransformer::getStronglyIgnoredRelations(const T
         std::set<QualifiedName> bodyRelations;
         for (const auto& relName : stronglyIgnoredRelations) {
             for (const auto* clause : relDetail.getClauses(relName)) {
-                visitDepthFirst(
-                        *clause, [&](const Atom& atom) { bodyRelations.insert(atom.getQualifiedName()); });
+                visit(*clause, [&](const Atom& atom) { bodyRelations.insert(atom.getQualifiedName()); });
             }
         }
         for (const auto& bodyRel : bodyRelations) {
@@ -333,20 +331,19 @@ bool NormaliseDatabaseTransformer::partitionIO(TranslationUnit& translationUnit)
         // Create a new intermediate input relation, I'
         auto newRelation = mk<Relation>(newRelName);
         for (const auto* attr : rel->getAttributes()) {
-            newRelation->addAttribute(souffle::clone(attr));
+            newRelation->addAttribute(clone(attr));
         }
 
         // Add the rule I <- I'
-        auto newClause = mk<Clause>();
-        auto newHeadAtom = mk<Atom>(relName);
+        auto newClause = mk<Clause>(relName);
+        auto newHeadAtom = newClause->getHead();
         auto newBodyAtom = mk<Atom>(newRelName);
-        for (size_t i = 0; i < rel->getArity(); i++) {
+        for (std::size_t i = 0; i < rel->getArity(); i++) {
             std::stringstream varName;
             varName << "@var" << i;
             newHeadAtom->addArgument(mk<ast::Variable>(varName.str()));
             newBodyAtom->addArgument(mk<ast::Variable>(varName.str()));
         }
-        newClause->setHead(std::move(newHeadAtom));
         newClause->addToBody(std::move(newBodyAtom));
 
         // New relation I' should be input, original should not
@@ -355,7 +352,7 @@ bool NormaliseDatabaseTransformer::partitionIO(TranslationUnit& translationUnit)
         for (const auto* io : program.getDirectives()) {
             if (io->getQualifiedName() == relName && io->getType() == ast::DirectiveType::input) {
                 // New relation inherits the old input rules
-                auto newIO = souffle::clone(io);
+                auto newIO = clone(io);
                 newIO->setQualifiedName(newRelName);
                 iosToAdd.insert(std::move(newIO));
 
@@ -367,7 +364,7 @@ bool NormaliseDatabaseTransformer::partitionIO(TranslationUnit& translationUnit)
             program.removeDirective(io);
         }
         for (auto& io : iosToAdd) {
-            program.addDirective(souffle::clone(io));
+            program.addDirective(clone(io));
         }
 
         // Add in the new relation and the copy clause
@@ -386,7 +383,7 @@ bool NormaliseDatabaseTransformer::extractIDB(TranslationUnit& translationUnit) 
     auto isStrictlyEDB = [&](const Relation* rel) {
         bool hasRules = false;
         for (const auto* clause : getClauses(program, rel->getQualifiedName())) {
-            visitDepthFirst(clause->getBodyLiterals(), [&](const Atom& /* atom */) { hasRules = true; });
+            visit(clause->getBodyLiterals(), [&](const Atom& /* atom */) { hasRules = true; });
         }
         return !hasRules;
     };
@@ -411,7 +408,7 @@ bool NormaliseDatabaseTransformer::extractIDB(TranslationUnit& translationUnit) 
         inputToIntermediate[inputRelationName] = intermediateName;
 
         // Add the relation
-        auto intermediateRelation = souffle::clone(getRelation(program, inputRelationName));
+        auto intermediateRelation = clone(getRelation(program, inputRelationName));
         intermediateRelation->setQualifiedName(intermediateName);
         program.addRelation(std::move(intermediateRelation));
     }
@@ -426,7 +423,7 @@ bool NormaliseDatabaseTransformer::extractIDB(TranslationUnit& translationUnit) 
 
         // Give them identical arguments
         const auto* inputRelation = getRelation(program, inputRelationName);
-        for (size_t i = 0; i < inputRelation->getArity(); i++) {
+        for (std::size_t i = 0; i < inputRelation->getArity(); i++) {
             std::stringstream var;
             var << "@query_x" << i;
             queryHead->addArgument(mk<ast::Variable>(var.str()));
@@ -447,11 +444,11 @@ bool NormaliseDatabaseTransformer::querifyOutputRelations(TranslationUnit& trans
     // Helper method to check if a relation is a single-rule output query
     auto isStrictlyOutput = [&](const Relation* rel) {
         bool strictlyOutput = true;
-        size_t ruleCount = 0;
+        std::size_t ruleCount = 0;
 
         for (const auto* clause : program.getClauses()) {
             // Check if the relation is used in the body of any rules
-            visitDepthFirst(clause->getBodyLiterals(), [&](const Atom& atom) {
+            visit(clause->getBodyLiterals(), [&](const Atom& atom) {
                 if (atom.getQualifiedName() == rel->getQualifiedName()) {
                     strictlyOutput = false;
                 }
@@ -486,7 +483,7 @@ bool NormaliseDatabaseTransformer::querifyOutputRelations(TranslationUnit& trans
         outputToIntermediate[outputRelationName] = intermediateName;
 
         // Add the relation
-        auto intermediateRelation = souffle::clone(getRelation(program, outputRelationName));
+        auto intermediateRelation = clone(getRelation(program, outputRelationName));
         intermediateRelation->setQualifiedName(intermediateName);
         program.addRelation(std::move(intermediateRelation));
     }
@@ -501,7 +498,7 @@ bool NormaliseDatabaseTransformer::querifyOutputRelations(TranslationUnit& trans
 
         // Give them identical arguments
         const auto* outputRelation = getRelation(program, outputRelationName);
-        for (size_t i = 0; i < outputRelation->getArity(); i++) {
+        for (std::size_t i = 0; i < outputRelation->getArity(); i++) {
             std::stringstream var;
             var << "@query_x" << i;
             queryHead->addArgument(mk<ast::Variable>(var.str()));
@@ -528,7 +525,7 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 : constraints(constraints), changeCount(changeCount) {}
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (auto* aggr = dynamic_cast<Aggregator*>(node.get())) {
+            if (auto* aggr = as<Aggregator>(node)) {
                 // Aggregator variable scopes should be maintained, so changes shouldn't propagate
                 // above this level.
                 std::set<Own<BinaryConstraint>> subConstraints;
@@ -536,18 +533,13 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
                 aggr->apply(aggrUpdate);
 
                 // Add the constraints to this level
-                std::vector<Own<Literal>> newBodyLiterals;
-                for (const auto* lit : aggr->getBodyLiterals()) {
-                    newBodyLiterals.push_back(souffle::clone(lit));
-                }
-                for (auto& constr : subConstraints) {
-                    newBodyLiterals.push_back(souffle::clone(constr));
-                }
+                VecOwn<Literal> newBodyLiterals;
+                append(newBodyLiterals, cloneRange(aggr->getBodyLiterals()));
+                append(newBodyLiterals, cloneRange(subConstraints));
 
                 // Update the node to reflect normalised aggregator
                 node = aggr->getTargetExpression() != nullptr
-                               ? mk<Aggregator>(aggr->getBaseOperator(),
-                                         souffle::clone(aggr->getTargetExpression()),
+                               ? mk<Aggregator>(aggr->getBaseOperator(), clone(aggr->getTargetExpression()),
                                          std::move(newBodyLiterals))
                                : mk<Aggregator>(aggr->getBaseOperator(), nullptr, std::move(newBodyLiterals));
             } else {
@@ -556,7 +548,7 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
             }
 
             // All non-variables should be normalised
-            if (auto* arg = dynamic_cast<Argument*>(node.get())) {
+            if (auto* arg = as<Argument>(node)) {
                 if (!isA<ast::Variable>(arg)) {
                     std::stringstream name;
                     name << "@abdul" << changeCount++;
@@ -568,7 +560,7 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
 
                     // Link other variables back to their original value with a `<var> = <arg>` constraint
                     constraints.insert(mk<BinaryConstraint>(
-                            BinaryConstraintOp::EQ, mk<ast::Variable>(name.str()), souffle::clone(arg)));
+                            BinaryConstraintOp::EQ, mk<ast::Variable>(name.str()), clone(arg)));
                     return mk<ast::Variable>(name.str());
                 }
             }
@@ -590,7 +582,7 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
 
         // Apply to each body literal that isn't already a `<var> = <arg>` constraint
         for (Literal* lit : clause->getBodyLiterals()) {
-            if (auto* bc = dynamic_cast<BinaryConstraint*>(lit)) {
+            if (auto* bc = as<BinaryConstraint>(lit)) {
                 if (isEqConstraint(bc->getBaseOperator()) && isA<ast::Variable>(bc->getLHS())) {
                     continue;
                 }
@@ -599,17 +591,13 @@ bool NormaliseDatabaseTransformer::normaliseArguments(TranslationUnit& translati
         }
 
         // Also apply to each record
-        visitDepthFirst(*clause, [&](const RecordInit& rec) {
+        visit(*clause, [&](const RecordInit& rec) {
             for (Argument* arg : rec.getArguments()) {
                 arg->apply(update);
             }
         });
 
-        // Add each necessary new constraint to the clause
-        for (auto& constraint : constraintsToAdd) {
-            clause->addToBody(souffle::clone(constraint));
-        }
-
+        clause->addToBody(clone<Literal>(constraintsToAdd));
         changed |= changeCount != 0;
     }
 
@@ -648,8 +636,8 @@ Own<Clause> AdornDatabaseTransformer::adornClause(const Clause* clause, const st
      *
      * Therefore, bound head atom vars should be marked as weakly bound.
      */
-    for (size_t i = 0; i < adornmentMarker.length(); i++) {
-        const auto* var = dynamic_cast<ast::Variable*>(headArgs[i]);
+    for (std::size_t i = 0; i < adornmentMarker.length(); i++) {
+        const auto* var = as<ast::Variable>(headArgs[i]);
         assert(var != nullptr && "expected only variables in head");
         if (adornmentMarker[i] == 'b') {
             variableBindings.bindVariableWeakly(var->getName());
@@ -657,30 +645,29 @@ Own<Clause> AdornDatabaseTransformer::adornClause(const Clause* clause, const st
     }
 
     // Create the adorned clause with an empty body
-    auto adornedClause = mk<Clause>();
+    auto adornedClause = mk<Clause>(getAdornmentID(relName, adornmentMarker));
 
     // Copy over plans if needed
     if (clause->getExecutionPlan() != nullptr) {
         assert(contains(weaklyIgnoredRelations, clause->getHead()->getQualifiedName()) &&
                 "clauses with plans should be ignored");
-        adornedClause->setExecutionPlan(souffle::clone(clause->getExecutionPlan()));
+        adornedClause->setExecutionPlan(clone(clause->getExecutionPlan()));
     }
 
     // Create the head atom
-    auto adornedHeadAtom = mk<Atom>(getAdornmentID(relName, adornmentMarker));
+    auto adornedHeadAtom = adornedClause->getHead();
     assert((adornmentMarker == "" || headArgs.size() == adornmentMarker.length()) &&
             "adornment marker should correspond to head atom variables");
     for (const auto* arg : headArgs) {
-        const auto* var = dynamic_cast<const ast::Variable*>(arg);
+        const auto* var = as<ast::Variable>(arg);
         assert(var != nullptr && "expected only variables in head");
-        adornedHeadAtom->addArgument(souffle::clone(var));
+        adornedHeadAtom->addArgument(clone(var));
     }
-    adornedClause->setHead(std::move(adornedHeadAtom));
 
     // Add in adorned body literals
-    std::vector<Own<Literal>> adornedBodyLiterals;
+    VecOwn<Literal> adornedBodyLiterals;
     for (const auto* lit : clause->getBodyLiterals()) {
-        if (const auto* negation = dynamic_cast<const Negation*>(lit)) {
+        if (const auto* negation = as<Negation>(lit)) {
             // Negated atoms should not be adorned, but their clauses should be anyway
             const auto negatedAtomName = negation->getAtom()->getQualifiedName();
             assert(contains(weaklyIgnoredRelations, negatedAtomName) &&
@@ -690,18 +677,18 @@ Own<Clause> AdornDatabaseTransformer::adornClause(const Clause* clause, const st
 
         if (!isA<Atom>(lit)) {
             // Non-atoms are added directly
-            adornedBodyLiterals.push_back(souffle::clone(lit));
+            adornedBodyLiterals.push_back(clone(lit));
             continue;
         }
 
-        const auto* atom = dynamic_cast<const Atom*>(lit);
+        const auto* atom = as<Atom>(lit);
         assert(atom != nullptr && "expected atom");
 
         // Form the appropriate adornment marker
         std::stringstream atomAdornment;
         if (!contains(weaklyIgnoredRelations, atom->getQualifiedName())) {
             for (const auto* arg : atom->getArguments()) {
-                const auto* var = dynamic_cast<const ast::Variable*>(arg);
+                const auto* var = as<ast::Variable>(arg);
                 assert(var != nullptr && "expected only variables in atom");
                 atomAdornment << (variableBindings.isBound(var->getName()) ? "b" : "f");
             }
@@ -712,13 +699,13 @@ Own<Clause> AdornDatabaseTransformer::adornClause(const Clause* clause, const st
         queueAdornment(atom->getQualifiedName(), atomAdornment.str());
 
         // Add the adorned version to the clause
-        auto adornedBodyAtom = souffle::clone(atom);
+        auto adornedBodyAtom = clone(atom);
         adornedBodyAtom->setQualifiedName(currAtomAdornmentID);
         adornedBodyLiterals.push_back(std::move(adornedBodyAtom));
 
         // All arguments are now bound
         for (const auto* arg : atom->getArguments()) {
-            const auto* var = dynamic_cast<const ast::Variable*>(arg);
+            const auto* var = as<ast::Variable>(arg);
             assert(var != nullptr && "expected only variables in atom");
             variableBindings.bindVariableStrongly(var->getName());
         }
@@ -752,7 +739,7 @@ bool AdornDatabaseTransformer::transform(TranslationUnit& translationUnit) {
 
             auto adornedRelation = mk<Relation>(getAdornmentID(relName, adornmentMarker));
             for (const auto* attr : rel->getAttributes()) {
-                adornedRelation->addAttribute(souffle::clone(attr));
+                adornedRelation->addAttribute(clone(attr));
             }
             program.addRelation(std::move(adornedRelation));
         }
@@ -760,7 +747,7 @@ bool AdornDatabaseTransformer::transform(TranslationUnit& translationUnit) {
         // Adorn every clause correspondingly
         for (const auto* clause : getClauses(program, relName)) {
             if (adornmentMarker == "") {
-                redundantClauses.push_back(souffle::clone(clause));
+                redundantClauses.push_back(clone(clause));
             }
             auto adornedClause = adornClause(clause, adornmentMarker);
             adornedClauses.push_back(std::move(adornedClause));
@@ -773,7 +760,7 @@ bool AdornDatabaseTransformer::transform(TranslationUnit& translationUnit) {
     }
 
     for (auto& clause : adornedClauses) {
-        program.addClause(souffle::clone(clause));
+        program.addClause(clone(clause));
     }
 
     return !adornedClauses.empty() || !redundantClauses.empty();
@@ -785,7 +772,7 @@ QualifiedName NegativeLabellingTransformer::getNegativeLabel(const QualifiedName
     return newName;
 }
 
-QualifiedName PositiveLabellingTransformer::getPositiveLabel(const QualifiedName& name, size_t count) {
+QualifiedName PositiveLabellingTransformer::getPositiveLabel(const QualifiedName& name, std::size_t count) {
     std::stringstream label;
     label << "@poscopy_" << count;
     QualifiedName labelledName(name);
@@ -810,24 +797,24 @@ bool NegativeLabellingTransformer::transform(TranslationUnit& translationUnit) {
     // Negatively label all relations that might affect stratification after MST
     //      - Negated relations
     //      - Relations that appear in aggregators
-    visitDepthFirst(program, [&](const Negation& neg) {
+    visit(program, [&](const Negation& neg) {
         auto* atom = neg.getAtom();
         auto relName = atom->getQualifiedName();
         if (contains(relationsToNotLabel, relName)) return;
         atom->setQualifiedName(getNegativeLabel(relName));
         relationsToLabel.insert(relName);
     });
-    visitDepthFirst(program, [&](const Aggregator& aggr) {
-        visitDepthFirst(aggr, [&](const Atom& atom) {
+    visit(program, [&](Aggregator& aggr) {
+        visit(aggr, [&](Atom& atom) {
             auto relName = atom.getQualifiedName();
             if (contains(relationsToNotLabel, relName)) return;
-            const_cast<Atom&>(atom).setQualifiedName(getNegativeLabel(relName));
+            atom.setQualifiedName(getNegativeLabel(relName));
             relationsToLabel.insert(relName);
         });
     });
 
     // Copy over the rules for labelled relations one stratum at a time
-    for (size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
+    for (std::size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
         // Check which relations to label in this stratum
         const auto& stratumRels = sccGraph.getInternalRelations(stratum);
         std::map<QualifiedName, QualifiedName> newSccFriendNames;
@@ -842,7 +829,7 @@ bool NegativeLabellingTransformer::transform(TranslationUnit& translationUnit) {
         for (const auto* rel : stratumRels) {
             if (contains(relationsToNotLabel, rel->getQualifiedName())) continue;
             for (auto* clause : getClauses(program, rel->getQualifiedName())) {
-                auto neggedClause = souffle::clone(clause);
+                auto neggedClause = clone(clause);
                 renameAtoms(*neggedClause, newSccFriendNames);
                 clausesToAdd.insert(std::move(neggedClause));
             }
@@ -853,14 +840,14 @@ bool NegativeLabellingTransformer::transform(TranslationUnit& translationUnit) {
     for (const auto& relName : relationsToLabel) {
         const auto* originalRel = getRelation(program, relName);
         assert(originalRel != nullptr && "unlabelled relation does not exist");
-        auto labelledRelation = souffle::clone(originalRel);
+        auto labelledRelation = clone(originalRel);
         labelledRelation->setQualifiedName(getNegativeLabel(relName));
         program.addRelation(std::move(labelledRelation));
     }
 
     // Add in all the negged clauses
     for (const auto& clause : clausesToAdd) {
-        program.addClause(souffle::clone(clause));
+        program.addClause(clone(clause));
     }
 
     return !relationsToLabel.empty();
@@ -873,10 +860,10 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
     const auto& relationsToNotLabel = getRelationsToNotLabel(translationUnit);
 
     // Partition the strata into neglabelled and regular
-    std::set<size_t> neglabelledStrata;
-    std::map<size_t, size_t> originalStrataCopyCount;
-    for (size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
-        size_t numNeggedRelations = 0;
+    std::set<std::size_t> neglabelledStrata;
+    std::map<std::size_t, std::size_t> originalStrataCopyCount;
+    for (std::size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
+        std::size_t numNeggedRelations = 0;
         const auto& stratumRels = sccGraph.getInternalRelations(stratum);
 
         // Count how many relations in this node are neglabelled
@@ -899,20 +886,20 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
 
     // Keep track of strata that depend on each stratum
     // e.g. T in dependentStrata[S] iff a relation in T depends on a relation in S
-    std::map<size_t, std::set<size_t>> dependentStrata;
-    for (size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
-        dependentStrata[stratum] = std::set<size_t>();
+    std::map<std::size_t, std::set<std::size_t>> dependentStrata;
+    for (std::size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
+        dependentStrata[stratum] = std::set<std::size_t>();
     }
     for (const auto* rel : program.getRelations()) {
-        size_t stratum = sccGraph.getSCC(rel);
-        precedenceGraph.visitDepthFirst(rel, [&](const auto* dependentRel) {
+        std::size_t stratum = sccGraph.getSCC(rel);
+        precedenceGraph.visit(rel, [&](const auto* dependentRel) {
             dependentStrata[stratum].insert(sccGraph.getSCC(dependentRel));
         });
     }
 
     // Label the positive derived literals in the clauses of neglabelled relations
     // Need a new copy of those relations up to that point for each
-    for (size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
+    for (std::size_t stratum = 0; stratum < sccGraph.getNumberOfSCCs(); stratum++) {
         if (!contains(neglabelledStrata, stratum)) continue;
 
         // Rename in the current stratum
@@ -924,7 +911,7 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
 
             // Get the unignored unlabelled relations appearing in the rules
             for (const auto* clause : clauses) {
-                visitDepthFirst(*clause, [&](const Atom& atom) {
+                visit(*clause, [&](const Atom& atom) {
                     const auto& name = atom.getQualifiedName();
                     if (!contains(relationsToNotLabel, name) && !isNegativelyLabelled(name)) {
                         relsToCopy.insert(name);
@@ -936,8 +923,8 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
             for (auto* clause : clauses) {
                 std::map<QualifiedName, QualifiedName> labelledNames;
                 for (const auto& relName : relsToCopy) {
-                    size_t relStratum = sccGraph.getSCC(getRelation(program, relName));
-                    size_t copyCount = originalStrataCopyCount.at(relStratum) + 1;
+                    std::size_t relStratum = sccGraph.getSCC(getRelation(program, relName));
+                    std::size_t copyCount = originalStrataCopyCount.at(relStratum) + 1;
                     labelledNames[relName] = getPositiveLabel(relName, copyCount);
                 }
                 renameAtoms(*clause, labelledNames);
@@ -955,16 +942,16 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
                 for (const auto* clause : getClauses(program, rel->getQualifiedName())) {
                     // Grab the new names for all unignored unlabelled positive atoms
                     std::map<QualifiedName, QualifiedName> labelledNames;
-                    visitDepthFirst(*clause, [&](const Atom& atom) {
+                    visit(*clause, [&](const Atom& atom) {
                         const auto& relName = atom.getQualifiedName();
                         if (contains(relationsToNotLabel, relName) || isNegativelyLabelled(relName)) return;
-                        size_t relStratum = sccGraph.getSCC(getRelation(program, relName));
-                        size_t copyCount = originalStrataCopyCount.at(relStratum) + 1;
+                        std::size_t relStratum = sccGraph.getSCC(getRelation(program, relName));
+                        std::size_t copyCount = originalStrataCopyCount.at(relStratum) + 1;
                         labelledNames[relName] = getPositiveLabel(relName, copyCount);
                     });
 
                     // Rename atoms accordingly
-                    auto labelledClause = souffle::clone(clause);
+                    auto labelledClause = clone(clause);
                     renameAtoms(*labelledClause, labelledNames);
                     program.addClause(std::move(labelledClause));
                 }
@@ -978,9 +965,9 @@ bool PositiveLabellingTransformer::transform(TranslationUnit& translationUnit) {
     bool changed = false;
     for (const auto& [stratum, numCopies] : originalStrataCopyCount) {
         const auto& stratumRels = sccGraph.getInternalRelations(stratum);
-        for (size_t copy = 0; copy < numCopies; copy++) {
+        for (std::size_t copy = 0; copy < numCopies; copy++) {
             for (auto* rel : stratumRels) {
-                auto newRelation = souffle::clone(rel);
+                auto newRelation = clone(rel);
                 newRelation->setQualifiedName(getPositiveLabel(newRelation->getQualifiedName(), copy + 1));
                 program.addRelation(std::move(newRelation));
                 changed = true;
@@ -999,7 +986,7 @@ bool MagicSetCoreTransformer::isAdorned(const QualifiedName& name) {
 
     // Pattern: {[bf]*}
     if (finalQualifier[0] == '{' && finalQualifier[finalQualifier.length() - 1] == '}') {
-        for (size_t i = 1; i < finalQualifier.length() - 1; i++) {
+        for (std::size_t i = 1; i < finalQualifier.length() - 1; i++) {
             char curBindingType = finalQualifier[i];
             if (curBindingType != 'b' && curBindingType != 'f') {
                 return false;
@@ -1015,7 +1002,7 @@ std::string MagicSetCoreTransformer::getAdornment(const QualifiedName& name) {
     auto qualifiers = name.getQualifiers();
     auto finalQualifier = qualifiers[qualifiers.size() - 1];
     std::stringstream binding;
-    for (size_t i = 1; i < finalQualifier.length() - 1; i++) {
+    for (std::size_t i = 1; i < finalQualifier.length() - 1; i++) {
         binding << finalQualifier[i];
     }
     return binding.str();
@@ -1035,9 +1022,9 @@ Own<Atom> MagicSetCoreTransformer::createMagicAtom(const Atom* atom) {
     auto magicAtom = mk<Atom>(getMagicName(origRelName));
 
     auto adornmentMarker = getAdornment(origRelName);
-    for (size_t i = 0; i < args.size(); i++) {
+    for (std::size_t i = 0; i < args.size(); i++) {
         if (adornmentMarker[i] == 'b') {
-            magicAtom->addArgument(souffle::clone(args[i]));
+            magicAtom->addArgument(clone(args[i]));
         }
     }
 
@@ -1049,14 +1036,13 @@ void MagicSetCoreTransformer::addRelevantVariables(
     // Helper method to check if all variables in an argument are bound
     auto isFullyBound = [&](const Argument* arg) {
         bool fullyBound = true;
-        visitDepthFirst(
-                *arg, [&](const ast::Variable& var) { fullyBound &= contains(variables, var.getName()); });
+        visit(*arg, [&](const ast::Variable& var) { fullyBound &= contains(variables, var.getName()); });
         return fullyBound;
     };
 
     // Helper method to add all newly relevant variables given a lhs = rhs constraint
     auto addLocallyRelevantVariables = [&](const Argument* lhs, const Argument* rhs) {
-        const auto* lhsVar = dynamic_cast<const ast::Variable*>(lhs);
+        const auto* lhsVar = as<ast::Variable>(lhs);
         if (lhsVar == nullptr) return true;
 
         // if the rhs is fully bound, lhs is now bound
@@ -1071,9 +1057,9 @@ void MagicSetCoreTransformer::addRelevantVariables(
 
         // if the rhs is a record, and lhs is a bound var, then all rhs vars are bound
         bool fixpointReached = true;
-        if (const auto* rhsRec = dynamic_cast<const RecordInit*>(rhs)) {
+        if (const auto* rhsRec = as<RecordInit>(rhs)) {
             for (const auto* arg : rhsRec->getArguments()) {
-                const auto* subVar = dynamic_cast<const ast::Variable*>(arg);
+                const auto* subVar = as<ast::Variable>(arg);
                 assert(subVar != nullptr && "expected only variable arguments");
                 if (!contains(variables, subVar->getName())) {
                     fixpointReached = false;
@@ -1098,36 +1084,30 @@ void MagicSetCoreTransformer::addRelevantVariables(
 }
 
 Own<Clause> MagicSetCoreTransformer::createMagicClause(const Atom* atom,
-        const std::vector<Own<Atom>>& constrainingAtoms,
-        const std::vector<const BinaryConstraint*> eqConstraints) {
-    auto magicHead = createMagicAtom(atom);
-    auto magicClause = mk<Clause>();
-
+        const VecOwn<Atom>& constrainingAtoms, const std::vector<const BinaryConstraint*> eqConstraints) {
+    auto magicClause = mk<Clause>(createMagicAtom(atom));
     // Add in all constraining atoms
-    for (const auto& bindingAtom : constrainingAtoms) {
-        magicClause->addToBody(souffle::clone(bindingAtom));
-    }
+    magicClause->setBodyLiterals(clone<Literal>(constrainingAtoms));
+    auto magicHead = magicClause->getHead();
 
     // Get the set of all variables that will be relevant to the magic clause
     std::set<std::string> relevantVariables;
-    visitDepthFirst(
-            constrainingAtoms, [&](const ast::Variable& var) { relevantVariables.insert(var.getName()); });
-    visitDepthFirst(*magicHead, [&](const ast::Variable& var) { relevantVariables.insert(var.getName()); });
+    visit(constrainingAtoms, [&](const ast::Variable& var) { relevantVariables.insert(var.getName()); });
+    visit(*magicHead, [&](const ast::Variable& var) { relevantVariables.insert(var.getName()); });
     addRelevantVariables(relevantVariables, eqConstraints);
 
     // Add in all eq constraints containing ONLY relevant variables
     for (const auto* eqConstraint : eqConstraints) {
         bool addConstraint = true;
-        visitDepthFirst(*eqConstraint, [&](const ast::Variable& var) {
+        visit(*eqConstraint, [&](const ast::Variable& var) {
             if (!contains(relevantVariables, var.getName())) {
                 addConstraint = false;
             }
         });
 
-        if (addConstraint) magicClause->addToBody(souffle::clone(eqConstraint));
+        if (addConstraint) magicClause->addToBody(clone(eqConstraint));
     }
 
-    magicClause->setHead(std::move(magicHead));
     return magicClause;
 }
 
@@ -1135,11 +1115,11 @@ std::vector<const BinaryConstraint*> MagicSetCoreTransformer::getBindingEquality
         const Clause* clause) {
     std::vector<const BinaryConstraint*> equalityConstraints;
     for (const auto* lit : clause->getBodyLiterals()) {
-        const auto* bc = dynamic_cast<const BinaryConstraint*>(lit);
+        const auto* bc = as<BinaryConstraint>(lit);
         if (bc == nullptr || !isEqConstraint(bc->getBaseOperator())) continue;
         if (isA<ast::Variable>(bc->getLHS()) || isA<Constant>(bc->getRHS())) {
             bool containsAggrs = false;
-            visitDepthFirst(*bc, [&](const Aggregator& /* aggr */) { containsAggrs = true; });
+            visit(*bc, [&](const Aggregator& /* aggr */) { containsAggrs = true; });
             if (!containsAggrs) {
                 equalityConstraints.push_back(bc);
             }
@@ -1155,7 +1135,7 @@ bool MagicSetCoreTransformer::transform(TranslationUnit& translationUnit) {
 
     /** Perform the Magic Set Transformation */
     for (const auto* clause : program.getClauses()) {
-        clausesToRemove.insert(souffle::clone(clause));
+        clausesToRemove.insert(clone(clause));
 
         const auto* head = clause->getHead();
         auto relName = head->getQualifiedName();
@@ -1163,44 +1143,41 @@ bool MagicSetCoreTransformer::transform(TranslationUnit& translationUnit) {
         // (1) Add the refined clause
         if (!isAdorned(relName)) {
             // Unadorned relations need not be refined, as every possible tuple is relevant
-            clausesToAdd.insert(souffle::clone(clause));
+            clausesToAdd.insert(clone(clause));
         } else {
             // Refine the clause with a prepended magic atom
             auto magicAtom = createMagicAtom(head);
-            auto refinedClause = mk<Clause>();
-            refinedClause->setHead(souffle::clone(head));
-            refinedClause->addToBody(souffle::clone(magicAtom));
-            for (auto* literal : clause->getBodyLiterals()) {
-                refinedClause->addToBody(souffle::clone(literal));
-            }
+            auto refinedClause = mk<Clause>(clone(head));
+            refinedClause->addToBody(clone(magicAtom));
+            refinedClause->addToBody(clone(clause->getBodyLiterals()));
             clausesToAdd.insert(std::move(refinedClause));
         }
 
         // (2) Add the associated magic rules
         std::vector<const BinaryConstraint*> eqConstraints = getBindingEqualityConstraints(clause);
-        std::vector<Own<Atom>> atomsToTheLeft;
+        VecOwn<Atom> atomsToTheLeft;
         if (isAdorned(relName)) {
             // Add the specialising head atom
             // Output relations are not specialised, and so the head will not contribute to specialisation
             atomsToTheLeft.push_back(createMagicAtom(clause->getHead()));
         }
         for (const auto* lit : clause->getBodyLiterals()) {
-            const auto* atom = dynamic_cast<const Atom*>(lit);
+            const auto* atom = as<Atom>(lit);
             if (atom == nullptr) continue;
             if (!isAdorned(atom->getQualifiedName())) {
-                atomsToTheLeft.push_back(souffle::clone(atom));
+                atomsToTheLeft.push_back(clone(atom));
                 continue;
             }
 
             // Need to create a magic rule
             auto magicClause = createMagicClause(atom, atomsToTheLeft, eqConstraints);
-            atomsToTheLeft.push_back(souffle::clone(atom));
+            atomsToTheLeft.push_back(clone(atom));
             clausesToAdd.insert(std::move(magicClause));
         }
     }
 
     for (auto& clause : clausesToAdd) {
-        program.addClause(souffle::clone(clause));
+        program.addClause(clone(clause));
     }
     for (const auto& clause : clausesToRemove) {
         program.removeClause(clause.get());
@@ -1214,9 +1191,9 @@ bool MagicSetCoreTransformer::transform(TranslationUnit& translationUnit) {
         auto magicRelation = mk<Relation>(getMagicName(origName));
         auto attributes = getRelation(program, origName)->getAttributes();
         auto adornmentMarker = getAdornment(origName);
-        for (size_t i = 0; i < attributes.size(); i++) {
+        for (std::size_t i = 0; i < attributes.size(); i++) {
             if (adornmentMarker[i] == 'b') {
-                magicRelation->addAttribute(souffle::clone(attributes[i]));
+                magicRelation->addAttribute(clone(attributes[i]));
             }
         }
         changed = true;

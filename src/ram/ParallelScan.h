@@ -48,8 +48,8 @@ public:
     ParallelScan(std::string rel, int ident, Own<Operation> nested, std::string profileText = "")
             : Scan(rel, ident, std::move(nested), profileText) {}
 
-    ParallelScan* clone() const override {
-        return new ParallelScan(relation, getTupleId(), souffle::clone(&getOperation()), getProfileText());
+    ParallelScan* cloning() const override {
+        return new ParallelScan(relation, getTupleId(), clone(getOperation()), getProfileText());
     }
 
 protected:

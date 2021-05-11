@@ -30,11 +30,11 @@ public:
         return "RemoveBooleanConstraintsTransformer";
     }
 
-    RemoveBooleanConstraintsTransformer* clone() const override {
+private:
+    RemoveBooleanConstraintsTransformer* cloning() const override {
         return new RemoveBooleanConstraintsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

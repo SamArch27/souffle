@@ -92,7 +92,7 @@ struct TypeVisitor {
     }
 
 #define FORWARD(TYPE) \
-    if (auto* t = dynamic_cast<const TYPE##Type*>(&type)) return visit##TYPE##Type(*t);
+    if (auto* t = as<TYPE##Type>(type)) return visit##TYPE##Type(*t);
 
     virtual R visit(const Type& type) const {
         FORWARD(Constant);

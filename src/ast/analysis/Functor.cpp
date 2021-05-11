@@ -15,11 +15,8 @@
  ***********************************************************************/
 
 #include "ast/analysis/Functor.h"
-#include "FunctorOps.h"
-#include "ast/FunctorDeclaration.h"
-#include "ast/IntrinsicFunctor.h"
 #include "ast/TranslationUnit.h"
-#include "ast/utility/Utils.h"
+#include "ast/analysis/Type.h"
 
 namespace souffle::ast::analysis {
 
@@ -27,21 +24,29 @@ void FunctorAnalysis::run(const TranslationUnit& translationUnit) {
     typeAnalysis = translationUnit.getAnalysis<TypeAnalysis>();
 }
 
-bool FunctorAnalysis::isStateful(const UserDefinedFunctor* udf) const {
+bool FunctorAnalysis::isStateful(const UserDefinedFunctor& udf) const {
     return typeAnalysis->isStatefulFunctor(udf);
 }
 
-TypeAttribute FunctorAnalysis::getReturnType(const Functor* functor) const {
+TypeAttribute FunctorAnalysis::getReturnTypeAttribute(const Functor& functor) const {
+    return typeAnalysis->getFunctorReturnTypeAttribute(functor);
+}
+
+Type const& FunctorAnalysis::getReturnType(const UserDefinedFunctor& functor) const {
     return typeAnalysis->getFunctorReturnType(functor);
 }
 
-const std::vector<TypeAttribute>& FunctorAnalysis::getArgTypes(const UserDefinedFunctor& udf) const {
-    return typeAnalysis->getFunctorArgTypes(udf);
+/** Return parameter type of functor */
+TypeAttribute FunctorAnalysis::getParamTypeAttribute(const Functor& functor, const std::size_t idx) const {
+    return typeAnalysis->getFunctorParamTypeAttribute(functor, idx);
 }
 
-/** Return argument type of functor */
-TypeAttribute FunctorAnalysis::getArgType(const Functor* functor, const size_t idx) const {
-    return typeAnalysis->getFunctorArgType(functor, idx);
+Type const& FunctorAnalysis::getParamType(const UserDefinedFunctor& functor, const std::size_t idx) const {
+    return typeAnalysis->getFunctorParamType(functor, idx);
+}
+
+std::vector<TypeAttribute> FunctorAnalysis::getParamTypeAttributes(const UserDefinedFunctor& functor) const {
+    return typeAnalysis->getFunctorParamTypeAttributes(functor);
 }
 
 bool FunctorAnalysis::isMultiResult(const Functor& functor) {

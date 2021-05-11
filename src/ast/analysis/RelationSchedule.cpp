@@ -54,12 +54,12 @@ void RelationScheduleAnalysis::run(const TranslationUnit& translationUnit) {
     topsortSCCGraphAnalysis = translationUnit.getAnalysis<TopologicallySortedSCCGraphAnalysis>();
     precedenceGraph = translationUnit.getAnalysis<PrecedenceGraphAnalysis>();
 
-    size_t numSCCs = translationUnit.getAnalysis<SCCGraphAnalysis>()->getNumberOfSCCs();
+    std::size_t numSCCs = translationUnit.getAnalysis<SCCGraphAnalysis>()->getNumberOfSCCs();
     std::vector<std::set<const Relation*>> relationExpirySchedule =
             computeRelationExpirySchedule(translationUnit);
 
     relationSchedule.clear();
-    for (size_t i = 0; i < numSCCs; i++) {
+    for (std::size_t i = 0; i < numSCCs; i++) {
         auto scc = topsortSCCGraphAnalysis->order()[i];
         const std::set<const Relation*> computedRelations =
                 translationUnit.getAnalysis<SCCGraphAnalysis>()->getInternalRelations(scc);
@@ -73,7 +73,7 @@ std::vector<std::set<const Relation*>> RelationScheduleAnalysis::computeRelation
     std::vector<std::set<const Relation*>> relationExpirySchedule;
     /* Compute for each step in the reverse topological order
        of evaluating the SCC the set of alive relations. */
-    size_t numSCCs = topsortSCCGraphAnalysis->order().size();
+    std::size_t numSCCs = topsortSCCGraphAnalysis->order().size();
 
     /* Alive set for each step */
     std::vector<std::set<const Relation*>> alive(numSCCs);
@@ -83,7 +83,7 @@ std::vector<std::set<const Relation*>> RelationScheduleAnalysis::computeRelation
 
     /* Compute all alive relations by iterating over all steps in reverse order
        determine the dependencies */
-    for (size_t orderedSCC = 1; orderedSCC < numSCCs; orderedSCC++) {
+    for (std::size_t orderedSCC = 1; orderedSCC < numSCCs; orderedSCC++) {
         /* Add alive set of previous step */
         alive[orderedSCC].insert(alive[orderedSCC - 1].begin(), alive[orderedSCC - 1].end());
 

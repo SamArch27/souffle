@@ -8,9 +8,9 @@
 
 /************************************************************************
  *
- * @file ram_expression_equal_clone_test.cpp
+ * @file ram_expression_equal_cloning_test.cpp
  *
- * Tests equal and clone function of Expression classes.
+ * Tests equal and cloning function of Expression classes.
  *
  ***********************************************************************/
 
@@ -50,7 +50,7 @@ TEST(IntrinsicOperator, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    IntrinsicOperator* aClone = a.clone();
+    IntrinsicOperator* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -66,7 +66,7 @@ TEST(IntrinsicOperator, CloneAndEquals) {
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
-    IntrinsicOperator* dClone = d.clone();
+    IntrinsicOperator* dClone = d.cloning();
     EXPECT_EQ(d, *dClone);
     EXPECT_NE(&d, dClone);
     delete dClone;
@@ -89,7 +89,7 @@ TEST(UserDefinedOperator, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    UserDefinedOperator* aClone = a.clone();
+    UserDefinedOperator* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -102,7 +102,7 @@ TEST(TupleElement, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    TupleElement* aClone = a.clone();
+    TupleElement* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -115,7 +115,7 @@ TEST(SignedConstant, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    SignedConstant* aClone = a.clone();
+    SignedConstant* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -127,7 +127,7 @@ TEST(AutoIncrement, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    AutoIncrement* aClone = a.clone();
+    AutoIncrement* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -139,7 +139,7 @@ TEST(UndefValue, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    UndefValue* aClone = a.clone();
+    UndefValue* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -164,7 +164,7 @@ TEST(PackRecord, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    PackRecord* aClone = a.clone();
+    PackRecord* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;
@@ -191,7 +191,7 @@ TEST(PackRecord, CloneAndEquals) {
     EXPECT_EQ(d, e);
     EXPECT_NE(&d, &e);
 
-    PackRecord* dClone = d.clone();
+    PackRecord* dClone = d.cloning();
     EXPECT_EQ(d, *dClone);
     EXPECT_NE(&d, dClone);
     delete dClone;
@@ -203,7 +203,7 @@ TEST(RamSubrountineArgument, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    SubroutineArgument* aClone = a.clone();
+    SubroutineArgument* aClone = a.cloning();
     EXPECT_EQ(a, *aClone);
     EXPECT_NE(&a, aClone);
     delete aClone;

@@ -37,7 +37,7 @@ void GroundedTermsChecker::verify(TranslationUnit& translationUnit) {
     auto&& report = translationUnit.getErrorReport();
 
     // -- check grounded variables and records --
-    visitDepthFirst(program.getClauses(), [&](const Clause& clause) {
+    visit(program.getClauses(), [&](const Clause& clause) {
         if (isFact(clause)) return;  // only interested in rules
 
         auto isGrounded = analysis::getGroundedTerms(translationUnit, clause);
@@ -51,14 +51,14 @@ void GroundedTermsChecker::verify(TranslationUnit& translationUnit) {
         }
 
         // all records need to be grounded
-        visitDepthFirst(clause, [&](const RecordInit& record) {
+        visit(clause, [&](const RecordInit& record) {
             if (!isGrounded[&record]) {
                 report.addError("Ungrounded record", record.getSrcLoc());
             }
         });
 
         // All sums need to be grounded
-        visitDepthFirst(clause, [&](const BranchInit& adt) {
+        visit(clause, [&](const BranchInit& adt) {
             if (!isGrounded[&adt]) {
                 report.addError("Ungrounded ADT branch", adt.getSrcLoc());
             }

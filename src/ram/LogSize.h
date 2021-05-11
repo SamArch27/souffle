@@ -40,7 +40,7 @@ public:
         return message;
     }
 
-    LogSize* clone() const override {
+    LogSize* cloning() const override {
         return new LogSize(relation, message);
     }
 
@@ -53,7 +53,7 @@ protected:
     }
 
     bool equal(const Node& node) const override {
-        const auto& other = static_cast<const LogSize&>(node);
+        const auto& other = asAssert<LogSize>(node);
         return RelationStatement::equal(other) && message == other.message;
     }
 

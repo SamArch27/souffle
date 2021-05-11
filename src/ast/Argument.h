@@ -27,9 +27,6 @@ namespace souffle::ast {
 class Argument : public Node {
 public:
     using Node::Node;
-
-    /** Create clone */
-    Argument* clone() const override = 0;
 };
 
 }  // namespace souffle::ast

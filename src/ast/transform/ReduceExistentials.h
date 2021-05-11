@@ -33,11 +33,11 @@ public:
         return "ReduceExistentialsTransformer";
     }
 
-    ReduceExistentialsTransformer* clone() const override {
+private:
+    ReduceExistentialsTransformer* cloning() const override {
         return new ReduceExistentialsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

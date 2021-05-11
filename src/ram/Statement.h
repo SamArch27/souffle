@@ -29,7 +29,7 @@ namespace souffle::ram {
  */
 class Statement : public Node {
 public:
-    Statement* clone() const override = 0;
+    Statement* cloning() const override = 0;
 
 protected:
     void print(std::ostream& os) const override {

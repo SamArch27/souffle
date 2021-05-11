@@ -44,7 +44,7 @@ class Clear : public RelationStatement {
 public:
     Clear(std::string rel) : RelationStatement(rel) {}
 
-    Clear* clone() const override {
+    Clear* cloning() const override {
         return new Clear(relation);
     }
 

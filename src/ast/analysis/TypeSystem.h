@@ -404,9 +404,10 @@ public:
     template <typename T, typename... Args>
     T& createType(const QualifiedName& name, Args&&... args) {
         assert(types.find(name) == types.end() && "Error: registering present type!");
-        auto* newType = new T(*this, name, std::forward<Args>(args)...);
-        types[name] = Own<Type>(newType);
-        return *newType;
+        auto newType = Own<T>(new T(*this, name, std::forward<Args>(args)...));
+        T& res = *newType;
+        types[name] = std::move(newType);
+        return res;
     }
 
     bool isType(const QualifiedName&) const;

@@ -20,7 +20,6 @@
 #include "ast2ram/utility/TranslatorContext.h"
 #include "ram/Condition.h"
 #include "ram/Expression.h"
-#include "souffle/SymbolTable.h"
 
 namespace souffle::ast2ram::seminaive {
 
@@ -29,18 +28,18 @@ ast2ram::UnitTranslator* TranslationStrategy::createUnitTranslator() const {
 }
 
 ast2ram::ClauseTranslator* TranslationStrategy::createClauseTranslator(
-        const TranslatorContext& context, SymbolTable& symbolTable) const {
-    return new ClauseTranslator(context, symbolTable);
+        const TranslatorContext& context) const {
+    return new ClauseTranslator(context);
 }
 
 ast2ram::ConstraintTranslator* TranslationStrategy::createConstraintTranslator(
-        const TranslatorContext& context, SymbolTable& symbolTable, const ValueIndex& index) const {
-    return new ConstraintTranslator(context, symbolTable, index);
+        const TranslatorContext& context, const ValueIndex& index) const {
+    return new ConstraintTranslator(context, index);
 }
 
 ast2ram::ValueTranslator* TranslationStrategy::createValueTranslator(
-        const TranslatorContext& context, SymbolTable& symbolTable, const ValueIndex& index) const {
-    return new ValueTranslator(context, symbolTable, index);
+        const TranslatorContext& context, const ValueIndex& index) const {
+    return new ValueTranslator(context, index);
 }
 
 }  // namespace souffle::ast2ram::seminaive

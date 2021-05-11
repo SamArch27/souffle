@@ -52,16 +52,16 @@ public:
             : IndexOperation(rel, ident, std::move(queryPattern), std::move(nested), std::move(profileText)) {
     }
 
-    IndexScan* clone() const override {
+    IndexScan* cloning() const override {
         RamPattern resQueryPattern;
         for (const auto& i : queryPattern.first) {
-            resQueryPattern.first.emplace_back(i->clone());
+            resQueryPattern.first.emplace_back(i->cloning());
         }
         for (const auto& i : queryPattern.second) {
-            resQueryPattern.second.emplace_back(i->clone());
+            resQueryPattern.second.emplace_back(i->cloning());
         }
-        return new IndexScan(relation, getTupleId(), std::move(resQueryPattern),
-                souffle::clone(&getOperation()), getProfileText());
+        return new IndexScan(
+                relation, getTupleId(), std::move(resQueryPattern), clone(getOperation()), getProfileText());
     }
 
 protected:

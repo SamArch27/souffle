@@ -36,7 +36,7 @@ namespace souffle::ast::analysis {
 
 void RecursiveClausesAnalysis::run(const TranslationUnit& translationUnit) {
     Program& program = translationUnit.getProgram();
-    visitDepthFirst(program, [&](const Clause& clause) {
+    visit(program, [&](const Clause& clause) {
         if (computeIsRecursive(clause, translationUnit)) {
             recursiveClauses.insert(&clause);
         }

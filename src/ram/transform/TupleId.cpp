@@ -28,12 +28,12 @@ namespace souffle::ram::transform {
 
 bool TupleIdTransformer::reorderOperations(Program& program) {
     bool changed = false;
-    visitDepthFirst(program, [&](const Query& query) {
+    visit(program, [&](const Query& query) {
         // Maps old tupleIds to new tupleIds
         std::map<int, int> reorder;
         int ctr = 0;
 
-        visitDepthFirst(query, [&](const TupleOperation& search) {
+        visit(query, [&](const TupleOperation& search) {
             if (ctr != search.getTupleId()) {
                 changed = true;
             }
@@ -43,7 +43,7 @@ bool TupleIdTransformer::reorderOperations(Program& program) {
         });
 
         std::function<Own<Node>(Own<Node>)> elementRewriter = [&](Own<Node> node) -> Own<Node> {
-            if (auto* element = dynamic_cast<TupleElement*>(node.get())) {
+            if (auto* element = as<TupleElement>(node)) {
                 if (reorder[element->getTupleId()] != element->getTupleId()) {
                     changed = true;
                     node = mk<TupleElement>(reorder[element->getTupleId()], element->getElement());

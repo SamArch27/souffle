@@ -18,10 +18,7 @@
 
 #include "ast/Node.h"
 #include "parser/SrcLocation.h"
-#include "souffle/utility/StreamUtil.h"
-#include <ostream>
-#include <string>
-#include <utility>
+#include <iosfwd>
 #include <vector>
 
 namespace souffle::ast {
@@ -35,28 +32,20 @@ class ExecutionOrder : public Node {
 public:
     using ExecOrder = std::vector<unsigned int>;
 
-    ExecutionOrder(ExecOrder order = {}, SrcLocation loc = {}) : order(std::move(order)) {
-        setSrcLoc(std::move(loc));
-    }
+    ExecutionOrder(ExecOrder order = {}, SrcLocation loc = {});
 
     /** Get order */
     const ExecOrder& getOrder() const {
         return order;
     }
 
-    ExecutionOrder* clone() const override {
-        return new ExecutionOrder(order, getSrcLoc());
-    }
-
 protected:
-    void print(std::ostream& out) const override {
-        out << "(" << join(order) << ")";
-    }
+    void print(std::ostream& out) const override;
 
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const ExecutionOrder&>(node);
-        return order == other.order;
-    }
+private:
+    bool equal(const Node& node) const override;
+
+    ExecutionOrder* cloning() const override;
 
 private:
     /** Literal order of body (starting from 1) */

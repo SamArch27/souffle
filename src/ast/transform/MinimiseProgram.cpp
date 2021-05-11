@@ -46,12 +46,12 @@ using namespace analysis;
 
 bool MinimiseProgramTransformer::existsValidPermutation(const NormalisedClause& left,
         const NormalisedClause& right, const std::vector<std::vector<unsigned int>>& permutationMatrix) {
-    size_t clauseSize = permutationMatrix.size();
+    std::size_t clauseSize = permutationMatrix.size();
     // keep track of the possible end-positions of each atom in the first clause
     std::vector<std::vector<unsigned int>> validMoves;
-    for (size_t i = 0; i < clauseSize; i++) {
+    for (std::size_t i = 0; i < clauseSize; i++) {
         std::vector<unsigned int> currentRow;
-        for (size_t j = 0; j < clauseSize; j++) {
+        for (std::size_t j = 0; j < clauseSize; j++) {
             if (permutationMatrix[i][j] == 1) {
                 currentRow.push_back(j);
             }
@@ -66,7 +66,7 @@ bool MinimiseProgramTransformer::existsValidPermutation(const NormalisedClause& 
 
     todoStack.push(validMoves[0]);
 
-    size_t currentIdx = 0;
+    std::size_t currentIdx = 0;
     while (!todoStack.empty()) {
         if (currentIdx == clauseSize) {
             // permutation is complete, check if it's valid
@@ -146,7 +146,7 @@ bool MinimiseProgramTransformer::areEquivalentRelations(
         auto firstAttributes = firstRelation->getAttributes();
         auto secondAttributes = secondRelation->getAttributes();
         if (firstAttributes.size() == secondAttributes.size()) {
-            for (size_t i = 0; i < firstAttributes.size(); i++) {
+            for (std::size_t i = 0; i < firstAttributes.size(); i++) {
                 if (firstAttributes[i]->getTypeName() != secondAttributes[i]->getTypeName()) {
                     return false;
                 }
@@ -163,7 +163,7 @@ bool MinimiseProgramTransformer::isValidPermutation(const NormalisedClause& left
     const auto& rightElements = right.getElements();
 
     assert(leftElements.size() == rightElements.size() && "clauses should have equal size");
-    size_t size = leftElements.size();
+    std::size_t size = leftElements.size();
 
     std::map<std::string, std::string> variableMap;
 
@@ -179,10 +179,10 @@ bool MinimiseProgramTransformer::isValidPermutation(const NormalisedClause& left
 
     // Pass through the all arguments in the first clause in sequence, mapping each to the corresponding
     // argument in the second clause under the literal permutation
-    for (size_t i = 0; i < size; i++) {
+    for (std::size_t i = 0; i < size; i++) {
         const auto& leftArgs = leftElements[i].params;
         const auto& rightArgs = rightElements[permutation[i]].params;
-        for (size_t j = 0; j < leftArgs.size(); j++) {
+        for (std::size_t j = 0; j < leftArgs.size(); j++) {
             auto leftArg = leftArgs[j];
             auto rightArg = rightArgs[j];
             std::string currentMap = variableMap[leftArg];
@@ -234,15 +234,15 @@ bool MinimiseProgramTransformer::areBijectivelyEquivalent(
     }
 
     // set up the n x n permutation matrix, where n is the number of clause elements
-    size_t size = leftElements.size();
+    std::size_t size = leftElements.size();
     auto permutationMatrix = std::vector<std::vector<unsigned int>>(size);
     for (auto& i : permutationMatrix) {
         i = std::vector<unsigned int>(size);
     }
 
     // create permutation matrix
-    for (size_t i = 0; i < size; i++) {
-        for (size_t j = 0; j < size; j++) {
+    for (std::size_t i = 0; i < size; i++) {
+        for (std::size_t j = 0; j < size; j++) {
             if (leftElements[i].name == rightElements[j].name) {
                 permutationMatrix[i][j] = 1;
             }
@@ -319,14 +319,14 @@ bool MinimiseProgramTransformer::reduceSingletonRelations(TranslationUnit& trans
     std::map<QualifiedName, QualifiedName> canonicalName;
 
     // Check pairwise equivalence of each singleton relation
-    for (size_t i = 0; i < singletonRelationClauses.size(); i++) {
+    for (std::size_t i = 0; i < singletonRelationClauses.size(); i++) {
         const auto* first = singletonRelationClauses[i];
         if (redundantClauses.find(first) != redundantClauses.end()) {
             // Already found to be redundant, no need to check
             continue;
         }
 
-        for (size_t j = i + 1; j < singletonRelationClauses.size(); j++) {
+        for (std::size_t j = i + 1; j < singletonRelationClauses.size(); j++) {
             const auto* second = singletonRelationClauses[j];
 
             // Note: Bijective-equivalence check does not care about the head relation name
@@ -363,10 +363,10 @@ bool MinimiseProgramTransformer::reduceSingletonRelations(TranslationUnit& trans
             // Remove appearances from children nodes
             node->apply(*this);
 
-            if (auto* atom = dynamic_cast<Atom*>(node.get())) {
+            if (auto* atom = as<Atom>(node)) {
                 auto pos = canonicalName.find(atom->getQualifiedName());
                 if (pos != canonicalName.end()) {
-                    auto newAtom = souffle::clone(atom);
+                    auto newAtom = clone(atom);
                     newAtom->setQualifiedName(pos->second);
                     return newAtom;
                 }
@@ -397,7 +397,7 @@ bool MinimiseProgramTransformer::removeRedundantClauses(TranslationUnit& transla
     std::set<Own<Clause>> clausesToRemove;
     for (const auto* clause : program.getClauses()) {
         if (isRedundant(clause)) {
-            clausesToRemove.insert(souffle::clone(clause));
+            clausesToRemove.insert(clone(clause));
         }
     }
 
@@ -414,9 +414,9 @@ bool MinimiseProgramTransformer::reduceClauseBodies(TranslationUnit& translation
 
     for (const auto* clause : program.getClauses()) {
         auto bodyLiterals = clause->getBodyLiterals();
-        std::set<size_t> redundantPositions;
-        for (size_t i = 0; i < bodyLiterals.size(); i++) {
-            for (size_t j = 0; j < i; j++) {
+        std::set<std::size_t> redundantPositions;
+        for (std::size_t i = 0; i < bodyLiterals.size(); i++) {
+            for (std::size_t j = 0; j < i; j++) {
                 if (*bodyLiterals[i] == *bodyLiterals[j]) {
                     redundantPositions.insert(j);
                     break;
@@ -425,15 +425,14 @@ bool MinimiseProgramTransformer::reduceClauseBodies(TranslationUnit& translation
         }
 
         if (!redundantPositions.empty()) {
-            auto minimisedClause = mk<Clause>();
-            minimisedClause->setHead(souffle::clone(clause->getHead()));
-            for (size_t i = 0; i < bodyLiterals.size(); i++) {
+            auto minimisedClause = mk<Clause>(clone(clause->getHead()));
+            for (std::size_t i = 0; i < bodyLiterals.size(); i++) {
                 if (!contains(redundantPositions, i)) {
-                    minimisedClause->addToBody(souffle::clone(bodyLiterals[i]));
+                    minimisedClause->addToBody(clone(bodyLiterals[i]));
                 }
             }
             clausesToAdd.insert(std::move(minimisedClause));
-            clausesToRemove.insert(souffle::clone(clause));
+            clausesToRemove.insert(clone(clause));
         }
     }
 
@@ -441,7 +440,7 @@ bool MinimiseProgramTransformer::reduceClauseBodies(TranslationUnit& translation
         program.removeClause(clause.get());
     }
     for (auto& clause : clausesToAdd) {
-        program.addClause(souffle::clone(clause));
+        program.addClause(clone(clause));
     }
 
     return !clausesToAdd.empty();

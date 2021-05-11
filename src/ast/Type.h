@@ -19,8 +19,6 @@
 #include "ast/Node.h"
 #include "ast/QualifiedName.h"
 #include "parser/SrcLocation.h"
-#include <string>
-#include <utility>
 
 namespace souffle::ast {
 
@@ -30,7 +28,7 @@ namespace souffle::ast {
  */
 class Type : public Node {
 public:
-    Type(QualifiedName name = {}, SrcLocation loc = {}) : Node(std::move(loc)), name(std::move(name)) {}
+    Type(QualifiedName name = {}, SrcLocation loc = {});
 
     /** Return type name */
     const QualifiedName& getQualifiedName() const {
@@ -38,11 +36,7 @@ public:
     }
 
     /** Set type name */
-    void setQualifiedName(QualifiedName name) {
-        this->name = std::move(name);
-    }
-
-    Type* clone() const override = 0;
+    void setQualifiedName(QualifiedName name);
 
 private:
     /** type name */

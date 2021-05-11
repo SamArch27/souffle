@@ -39,7 +39,7 @@ TEST(Pack, Tuple) {
 
     const RamDomain* ptr = recordTable.unpack(ref, 3);
 
-    for (size_t i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < 3; ++i) {
         EXPECT_EQ(tuple[i], ptr[i]);
     }
 }
@@ -48,7 +48,7 @@ TEST(Pack, Tuple) {
 // pack them all
 // unpack and test for equality
 TEST(PackUnpack, Tuple) {
-    constexpr size_t tupleSize = 3;
+    constexpr std::size_t tupleSize = 3;
     using tupleType = Tuple<RamDomain, tupleSize>;
 
     RecordTable recordTable;
@@ -67,13 +67,13 @@ TEST(PackUnpack, Tuple) {
     std::vector<RamDomain> tupleRef(NUMBER_OF_TESTS);
 
     // Generate and pack the tuples
-    for (size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
+    for (std::size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
         toPack[i] = {{random(), random(), random()}};
         tupleRef[i] = pack(recordTable, toPack[i]);
     }
 
     // unpack and test
-    for (size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
+    for (std::size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
         auto unpacked = recordTable.unpack(tupleRef[i], tupleSize);
         tupleType cmp = {unpacked[0], unpacked[1], unpacked[2]};
         EXPECT_EQ(toPack[i], cmp);
@@ -84,7 +84,7 @@ TEST(PackUnpack, Tuple) {
 // pack them all
 // unpack and test for equality
 TEST(PackUnpack, Vector) {
-    constexpr size_t vectorSize = 10;
+    constexpr std::size_t vectorSize = 10;
 
     RecordTable recordTable;
 
@@ -95,16 +95,16 @@ TEST(PackUnpack, Vector) {
     std::vector<RamDomain> tupleRef(NUMBER_OF_TESTS);
 
     // Generate and pack the tuples
-    for (size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
+    for (std::size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
         toPack[i] = testutil::generateRandomVector<RamDomain>(10);
         tupleRef[i] = recordTable.pack(toPack[i].data(), vectorSize);
         std::cerr << "Ref: " << tupleRef[i] << std::endl;
     }
 
     // unpack and test
-    for (size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
+    for (std::size_t i = 0; i < NUMBER_OF_TESTS; ++i) {
         const RamDomain* unpacked{recordTable.unpack(tupleRef[i], vectorSize)};
-        for (size_t j = 0; j < vectorSize; ++j) {
+        for (std::size_t j = 0; j < vectorSize; ++j) {
             EXPECT_EQ(toPack[i][j], unpacked[j]);
         }
     }

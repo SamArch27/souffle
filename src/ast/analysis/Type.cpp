@@ -68,11 +68,11 @@ Own<Clause> TypeAnalysis::createAnnotatedClause(
         TypeAnnotator(const std::map<const Argument*, TypeSet>& types) : types(types) {}
 
         Own<Node> operator()(Own<Node> node) const override {
-            if (auto* var = dynamic_cast<ast::Variable*>(node.get())) {
+            if (auto* var = as<ast::Variable>(node)) {
                 std::stringstream newVarName;
                 newVarName << var->getName() << "&isin;" << types.find(var)->second;
                 return mk<ast::Variable>(newVarName.str());
-            } else if (auto* var = dynamic_cast<UnnamedVariable*>(node.get())) {
+            } else if (auto* var = as<UnnamedVariable>(node)) {
                 std::stringstream newVarName;
                 newVarName << "_"
                            << "&isin;" << types.find(var)->second;
@@ -92,21 +92,21 @@ Own<Clause> TypeAnalysis::createAnnotatedClause(
      *  (2) Keep track of the addresses of equivalent arguments in the cloned clause
      * Method (2) was chosen to avoid having to recompute the analysis each time.
      */
-    auto annotatedClause = souffle::clone(clause);
+    auto annotatedClause = clone(clause);
 
     // Maps x -> y, where x is the address of an argument in the original clause, and y
     // is the address of the equivalent argument in the clone.
     std::map<const Argument*, const Argument*> memoryMap;
 
     std::vector<const Argument*> originalAddresses;
-    visitDepthFirst(*clause, [&](const Argument& arg) { originalAddresses.push_back(&arg); });
+    visit(*clause, [&](const Argument& arg) { originalAddresses.push_back(&arg); });
 
     std::vector<const Argument*> cloneAddresses;
-    visitDepthFirst(*annotatedClause, [&](const Argument& arg) { cloneAddresses.push_back(&arg); });
+    visit(*annotatedClause, [&](const Argument& arg) { cloneAddresses.push_back(&arg); });
 
     assert(cloneAddresses.size() == originalAddresses.size());
 
-    for (size_t i = 0; i < originalAddresses.size(); i++) {
+    for (std::size_t i = 0; i < originalAddresses.size(); i++) {
         memoryMap[originalAddresses[i]] = cloneAddresses[i];
     }
 
@@ -136,33 +136,63 @@ void TypeAnalysis::print(std::ostream& os) const {
     }
 }
 
-TypeAttribute TypeAnalysis::getFunctorReturnType(const Functor* functor) const {
+Type const& TypeAnalysis::nameToType(QualifiedName const& name) const {
+    assert(typeEnv);
+    return typeEnv->getType(name);
+}
+
+TypeAttribute TypeAnalysis::nameToTypeAttribute(QualifiedName const& name) const {
+    return getTypeAttribute(nameToType(name));
+}
+
+TypeAttribute TypeAnalysis::getFunctorReturnTypeAttribute(const Functor& functor) const {
     assert(hasValidTypeInfo(functor) && "type of functor not processed");
     if (auto* intrinsic = as<IntrinsicFunctor>(functor)) {
         return functorInfo.at(intrinsic)->result;
     } else if (const auto* udf = as<UserDefinedFunctor>(functor)) {
-        return udfDeclaration.at(udf->getName())->getReturnType();
+        return getTypeAttribute(getFunctorReturnType(*udf));
     }
     fatal("Missing functor type.");
 }
 
-TypeAttribute TypeAnalysis::getFunctorArgType(const Functor* functor, const size_t idx) const {
+std::size_t TypeAnalysis::getFunctorArity(UserDefinedFunctor const& functor) const {
+    assert(hasValidTypeInfo(functor) && "type of functor not processed");
+    return udfDeclaration.at(functor.getName())->getArity();
+}
+
+Type const& TypeAnalysis::getFunctorReturnType(const UserDefinedFunctor& functor) const {
+    return nameToType(udfDeclaration.at(functor.getName())->getReturnType().getTypeName());
+}
+
+Type const& TypeAnalysis::getFunctorParamType(const UserDefinedFunctor& functor, std::size_t idx) const {
+    return nameToType(udfDeclaration.at(functor.getName())->getParams().at(idx)->getTypeName());
+}
+
+TypeAttribute TypeAnalysis::getFunctorParamTypeAttribute(const Functor& functor, std::size_t idx) const {
     assert(hasValidTypeInfo(functor) && "type of functor not processed");
     if (auto* intrinsic = as<IntrinsicFunctor>(functor)) {
         auto* info = functorInfo.at(intrinsic);
         return info->params.at(info->variadic ? 0 : idx);
     } else if (auto* udf = as<UserDefinedFunctor>(functor)) {
-        return udfDeclaration.at(udf->getName())->getArgsTypes().at(idx);
+        return getTypeAttribute(getFunctorParamType(*udf, idx));
     }
     fatal("Missing functor type.");
 }
 
-const std::vector<TypeAttribute>& TypeAnalysis::getFunctorArgTypes(const UserDefinedFunctor& udf) const {
-    return udfDeclaration.at(udf.getName())->getArgsTypes();
+std::vector<TypeAttribute> TypeAnalysis::getFunctorParamTypeAttributes(
+        const UserDefinedFunctor& functor) const {
+    assert(hasValidTypeInfo(functor) && "type of functor not processed");
+    auto const& decl = udfDeclaration.at(functor.getName());
+    std::vector<TypeAttribute> res;
+    res.reserve(decl->getArity());
+    auto const& params = decl->getParams();
+    std::transform(params.begin(), params.end(), std::back_inserter(res),
+            [this](auto const& attr) { return nameToTypeAttribute(attr->getTypeName()); });
+    return res;
 }
 
-bool TypeAnalysis::isStatefulFunctor(const UserDefinedFunctor* udf) const {
-    return udfDeclaration.at(udf->getName())->isStateful();
+bool TypeAnalysis::isStatefulFunctor(const UserDefinedFunctor& udf) const {
+    return udfDeclaration.at(udf.getName())->isStateful();
 }
 
 const std::map<const NumericConstant*, NumericConstant::Type>& TypeAnalysis::getNumericConstantTypes() const {
@@ -183,15 +213,15 @@ bool TypeAnalysis::isMultiResultFunctor(const Functor& functor) {
 std::set<TypeAttribute> TypeAnalysis::getTypeAttributes(const Argument* arg) const {
     std::set<TypeAttribute> typeAttributes;
 
-    if (const auto* inf = dynamic_cast<const IntrinsicFunctor*>(arg)) {
+    if (const auto* inf = as<IntrinsicFunctor>(arg)) {
         // intrinsic functor type is its return type if its set
-        if (hasValidTypeInfo(inf)) {
-            typeAttributes.insert(getFunctorReturnType(inf));
+        if (hasValidTypeInfo(*inf)) {
+            typeAttributes.insert(getFunctorReturnTypeAttribute(*inf));
             return typeAttributes;
         }
-    } else if (const auto* udf = dynamic_cast<const UserDefinedFunctor*>(arg)) {
-        if (hasValidTypeInfo(udf)) {
-            typeAttributes.insert(getFunctorReturnType(udf));
+    } else if (const auto* udf = as<UserDefinedFunctor>(arg)) {
+        if (hasValidTypeInfo(*udf)) {
+            typeAttributes.insert(getFunctorReturnTypeAttribute(*udf));
             return typeAttributes;
         }
     }
@@ -222,7 +252,7 @@ IntrinsicFunctors TypeAnalysis::getValidIntrinsicFunctorOverloads(const Intrinsi
         }
 
         // Check that argument types match
-        for (size_t i = 0; i < argTypes.size(); ++i) {
+        for (std::size_t i = 0; i < argTypes.size(); ++i) {
             const auto& expectedType = candidate.params[candidate.variadic ? 0 : i];
             if (!contains(argTypes[i], expectedType)) {
                 return false;
@@ -246,11 +276,15 @@ IntrinsicFunctors TypeAnalysis::getValidIntrinsicFunctorOverloads(const Intrinsi
     return candidates;
 }
 
-bool TypeAnalysis::hasValidTypeInfo(const Argument* argument) const {
+bool TypeAnalysis::hasValidTypeInfo(const Argument& argument) const {
     if (auto* inf = as<IntrinsicFunctor>(argument)) {
         return contains(functorInfo, inf);
     } else if (auto* udf = as<UserDefinedFunctor>(argument)) {
-        return contains(udfDeclaration, udf->getName());
+        auto const declIt = udfDeclaration.find(udf->getName());
+        if (declIt == udfDeclaration.end()) {
+            return false;
+        }
+        return hasValidTypeInfo(*declIt->second);
     } else if (auto* nc = as<NumericConstant>(argument)) {
         return contains(numericConstantType, nc);
     } else if (auto* agg = as<Aggregator>(argument)) {
@@ -259,30 +293,39 @@ bool TypeAnalysis::hasValidTypeInfo(const Argument* argument) const {
     return true;
 }
 
-NumericConstant::Type TypeAnalysis::getPolymorphicNumericConstantType(const NumericConstant* nc) const {
+bool TypeAnalysis::hasValidTypeInfo(const FunctorDeclaration& decl) const {
+    auto isValidType = [&](Attribute const& attr) { return typeEnv->isType(attr.getTypeName()); };
+
+    auto const& params = decl.getParams();
+    return isValidType(decl.getReturnType()) &&
+           std::all_of(
+                   params.begin(), params.end(), [&](auto const& attrPtr) { return isValidType(*attrPtr); });
+}
+
+NumericConstant::Type TypeAnalysis::getPolymorphicNumericConstantType(const NumericConstant& nc) const {
     assert(hasValidTypeInfo(nc) && "numeric constant type not set");
-    return numericConstantType.at(nc);
+    return numericConstantType.at(&nc);
 }
 
-BinaryConstraintOp TypeAnalysis::getPolymorphicOperator(const BinaryConstraint* bc) const {
-    assert(contains(constraintType, bc) && "binary constraint operator not set");
-    return constraintType.at(bc);
+BinaryConstraintOp TypeAnalysis::getPolymorphicOperator(const BinaryConstraint& bc) const {
+    assert(contains(constraintType, &bc) && "binary constraint operator not set");
+    return constraintType.at(&bc);
 }
 
-AggregateOp TypeAnalysis::getPolymorphicOperator(const Aggregator* agg) const {
+AggregateOp TypeAnalysis::getPolymorphicOperator(const Aggregator& agg) const {
     assert(hasValidTypeInfo(agg) && "aggregator operator not set");
-    return aggregatorType.at(agg);
+    return aggregatorType.at(&agg);
 }
 
-FunctorOp TypeAnalysis::getPolymorphicOperator(const IntrinsicFunctor* inf) const {
+FunctorOp TypeAnalysis::getPolymorphicOperator(const IntrinsicFunctor& inf) const {
     assert(hasValidTypeInfo(inf) && "functor type not set");
-    return functorInfo.at(inf)->op;
+    return functorInfo.at(&inf)->op;
 }
 
 bool TypeAnalysis::analyseIntrinsicFunctors(const TranslationUnit& translationUnit) {
     bool changed = false;
     const auto& program = translationUnit.getProgram();
-    visitDepthFirst(program, [&](const IntrinsicFunctor& functor) {
+    visit(program, [&](const IntrinsicFunctor& functor) {
         auto candidates = getValidIntrinsicFunctorOverloads(functor);
         if (candidates.empty()) {
             // No valid overloads - mark it as an invalid functor
@@ -316,7 +359,7 @@ bool TypeAnalysis::analyseNumericConstants(const TranslationUnit& translationUni
         numericConstantType[&nc] = ncType;
     };
 
-    visitDepthFirst(program, [&](const NumericConstant& numericConstant) {
+    visit(program, [&](const NumericConstant& numericConstant) {
         // Constant has a fixed type
         if (numericConstant.getFixedType().has_value()) {
             setNumericConstantType(numericConstant, numericConstant.getFixedType().value());
@@ -359,7 +402,7 @@ bool TypeAnalysis::analyseAggregators(const TranslationUnit& translationUnit) {
         aggregatorType[&agg] = overloadedType;
     };
 
-    visitDepthFirst(program, [&](const Aggregator& agg) {
+    visit(program, [&](const Aggregator& agg) {
         if (isOverloadedAggregator(agg.getBaseOperator())) {
             auto* targetExpression = agg.getTargetExpression();
             if (isFloat(targetExpression)) {
@@ -396,7 +439,7 @@ bool TypeAnalysis::analyseBinaryConstraints(const TranslationUnit& translationUn
         constraintType[&bc] = overloadedType;
     };
 
-    visitDepthFirst(program, [&](const BinaryConstraint& binaryConstraint) {
+    visit(program, [&](const BinaryConstraint& binaryConstraint) {
         if (isOverloaded(binaryConstraint.getBaseOperator())) {
             // Get arguments
             auto* leftArg = binaryConstraint.getLHS();
@@ -445,10 +488,11 @@ void TypeAnalysis::run(const TranslationUnit& translationUnit) {
         debugStream = &analysisLogs;
     }
 
+    typeEnv = &translationUnit.getAnalysis<TypeEnvironmentAnalysis>()->getTypeEnvironment();
+
     // Analyse user-defined functor types
     const Program& program = translationUnit.getProgram();
-    visitDepthFirst(
-            program, [&](const FunctorDeclaration& fdecl) { udfDeclaration[fdecl.getName()] = &fdecl; });
+    visit(program, [&](const FunctorDeclaration& fdecl) { udfDeclaration[fdecl.getName()] = &fdecl; });
 
     // Rest of the analysis done until fixpoint reached
     bool changed = true;

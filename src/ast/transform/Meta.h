@@ -46,8 +46,6 @@ public:
 
     /* Apply a nested transformer */
     bool applySubtransformer(TranslationUnit& translationUnit, Transformer* transformer);
-
-    MetaTransformer* clone() const override = 0;
 };
 
 }  // namespace souffle::ast::transform

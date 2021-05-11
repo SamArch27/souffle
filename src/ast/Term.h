@@ -17,12 +17,8 @@
 #pragma once
 
 #include "ast/Argument.h"
-#include "ast/Node.h"
-#include "ast/utility/NodeMapper.h"
 #include "parser/SrcLocation.h"
 #include "souffle/utility/ContainerUtil.h"
-#include <algorithm>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,50 +32,28 @@ namespace souffle::ast {
 class Term : public Argument {
 protected:
     template <typename... Operands>
-    Term(Operands&&... operands) : Term(asVec(std::forward<Operands>(operands)...)) {}
+    Term(Operands&&... operands) : Term({}, std::forward<Operands>(operands)...) {}
 
     template <typename... Operands>
     Term(SrcLocation loc, Operands&&... operands)
             : Term(asVec(std::forward<Operands>(operands)...), std::move(loc)) {}
 
-    Term(VecOwn<Argument> operands, SrcLocation loc = {})
-            : Argument(std::move(loc)), args(std::move(operands)) {}
+    Term(VecOwn<Argument> operands, SrcLocation loc = {});
 
 public:
     /** Get arguments */
-    std::vector<Argument*> getArguments() const {
-        return toPtrVector(args);
-    }
+    std::vector<Argument*> getArguments() const;
 
     /** Add argument to argument list */
-    void addArgument(Own<Argument> arg) {
-        args.push_back(std::move(arg));
-    }
+    void addArgument(Own<Argument> arg);
 
-    std::vector<const Node*> getChildNodes() const override {
-        auto res = Argument::getChildNodes();
-        for (auto& cur : args) {
-            res.push_back(cur.get());
-        }
-        return res;
-    }
+    void apply(const NodeMapper& map) override;
 
-    void apply(const NodeMapper& map) override {
-        for (auto& arg : args) {
-            arg = map(std::move(arg));
-        }
-    }
-
-protected:
-    bool equal(const Node& node) const override {
-        const auto& other = static_cast<const Term&>(node);
-        return equal_targets(args, other.args);
-    }
-
-    /** Arguments */
-    VecOwn<Argument> args;
+    bool equal(const Node& node) const override;
 
 private:
+    NodeVec getChildNodesImpl() const override;
+
     template <typename... Operands>
     static VecOwn<Argument> asVec(Operands... ops) {
         Own<Argument> ary[] = {std::move(ops)...};
@@ -89,6 +63,10 @@ private:
         }
         return xs;
     }
+
+protected:
+    /** Arguments */
+    VecOwn<Argument> args;
 };
 
 }  // namespace souffle::ast

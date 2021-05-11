@@ -41,11 +41,11 @@ public:
         return "PartitionBodyLiteralsTransformer";
     }
 
-    PartitionBodyLiteralsTransformer* clone() const override {
+private:
+    PartitionBodyLiteralsTransformer* cloning() const override {
         return new PartitionBodyLiteralsTransformer();
     }
 
-private:
     bool transform(TranslationUnit& translationUnit) override;
 };
 

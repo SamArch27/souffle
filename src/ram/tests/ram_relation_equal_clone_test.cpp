@@ -8,9 +8,9 @@
 
 /************************************************************************
  *
- * @file ram_relation_equal_clone_test.cpp
+ * @file ram_relation_equal_cloning_test.cpp
  *
- * Tests equal and clone function of Relation class.
+ * Tests equal and cloning function of Relation class.
  *
  ***********************************************************************/
 
@@ -30,7 +30,7 @@ TEST(Relation, CloneAndEquals) {
     EXPECT_EQ(a, b);
     EXPECT_NE(&a, &b);
 
-    Relation* c = a.clone();
+    Relation* c = a.cloning();
     EXPECT_EQ(a, *c);
     EXPECT_NE(&a, c);
     delete c;
